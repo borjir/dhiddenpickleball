@@ -1,26 +1,401 @@
 @import "tailwindcss";
 
+/* Dark mode is driven by [data-theme] so the toggle, the OS preference, and
+   server-rendered markup all agree. Utilities compile to the semantic tokens
+   below, which are remapped in the dark block. */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+/*
+  D-Hidden Pickleball Court & Bistro — design tokens
+  Palette direction: docs/DESIGN_BRIEF.md
+  Two themes share one token contract; components never hard-code a hex.
+*/
+
+@theme {
+  /* Brand — fixed in both themes */
+  --color-brand-navy: #123b78;
+  --color-brand-navy-deep: #0b2a58;
+  --color-brand-blue: #1674d5;
+  --color-brand-blue-strong: #0f5cb0;
+  --color-brand-lime: #78b51b;
+  --color-brand-yellow: #f0e51c;
+
+  /* Semantic surfaces and text (remapped in dark) */
+  --color-page: var(--canvas);
+  --color-canvas: var(--canvas);
+  --color-surface: var(--surface);
+  --color-elevated: var(--surface-raised);
+  --color-ink: var(--ink);
+  --color-heading: var(--heading);
+  --color-muted: var(--muted);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+
+  /* Brand tints (remapped in dark) */
+  --color-brand-blue-soft: var(--brand-blue-soft);
+  --color-brand-lime-ink: var(--brand-lime-ink);
+  --color-brand-lime-soft: var(--brand-lime-soft);
+  --color-brand-yellow-soft: var(--brand-yellow-soft);
+
+  /* Action/heading accents that must survive on dark surfaces */
+  --color-accent-ink: var(--accent-ink);
+  --color-on-accent: var(--on-accent);
+  --color-hero-ink: var(--hero-ink);
+  --color-hero-muted: var(--hero-muted);
+
+  /* Scrims for photography overlays */
+  --color-scrim: var(--scrim);
+  --color-scrim-soft: var(--scrim-soft);
+
+  /* Semantic status (kept distinct from brand lime) */
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --color-danger: var(--danger);
+  --color-danger-strong: var(--danger-strong);
+  --color-danger-soft: var(--danger-soft);
+  --color-info: var(--info);
+  --color-info-soft: var(--info-soft);
+
+  /* Typography */
+  --font-sans: var(--font-body), ui-sans-serif, system-ui, -apple-system,
+    "Segoe UI", sans-serif;
+  --font-display: var(--font-archivo), var(--font-body), ui-sans-serif,
+    system-ui, sans-serif;
+
+  --text-eyebrow: 0.75rem;
+  --text-eyebrow--line-height: 1.2;
+  --text-eyebrow--letter-spacing: 0.16em;
+
+  --text-display: clamp(2.75rem, 6.4vw, 5.25rem);
+  --text-display--line-height: 0.98;
+  --text-display--letter-spacing: -0.04em;
+
+  --text-title: clamp(1.9rem, 3.2vw, 3rem);
+  --text-title--line-height: 1.02;
+  --text-title--letter-spacing: -0.03em;
+
+  --text-heading: 1.375rem;
+  --text-heading--line-height: 1.25;
+  --text-heading--letter-spacing: -0.015em;
+
+  --text-body-lg: 1.125rem;
+  --text-body-lg--line-height: 1.6;
+
+  --text-caption: 0.8125rem;
+  --text-caption--line-height: 1.5;
+
+  /* Shape */
+  --radius-sm: 0.375rem;
+  --radius-md: 0.625rem;
+  --radius-lg: 1rem;
+  --radius-xl: 1.375rem;
+  --radius-2xl: 1.75rem;
+
+  /* Elevation — blue-tinted, restrained */
+  --shadow-card: 0 1px 2px rgb(11 42 88 / 0.05),
+    0 18px 40px -28px rgb(11 42 88 / 0.32);
+  --shadow-raised: 0 2px 4px rgb(11 42 88 / 0.06),
+    0 32px 64px -36px rgb(11 42 88 / 0.42);
+  --shadow-glow: 0 24px 60px -24px rgb(22 116 213 / 0.55);
+
+  /* Motion */
+  --ease-quick: cubic-bezier(0.2, 0.7, 0.3, 1);
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  color-scheme: light;
+
+  --canvas: #f7f9f0;
+  --surface: #ffffff;
+  --surface-raised: #ffffff;
+  --ink: #171a1f;
+  --heading: #123b78;
+  --muted: #5d6878;
+  --line: #e3e8e6;
+  --line-strong: #c6d0d6;
+
+  --brand-blue-soft: #e7f1fc;
+  --brand-lime-ink: #3f6b0a;
+  --brand-lime-soft: #edf6dc;
+  --brand-yellow-soft: #fbf6cc;
+
+  --accent-ink: #0f5cb0;
+  --on-accent: #ffffff;
+  --hero-ink: #ffffff;
+  --hero-muted: rgb(255 255 255 / 0.72);
+
+  --scrim: rgb(6 24 48 / 0.78);
+  --scrim-soft: rgb(6 24 48 / 0.42);
+
+  --success: #18794e;
+  --success-soft: #e8f5ee;
+  --warning: #8a5200;
+  --warning-soft: #fff2d8;
+  --danger: #b42318;
+  --danger-strong: #8f1d14;
+  --danger-soft: #fdecea;
+  --info: #175cd3;
+  --info-soft: #e8f0fd;
+
+  --paper-grid: rgb(18 59 120 / 0.055);
+  --hairline: rgb(18 59 120 / 0.12);
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+html[data-theme="dark"] {
+  color-scheme: dark;
+
+  --canvas: #070d18;
+  --surface: #0c1524;
+  --surface-raised: #111c2e;
+  --ink: #e9eef7;
+  --heading: #f5f8fc;
+  --muted: #9dabbd;
+  --line: #1d2b41;
+  --line-strong: #2d4059;
+
+  --brand-blue-soft: #12253d;
+  --brand-lime-ink: #b8e36e;
+  --brand-lime-soft: #17260f;
+  --brand-yellow-soft: #29260d;
+
+  --accent-ink: #7cb9ff;
+  --on-accent: #04121f;
+  --hero-ink: #ffffff;
+  --hero-muted: rgb(255 255 255 / 0.72);
+
+  --scrim: rgb(4 12 24 / 0.82);
+  --scrim-soft: rgb(4 12 24 / 0.46);
+
+  --success: #6fd3a0;
+  --success-soft: #0d2418;
+  --warning: #f0b45f;
+  --warning-soft: #2a1d0b;
+  --danger: #ff8f85;
+  --danger-strong: #ffb0a8;
+  --danger-soft: #2a1312;
+  --info: #8ab9ff;
+  --info-soft: #10203a;
+
+  --paper-grid: rgb(124 185 255 / 0.07);
+  --hairline: rgb(124 185 255 / 0.14);
+
+  --shadow-card: 0 1px 2px rgb(0 0 0 / 0.4),
+    0 24px 48px -32px rgb(0 0 0 / 0.75);
+  --shadow-raised: 0 2px 6px rgb(0 0 0 / 0.45),
+    0 40px 80px -40px rgb(0 0 0 / 0.85);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    -webkit-text-size-adjust: 100%;
+    scroll-padding-top: 6rem;
+  }
+
+  body {
+    background-color: var(--color-page);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-family: var(--font-display);
+    color: var(--color-heading);
+    text-wrap: balance;
+  }
+
+  p {
+    text-wrap: pretty;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-brand-blue);
+    outline-offset: 3px;
+    border-radius: 3px;
+  }
+
+  html[data-theme="dark"] :focus-visible {
+    outline-color: var(--color-accent-ink);
+  }
+
+  ::selection {
+    background-color: var(--color-brand-yellow);
+    color: #171a1f;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+@layer components {
+  /* Loading placeholder used while async content arrives. */
+  .skeleton {
+    background: linear-gradient(
+      90deg,
+      var(--color-line) 25%,
+      color-mix(in oklab, var(--color-line) 45%, var(--color-surface)) 37%,
+      var(--color-line) 63%
+    );
+    background-size: 400% 100%;
+    animation: skeleton-sweep 1.5s ease-in-out infinite;
+  }
+
+  /* Native modal panel. Motion is disabled by the reduced-motion reset above. */
+  dialog::backdrop {
+    background-color: rgb(4 12 24 / 0.55);
+    backdrop-filter: blur(3px);
+  }
+
+  dialog[open] {
+    animation: dialog-in 220ms var(--ease-out-expo);
+  }
+
+  /* Used by the booking preview when the active step changes. */
+  .step-enter {
+    animation: step-in 260ms var(--ease-out-expo);
+  }
+
+  /* MapLibre sizes its canvas from the map container. The frame therefore
+     needs a height of its own, otherwise the growing canvas feeds back into
+     the container and the map expands down the page without limit. */
+  .club-map-frame {
+    height: 22rem;
+  }
+
+  @media (min-width: 40rem) {
+    .club-map-frame {
+      height: 26rem;
+    }
+  }
+
+  .court-grid {
+    background-image:
+      linear-gradient(to right, var(--paper-grid) 1px, transparent 1px),
+      linear-gradient(to bottom, var(--paper-grid) 1px, transparent 1px);
+    background-size: 72px 72px;
+  }
+
+  .grain::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0.35;
+    mix-blend-mode: soft-light;
+    background-image: radial-gradient(
+      rgb(255 255 255 / 0.5) 0.5px,
+      transparent 0.5px
+    );
+    background-size: 3px 3px;
+  }
+
+  .ring-hairline {
+    box-shadow: inset 0 0 0 1px var(--hairline);
+  }
+
+  /* Above-the-fold entrance is CSS-only so it runs at first paint, before
+     hydration. Reduced motion collapses it through the global reset. */
+  .rise-in {
+    animation: rise-in 700ms var(--ease-out-expo) both;
+  }
+
+  .hero-media-in {
+    animation: hero-media-in 1.8s var(--ease-out-expo) both;
+  }
+
+  .step-line {
+    background-image: linear-gradient(
+      to right,
+      var(--color-line) 0 6px,
+      transparent 6px 12px
+    );
+    background-size: 12px 1px;
+    background-repeat: repeat-x;
+  }
+}
+
+@keyframes skeleton-sweep {
+  0% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0 50%;
+  }
+}
+
+@keyframes dialog-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes step-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(var(--rise-y, 18px));
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes hero-media-in {
+  from {
+    opacity: 0;
+    transform: scale(1.06);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes pulse-ring {
+  0% {
+    transform: scale(0.9);
+    opacity: 0.7;
+  }
+  70% {
+    transform: scale(1.9);
+    opacity: 0;
+  }
+  100% {
+    opacity: 0;
+  }
 }
