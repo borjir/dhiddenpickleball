@@ -1,16 +1,25 @@
 import Image from "next/image";
 import type { ReactNode } from "react";
-import { Badge } from "@/components/ui/badge";
+import { Badge, type BadgeVariant } from "@/components/ui/badge";
 import { cn } from "@/lib/cn";
 
 export interface PaymentInstructionsProps {
   amountLabel: string;
   reference: string;
   methodLabel: string;
+  title?: string;
+  badgeLabel?: string;
+  badgeVariant?: BadgeVariant;
   note?: ReactNode;
   /** Supplied payment QR artwork. Omit to fall back to the labeled placeholder. */
   qrSrc?: string;
   qrAlt?: string;
+  qrWidth?: number;
+  qrHeight?: number;
+  /** Caption for a supplied QR. Ignored when `qrSample` is set. */
+  qrCaption?: ReactNode;
+  /** When set, offers the supplied QR as a download with this file name. */
+  qrDownloadName?: string;
   /**
    * Marks the image as a stand-in. The overlay band breaks the code so it
    * cannot be scanned, and the caption tells the payer not to send money.
@@ -28,9 +37,16 @@ export function PaymentInstructions({
   amountLabel,
   reference,
   methodLabel,
+  title = "Complete the request",
+  badgeLabel = "Sample",
+  badgeVariant = "yellow",
   note,
   qrSrc,
   qrAlt,
+  qrWidth = 1080,
+  qrHeight = 1980,
+  qrCaption,
+  qrDownloadName,
   qrSample = false,
   className,
   children,
@@ -49,10 +65,10 @@ export function PaymentInstructions({
             Payment
           </p>
           <h2 className="mt-1 text-heading font-semibold text-heading">
-            Complete the request
+            {title}
           </h2>
         </div>
-        <Badge variant="yellow">Sample</Badge>
+        <Badge variant={badgeVariant}>{badgeLabel}</Badge>
       </div>
 
       <div className="grid gap-5 p-5 sm:grid-cols-[11rem_1fr]">
@@ -62,8 +78,8 @@ export function PaymentInstructions({
               <Image
                 src={qrSrc}
                 alt={qrAlt ?? "Payment QR code"}
-                width={1080}
-                height={1980}
+                width={qrWidth}
+                height={qrHeight}
                 sizes="11rem"
                 className="h-auto w-full"
               />
@@ -78,8 +94,17 @@ export function PaymentInstructions({
             <figcaption className="mt-1.5 text-[0.6875rem] leading-snug text-muted">
               {qrSample
                 ? "Stand-in image. The club's real GCash code has not been supplied."
-                : "Scan with the GCash app."}
+                : (qrCaption ?? "Scan with the GCash app.")}
             </figcaption>
+            {qrDownloadName ? (
+              <a
+                href={qrSrc}
+                download={qrDownloadName}
+                className="mt-2 inline-flex min-h-9 items-center text-[0.6875rem] font-bold uppercase tracking-[0.08em] text-accent-ink underline-offset-4 hover:underline"
+              >
+                Download QR
+              </a>
+            ) : null}
           </figure>
         ) : (
           <div

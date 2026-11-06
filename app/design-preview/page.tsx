@@ -55,10 +55,17 @@ export default function DesignPreviewIndexPage() {
         Interface system and booking preview
       </h1>
       <p className="mt-3 max-w-2xl text-body-lg text-muted">
-        The homepage is now a presentation-quality preview at the root route. The
-        booking flow demonstrates states with local browser data only: no
-        booking, account, payment, or personal information is created anywhere in
-        this build.
+        The homepage is now a presentation-quality preview at the root route.
+        The live court flow is at{" "}
+        <Link
+          href="/book"
+          className="font-semibold text-accent-ink underline decoration-brand-blue/40 underline-offset-2"
+        >
+          /book
+        </Link>
+        ; this page keeps the Phase 3 design preview as an internal reference.
+        The preview flow uses local browser data only and creates no booking,
+        account, payment, or personal information.
       </p>
 
       <div className="mt-8 flex flex-wrap gap-3">
@@ -138,11 +145,12 @@ export default function DesignPreviewIndexPage() {
           Deliberately deferred
         </h2>
         <p className="mt-2 max-w-3xl text-sm leading-relaxed text-muted">
-          The real booking engine, player accounts, staff operations,
-          notifications, and QR payment verification belong to later blueprint
-          phases. The preview holds no inventory and sends no personal or payment
-          data. Coaching and DUPR integration remain conditional and unapproved,
-          so no related pages, tables, or endpoints exist in this build.
+          The live booking engine and player accounts now exist outside this
+          preview. Staff operations, notifications, and QR payment verification
+          remain later blueprint phases. The preview holds no inventory and sends
+          no personal or payment data. Coaching and DUPR integration remain
+          conditional and unapproved, so no related pages, tables, or endpoints
+          exist in this build.
         </p>
         <p className="mt-3 text-caption text-muted">
           Scope reference: blueprint sections “UI/UX design system and premium

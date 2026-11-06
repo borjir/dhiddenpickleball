@@ -64,7 +64,7 @@ be finalized. Low-risk working assumptions are listed in §13.
 6. Account creation is not forced before availability is visible unless the
    client requires it (`D-02`).
 7. The experience must work at 390px width, on touch, and with keyboard.
-8. The club timezone is assumed `Asia/Manila` pending confirmation (`D-25`).
+8. The club timezone is `Asia/Manila`; confirmed 5 November 2026 (`D-25`).
 
 ---
 
@@ -715,7 +715,7 @@ visual appearance” rule.
 - QR instructions repeat the amount and reference in text; QR has descriptive
   alt/context, but the text alone is sufficient to pay.
 - Map has a text address, directions link, and error fallback.
-- Timezone and currency are explicit: `Asia/Manila`, `₱` (pending `D-25`).
+- Timezone and currency are explicit: `Asia/Manila`, `₱` (confirmed 5 November 2026).
 - Auth forms support password managers (`autocomplete`), show/hide password,
   and do not leak whether an email exists.
 - Proof upload uses real buttons and file dialogs, not drag-only interactions.
@@ -749,7 +749,7 @@ coverage once the test stack exists. None of these have been run in Phase 2.
 | FAQ and policy copy | FAQ/policies | Missing |
 | Staff roles/permissions | Staff area | Missing (`D-14`) |
 | Email provider/sender | Notifications | Phase 9 |
-| Privacy/retention rules | Policies, proofs | Missing (`D-20`) |
+| Privacy/retention rules | Policies, proofs | Published 5 Nov 2026; counsel review recommended (`D-20`) |
 
 Content rules:
 
@@ -769,8 +769,8 @@ Content rules:
    assumed.
 3. Court selection is by named/numbered court, with a single court per booking.
 4. Normal open play has a fixed capacity and no waitlist in the MVP.
-5. Manual QR methods are GCash and Maya, with bank transfer only if the payer’s
-   bank supports the GCash route. Pay-at-club remains optional.
+5. The current manual QR method is GCash only. The client's official QR is
+   pending; Maya and pay-at-club are not part of the current flow.
 6. Bookings can be created by players and by staff for walk-ins.
 7. Booking references are human-readable and unique; the exact format is a
    backend detail.
@@ -794,7 +794,7 @@ accept must be corrected before implementation.
 | Phase 2 player pages include DUPR ID/link status. | DUPR deferred and conditional. | Omitted; extension point documented only. |
 | Phase 2 says “clearly label normal vs DUPR open play”. | No DUPR sessions exist. | Normal open play is labeled plainly; no DUPR comparison is shown. |
 | Final definition of done expects all four service types represented. | Conflicts with MVP-first gate. | Deferred features remain excluded until explicitly approved; this must be revisited at final launch scoping. |
-| Phase 7 open-play confirmation says payment due at the club; Phase 12 describes QR proof for payments. | Ambiguous which applies to open play. | `D-09` requires the client to choose; the UI supports either, but only one is shown. |
+| Phase 7 open-play confirmation says payment due at the club; Phase 12 describes QR proof for payments. | Ambiguous which applies to open play. | Resolved by owner 6 Nov: GCash QR proof only; no Maya or pay-at-club in the current flow. |
 | Phase 2 requires prices before personal info. | Prices not supplied. | Layout and copy slots are defined; no price is invented. |
 | Account requirement is not fixed. | Blueprint says not to force account creation before availability unless required. | `D-02`; the flow preserves selection through any auth gate. |
 

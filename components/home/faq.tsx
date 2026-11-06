@@ -3,39 +3,7 @@
 import { useId, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { cn } from "@/lib/cn";
-
-const items = [
-  {
-    question: "What are the club's opening hours?",
-    answer:
-      "The courts are open every day from 7:00 AM to 12:00 AM. Slots that would run past midnight are not offered.",
-  },
-  {
-    question: "How much does court time cost?",
-    answer:
-      "₱250 per court-hour before 5:00 PM and ₱300 per court-hour from 5:00 PM. You can book 60, 90, or 120 minutes, and the full amount is shown before you confirm.",
-  },
-  {
-    question: "How do I pay?",
-    answer:
-      "Court bookings are paid by GCash. Scan the club's QR code, upload your payment proof, and staff will verify the actual transfer. A booking is never marked paid automatically — the payment status moves to awaiting verification first.",
-  },
-  {
-    question: "Can I book for a group?",
-    answer:
-      "Yes. Group bookings are allowed and only the booker's name is required. You do not need to list every player.",
-  },
-  {
-    question: "How do cancellations work?",
-    answer:
-      "Cancel at least 24 hours before your court time. Self-service cancellation is not available, so contact the club directly to make the change.",
-  },
-  {
-    question: "Do I need an account?",
-    answer:
-      "Yes. You choose a time and see the price first, then create an account at review with your full name, email address, and mobile number. The email must be verified before the slot is held.",
-  },
-];
+import { FAQ_ITEMS } from "@/lib/faq";
 
 export function Faq() {
   const [open, setOpen] = useState<number | null>(0);
@@ -44,7 +12,7 @@ export function Faq() {
 
   return (
     <div className="divide-y divide-line border-y border-line">
-      {items.map((item, index) => {
+      {FAQ_ITEMS.map((item, index) => {
         const isOpen = open === index;
         const panelId = `${baseId}-panel-${index}`;
         const buttonId = `${baseId}-button-${index}`;

@@ -589,7 +589,7 @@ export default function DesignSystemPage() {
                 court="Court 1"
                 date="Thu 05 Nov"
                 time="9:00 AM"
-                duration="60 minutes"
+                duration="2 hours"
                 priceLabel="₱250"
                 priceNote="₱250/hour before 5:00 PM, ₱300 after. Sample date."
                 sample

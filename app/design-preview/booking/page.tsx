@@ -5,6 +5,7 @@ export const metadata: Metadata = {
   title: "Booking flow preview",
   description:
     "Phase 3 responsive design preview of the court reservation flow. Sample data only; no booking is created.",
+  robots: { index: false, follow: false },
 };
 
 export default function BookingPreviewPage() {

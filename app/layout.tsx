@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Archivo, Source_Sans_3 } from "next/font/google";
+import { BookingModalProvider } from "@/components/booking/booking-modal-provider";
 import "./globals.css";
 
 const archivo = Archivo({
@@ -46,7 +47,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>
       <body className="flex min-h-full flex-col bg-page font-sans text-ink">
-        {children}
+        <BookingModalProvider>{children}</BookingModalProvider>
       </body>
     </html>
   );

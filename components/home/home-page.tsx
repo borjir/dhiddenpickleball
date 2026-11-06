@@ -5,6 +5,8 @@ import { Faq } from "@/components/home/faq";
 import { HeroMedia } from "@/components/home/hero-media";
 import { FadeIn, Reveal } from "@/components/motion/reveal";
 import { Logo } from "@/components/brand/logo";
+import { BookingTrigger } from "@/components/booking/booking-trigger";
+import { OpenPlayTrigger } from "@/components/booking/open-play-trigger";
 import { buttonClasses } from "@/components/ui/button";
 import {
   ArrowRightIcon,
@@ -21,25 +23,13 @@ import {
 import { SiteFooter } from "@/components/site/site-footer";
 import { SiteHeader } from "@/components/site/site-header";
 import { CLUB } from "@/lib/club";
-
-const courts = [
-  {
-    name: "Court 1",
-    src: "/courts/pickleball1.jpg",
-    alt: "Two players rallying on a blue outdoor pickleball court behind a net",
-  },
-  {
-    name: "Court 2",
-    src: "/courts/pickleball2.jpg",
-    alt: "Doubles play on an outdoor pickleball court with hills and sea in the background",
-  },
-];
+import { COURTS } from "@/lib/courts";
 
 const steps = [
   {
     number: "01",
     title: "Choose your court time",
-    body: "Pick a date, a court, and 60, 90, or 120 minutes. Slots that run past midnight simply aren't offered.",
+    body: "Pick a date, a court, a start time, and an end time. Slots that run past midnight simply aren't offered.",
     icon: CalendarIcon,
     detail: "Live availability at launch",
   },
@@ -53,7 +43,7 @@ const steps = [
   {
     number: "03",
     title: "Pay by GCash",
-    body: "Scan the club QR, upload your proof, and the payment moves to awaiting verification. The booking is confirmed only after staff check the transfer.",
+    body: "Scan the QR shown at payment, upload your proof, and the payment moves to awaiting verification. The booking is confirmed only after staff check the transfer.",
     icon: WalletIcon,
     detail: "Verified by a person",
   },
@@ -89,7 +79,7 @@ export function HomePage() {
 
       <main className="flex-1">
         {/* Hero */}
-        <section className="relative isolate flex min-h-[94svh] items-end overflow-hidden bg-brand-navy-deep pb-12 pt-36 sm:pb-16 lg:min-h-[100svh]">
+        <section className="relative isolate flex min-h-[82svh] items-end overflow-hidden bg-brand-navy-deep pb-10 pt-32 sm:pb-14 lg:min-h-[88svh]">
           <div className="absolute inset-0 -z-20">
             <HeroMedia
               src="/courts/pickleball2.jpg"
@@ -142,8 +132,7 @@ export function HomePage() {
 
                 <FadeIn delay={0.24}>
                   <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">
-                    <Link
-                      href="/design-preview/booking"
+                    <BookingTrigger
                       className={buttonClasses({
                         size: "lg",
                         className: "w-full shadow-glow sm:w-auto",
@@ -151,15 +140,18 @@ export function HomePage() {
                     >
                       Book a court
                       <ArrowRightIcon className="size-5 transition-transform duration-200 group-hover:translate-x-0.5" />
-                    </Link>
-                    <a
-                      href="#pricing"
+                    </BookingTrigger>
+                    <OpenPlayTrigger
                       className="group inline-flex h-13 w-full items-center justify-center gap-2 rounded-lg border border-white/25 bg-white/[0.06] px-6 text-base font-semibold text-white backdrop-blur-sm transition-colors duration-200 hover:border-white/50 hover:bg-white/15 sm:w-auto"
                     >
-                      See the rates
-                      <ArrowRightIcon className="size-4 rotate-90 text-white/70 transition-transform duration-200 group-hover:translate-y-0.5" />
-                    </a>
+                      See open play
+                      <ArrowRightIcon className="size-4 text-white/70 transition-transform duration-200 group-hover:translate-x-0.5" />
+                    </OpenPlayTrigger>
                   </div>
+                  <p className="mt-3 text-[0.6875rem] text-white/50">
+                    Online booking is live. A request creates a 15-minute hold;
+                    payment is arranged with the club.
+                  </p>
                 </FadeIn>
 
                 <FadeIn delay={0.32}>
@@ -167,7 +159,7 @@ export function HomePage() {
                     {[
                       ["₱250", "per hour before 5 PM"],
                       ["₱300", "per hour from 5 PM"],
-                      ["60–120", "minutes per booking"],
+                      ["Hourly", "choose your own end time"],
                     ].map(([value, label]) => (
                       <div key={label}>
                         <dt className="font-display text-xl font-bold text-white sm:text-2xl">
@@ -207,7 +199,7 @@ export function HomePage() {
                     {[
                       ["Courts", "Court 1 · Court 2"],
                       ["Open", "7:00 AM – 12:00 AM daily"],
-                      ["Session", "60 / 90 / 120 minutes"],
+                      ["Court time", "Choose start and end"],
                       ["Payment", "GCash · staff verified"],
                     ].map(([label, value]) => (
                       <div
@@ -222,8 +214,7 @@ export function HomePage() {
                     ))}
                   </dl>
 
-                  <Link
-                    href="/design-preview/booking"
+                  <BookingTrigger
                     className={buttonClasses({
                       variant: "inverse",
                       size: "md",
@@ -232,9 +223,9 @@ export function HomePage() {
                   >
                     Check availability
                     <ArrowRightIcon className="size-4" />
-                  </Link>
+                  </BookingTrigger>
                   <p className="mt-2.5 text-center text-[0.6875rem] text-white/45">
-                    Interactive preview · sample availability
+                    Live availability · 15-minute hold
                   </p>
                 </aside>
               </FadeIn>
@@ -246,7 +237,7 @@ export function HomePage() {
         <section
           id="courts"
           aria-labelledby="courts-title"
-          className="scroll-mt-24 bg-canvas py-20 sm:py-28"
+          className="scroll-mt-24 bg-canvas py-14 sm:py-20"
         >
           <div className="mx-auto w-full max-w-7xl px-5 sm:px-8">
             <Reveal>
@@ -278,15 +269,15 @@ export function HomePage() {
             </Reveal>
 
             <div className="mt-10 grid gap-6 md:grid-cols-2">
-              {courts.map((court, index) => (
+              {COURTS.map((court, index) => (
                 <Reveal key={court.name} delay={index * 0.08}>
                   <Link
-                    href="/design-preview/booking"
+                    href={`/courts/${court.slug}`}
                     className="group block overflow-hidden rounded-2xl border border-line bg-surface shadow-card transition-[transform,box-shadow] duration-500 ease-out-expo hover:-translate-y-1 hover:shadow-raised"
                   >
                     <div className="relative aspect-[4/3] overflow-hidden">
                       <Image
-                        src={court.src}
+                        src={court.image}
                         alt={court.alt}
                         fill
                         sizes="(min-width: 768px) 50vw, 100vw"
@@ -319,10 +310,10 @@ export function HomePage() {
                     <div className="flex flex-wrap items-center justify-between gap-2 px-5 py-4 sm:px-6">
                       <span className="inline-flex items-center gap-2 text-sm text-muted">
                         <ClockIcon className="size-4 text-brand-lime" />
-                        60, 90, or 120 minutes
+                        Choose your start and end time
                       </span>
                       <span className="text-sm font-semibold text-accent-ink">
-                        View times
+                        View court
                       </span>
                     </div>
                   </Link>
@@ -336,7 +327,7 @@ export function HomePage() {
         <section
           id="pricing"
           aria-labelledby="pricing-title"
-          className="scroll-mt-24 border-y border-line bg-surface py-20 sm:py-28"
+          className="scroll-mt-24 border-y border-line bg-surface py-14 sm:py-20"
         >
           <div className="mx-auto w-full max-w-7xl px-5 sm:px-8">
             <div className="grid gap-10 lg:grid-cols-[0.9fr_1.1fr] lg:items-center lg:gap-16">
@@ -357,13 +348,12 @@ export function HomePage() {
                   length, and the computed amount appears in the summary before
                   you confirm.
                 </p>
-                <Link
-                  href="/design-preview/booking"
+                <BookingTrigger
                   className={buttonClasses({ size: "lg", className: "mt-7" })}
                 >
                   Start a booking
                   <ArrowRightIcon className="size-5" />
-                </Link>
+                </BookingTrigger>
               </Reveal>
 
               <Reveal delay={0.1}>
@@ -418,14 +408,14 @@ export function HomePage() {
                       <div className="flex items-end justify-between gap-4 py-4">
                         <div>
                           <p className="font-display text-base font-semibold">
-                            Session length
+                            Court time
                           </p>
                           <p className="mt-1 text-sm text-white/55">
-                            Choose at booking
+                            Choose start and end
                           </p>
                         </div>
                         <p className="text-right font-display text-lg font-bold">
-                          60 / 90 / 120 min
+                          Start + end
                         </p>
                       </div>
                     </div>
@@ -448,7 +438,7 @@ export function HomePage() {
         <section
           id="how-it-works"
           aria-labelledby="how-title"
-          className="scroll-mt-24 bg-canvas py-20 sm:py-28"
+          className="scroll-mt-24 bg-canvas py-14 sm:py-20"
         >
           <div className="mx-auto w-full max-w-7xl px-5 sm:px-8">
             <Reveal>
@@ -508,7 +498,7 @@ export function HomePage() {
         {/* Details */}
         <section
           aria-labelledby="details-title"
-          className="border-y border-line bg-surface py-20 sm:py-24"
+          className="border-y border-line bg-surface py-14 sm:py-20"
         >
           <div className="mx-auto w-full max-w-7xl px-5 sm:px-8">
             <div className="grid gap-10 lg:grid-cols-[0.75fr_1.25fr] lg:gap-16">
@@ -568,8 +558,8 @@ export function HomePage() {
             className="absolute -right-32 top-1/2 size-[34rem] -translate-y-1/2 rounded-full bg-brand-blue/20 blur-[120px]"
           />
           <div className="relative mx-auto w-full max-w-7xl px-5 sm:px-8">
-            <div className="grid gap-10 lg:grid-cols-2 lg:items-center lg:gap-16">
-              <Reveal>
+            <div className="grid gap-8 lg:grid-cols-2 lg:grid-rows-[auto_1fr] lg:items-stretch lg:gap-10">
+              <Reveal className="lg:col-start-1 lg:row-start-1">
                 <p className="text-eyebrow font-bold uppercase text-brand-yellow">
                   Find the club
                 </p>
@@ -597,21 +587,30 @@ export function HomePage() {
                     <p className="text-caption text-white/55">
                       {CLUB.coordinates}
                     </p>
-                    <a
-                      href={CLUB.mapUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="mt-1.5 inline-flex min-h-10 items-center gap-1 text-sm font-semibold text-brand-yellow transition-colors hover:text-white"
-                    >
-                      Open in Google Maps
-                      <ArrowUpRightIcon className="size-3.5" />
-                    </a>
+                    <div className="mt-1.5 flex flex-wrap items-center gap-x-5 gap-y-1">
+                      <a
+                        href={CLUB.mapUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex min-h-10 items-center gap-1 text-sm font-semibold text-brand-yellow transition-colors hover:text-white"
+                      >
+                        Open in Google Maps
+                        <ArrowUpRightIcon className="size-3.5" />
+                      </a>
+                      <Link
+                        href="/visit"
+                        className="inline-flex min-h-10 items-center gap-1 text-sm font-semibold text-white/80 transition-colors hover:text-white"
+                      >
+                        Plan your visit
+                        <ArrowRightIcon className="size-3.5" />
+                      </Link>
+                    </div>
                   </div>
                 </div>
               </Reveal>
 
-              <Reveal delay={0.1}>
-                <div className="relative overflow-hidden rounded-2xl border border-white/15 bg-white/[0.06] p-6 backdrop-blur-md sm:p-8">
+              <Reveal delay={0.1} className="lg:col-start-1 lg:row-start-2">
+                <div className="relative h-full overflow-hidden rounded-2xl border border-white/15 bg-white/[0.06] p-6 backdrop-blur-md sm:p-8">
                   <div className="flex items-center justify-between gap-3">
                     <p className="text-[0.625rem] font-bold uppercase tracking-[0.18em] text-white/60">
                       Club information
@@ -629,7 +628,7 @@ export function HomePage() {
                     {[
                       ["Hours", "7:00 AM – 12:00 AM"],
                       ["Courts", "Court 1 · Court 2"],
-                      ["Court time", "60 / 90 / 120 minutes"],
+                      ["Court time", "Choose start and end"],
                       ["Payment", "GCash QR, verified by staff"],
                       ["Cancellation", "Free up to 24 hours before"],
                     ].map(([label, value]) => (
@@ -670,10 +669,14 @@ export function HomePage() {
                   </div>
                 </div>
               </Reveal>
-            </div>
-
-            <div className="mt-8 sm:mt-10">
-              <ClubMap />
+              <Reveal
+                delay={0.16}
+                className="lg:col-start-2 lg:row-span-2 lg:row-start-1"
+              >
+                <div className="[&>div]:h-full">
+                  <ClubMap />
+                </div>
+              </Reveal>
             </div>
           </div>
         </section>
@@ -682,7 +685,7 @@ export function HomePage() {
         <section
           id="faq"
           aria-labelledby="faq-title"
-          className="scroll-mt-24 bg-canvas py-20 sm:py-28"
+          className="scroll-mt-24 bg-canvas py-14 sm:py-20"
         >
           <div className="mx-auto w-full max-w-7xl px-5 sm:px-8">
             <div className="grid gap-10 lg:grid-cols-[0.8fr_1.2fr] lg:gap-16">
@@ -711,7 +714,7 @@ export function HomePage() {
         </section>
 
         {/* Final CTA */}
-        <section aria-labelledby="cta-title" className="bg-canvas pb-20 sm:pb-28">
+        <section aria-labelledby="cta-title" className="bg-canvas pb-14 sm:pb-20">
           <div className="mx-auto w-full max-w-7xl px-5 sm:px-8">
             <Reveal>
               <div className="relative isolate overflow-hidden rounded-2xl border border-line bg-brand-navy-deep px-6 py-14 text-center text-white shadow-raised sm:px-10 sm:py-20">
@@ -744,8 +747,7 @@ export function HomePage() {
                   before you commit.
                 </p>
                 <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
-                  <Link
-                    href="/design-preview/booking"
+                  <BookingTrigger
                     className={buttonClasses({
                       variant: "inverse",
                       size: "lg",
@@ -754,7 +756,7 @@ export function HomePage() {
                   >
                     Book a court
                     <ArrowRightIcon className="size-5" />
-                  </Link>
+                  </BookingTrigger>
                   <a
                     href="#pricing"
                     className="inline-flex h-13 w-full items-center justify-center rounded-lg border border-white/25 px-6 text-base font-semibold text-white transition-colors hover:bg-white/10 sm:w-auto"
@@ -763,8 +765,7 @@ export function HomePage() {
                   </a>
                 </div>
                 <p className="mt-5 text-[0.6875rem] text-white/40">
-                  Interactive preview · no booking, account, or payment is
-                  created
+                  Live availability · 15-minute hold · staff-verified payment
                 </p>
               </div>
             </Reveal>

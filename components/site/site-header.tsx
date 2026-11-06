@@ -4,22 +4,27 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { Logo } from "@/components/brand/logo";
+import { AuthLink } from "@/components/auth/auth-link";
+import { useBookingModal } from "@/components/booking/booking-modal-provider";
 import { buttonClasses } from "@/components/ui/button";
 import { CloseIcon, MenuIcon, ArrowRightIcon } from "@/components/ui/icons";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { cn } from "@/lib/cn";
+import { CLUB } from "@/lib/club";
 
 const links = [
-  { href: "#courts", label: "The courts" },
-  { href: "#pricing", label: "Rates" },
-  { href: "#how-it-works", label: "How it works" },
-  { href: "#faq", label: "FAQ" },
+  { href: "/courts", label: "The courts" },
+  { href: "/open-play", label: "Open play" },
+  { href: "/#pricing", label: "Rates" },
+  { href: "/visit", label: "Visit" },
+  { href: "/club", label: "The club" },
 ];
 
-export function SiteHeader() {
+export function SiteHeader({ startSolid = false }: { startSolid?: boolean }) {
   const [scrolled, setScrolled] = useState(false);
   const [open, setOpen] = useState(false);
   const reduce = useReducedMotion();
+  const { openCourt, openOpenPlayList } = useBookingModal();
 
   useEffect(() => {
     function onScroll() {
@@ -38,7 +43,7 @@ export function SiteHeader() {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  const solid = scrolled || open;
+  const solid = scrolled || open || startSolid;
 
   return (
     <header
@@ -80,48 +85,55 @@ export function SiteHeader() {
           <ul className="flex items-center gap-1">
             {links.map((link) => (
               <li key={link.href}>
-                <a
-                  href={link.href}
-                  className={cn(
-                    "relative inline-flex min-h-11 items-center rounded-lg px-3 text-sm font-semibold transition-colors duration-200",
-                    solid
-                      ? "text-ink/75 hover:bg-brand-blue-soft/70 hover:text-heading"
-                      : "text-white/80 hover:bg-white/10 hover:text-white",
-                  )}
-                >
-                  {link.label}
-                </a>
+                {link.href === "/open-play" ? (
+                  <button
+                    type="button"
+                    aria-haspopup="dialog"
+                    onClick={() => void openOpenPlayList()}
+                    className={cn(
+                      "relative inline-flex min-h-11 items-center rounded-lg px-3 text-sm font-semibold transition-colors duration-200",
+                      solid
+                        ? "text-ink/75 hover:bg-brand-blue-soft/70 hover:text-heading"
+                        : "text-white/80 hover:bg-white/10 hover:text-white",
+                    )}
+                  >
+                    {link.label}
+                  </button>
+                ) : (
+                  <Link
+                    href={link.href}
+                    className={cn(
+                      "relative inline-flex min-h-11 items-center rounded-lg px-3 text-sm font-semibold transition-colors duration-200",
+                      solid
+                        ? "text-ink/75 hover:bg-brand-blue-soft/70 hover:text-heading"
+                        : "text-white/80 hover:bg-white/10 hover:text-white",
+                    )}
+                  >
+                    {link.label}
+                  </Link>
+                )}
               </li>
             ))}
           </ul>
         </nav>
 
         <div className="flex items-center gap-2">
-          <span
-            className={cn(
-              "mr-1 hidden items-center gap-1.5 rounded-full border px-2.5 py-1 text-[0.625rem] font-bold uppercase tracking-[0.14em] xl:inline-flex",
-              solid
-                ? "border-line bg-page text-muted"
-                : "border-white/25 bg-white/10 text-white/80",
-            )}
-          >
-            <span aria-hidden="true" className="size-1.5 rounded-full bg-brand-yellow" />
-            Preview build
-          </span>
           <ThemeToggle tone={solid ? "auto" : "inverse"} className="hidden sm:grid" />
-          <Link
-            href="/design-preview/booking"
+          <span className="hidden md:inline-flex">
+            <AuthLink solid={solid} />
+          </span>
+          <button
+            type="button"
+            aria-haspopup="dialog"
+            onClick={() => void openCourt()}
             className={buttonClasses({
               size: "md",
-              className: cn(
-                "hidden sm:inline-flex",
-                !solid && "shadow-glow",
-              ),
+              className: cn("inline-flex", !solid && "shadow-glow"),
             })}
           >
             Book a court
             <ArrowRightIcon className="size-4 transition-transform duration-200 group-hover:translate-x-0.5" />
-          </Link>
+          </button>
 
           <button
             type="button"
@@ -155,25 +167,61 @@ export function SiteHeader() {
               <ul className="space-y-1">
                 {links.map((link) => (
                   <li key={link.href}>
-                    <a
-                      href={link.href}
-                      onClick={() => setOpen(false)}
-                      className="flex min-h-12 items-center justify-between rounded-lg px-3 text-base font-semibold text-heading transition-colors hover:bg-brand-blue-soft/70"
-                    >
-                      {link.label}
-                      <ArrowRightIcon className="size-4 text-muted" />
-                    </a>
+                    {link.href === "/open-play" ? (
+                      <button
+                        type="button"
+                        aria-haspopup="dialog"
+                        onClick={() => {
+                          setOpen(false);
+                          void openOpenPlayList();
+                        }}
+                        className="flex min-h-12 w-full items-center justify-between rounded-lg px-3 text-left text-base font-semibold text-heading transition-colors hover:bg-brand-blue-soft/70"
+                      >
+                        {link.label}
+                        <ArrowRightIcon className="size-4 text-muted" />
+                      </button>
+                    ) : (
+                      <Link
+                        href={link.href}
+                        onClick={() => setOpen(false)}
+                        className="flex min-h-12 items-center justify-between rounded-lg px-3 text-base font-semibold text-heading transition-colors hover:bg-brand-blue-soft/70"
+                      >
+                        {link.label}
+                        <ArrowRightIcon className="size-4 text-muted" />
+                      </Link>
+                    )}
                   </li>
                 ))}
               </ul>
+              <div className="mt-3 border-t border-line pt-4">
+                <AuthLink
+                  solid
+                  onNavigate={() => setOpen(false)}
+                  className="w-full hover:bg-brand-blue-soft/70"
+                />
+                <p className="mt-2 px-3 text-sm text-muted">
+                  Open daily 7:00 AM – 12:00 AM
+                </p>
+                <a
+                  href={CLUB.phoneHref}
+                  className="inline-flex min-h-10 items-center px-3 text-sm font-semibold text-accent-ink"
+                >
+                  {CLUB.phoneDisplay}
+                </a>
+              </div>
               <div className="mt-3 flex items-center gap-2 border-t border-line pt-4">
-                <Link
-                  href="/design-preview/booking"
+                <button
+                  type="button"
+                  aria-haspopup="dialog"
+                  onClick={() => {
+                    setOpen(false);
+                    void openCourt();
+                  }}
                   className={buttonClasses({ size: "lg", className: "flex-1" })}
                 >
                   Book a court
                   <ArrowRightIcon className="size-4" />
-                </Link>
+                </button>
                 <ThemeToggle />
               </div>
             </nav>
