@@ -109,7 +109,7 @@ export function HomePage() {
                       aria-hidden="true"
                       className="size-1.5 rounded-full bg-brand-lime shadow-[0_0_0_4px_rgba(120,181,27,0.22)]"
                     />
-                    Balamban · Open daily 7:00 AM – 12:00 AM
+                    {CLUB.addressShort} · Open daily 7:00 AM – 12:00 AM
                   </p>
                 </FadeIn>
 
@@ -123,8 +123,8 @@ export function HomePage() {
 
                 <FadeIn delay={0.16}>
                   <p className="mt-6 max-w-xl text-base leading-relaxed text-white/80 sm:text-lg">
-                    Two courts in Balamban, with clear hourly rates and a
-                    booking summary you can read in one breath. See the full
+                    Two courts in {CLUB.addressShort}, with clear hourly rates
+                    and a booking summary you can read in one breath. See the full
                     price, the duration, and the payment steps before you
                     commit.
                   </p>

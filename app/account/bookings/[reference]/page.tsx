@@ -393,7 +393,14 @@ async function BookingPanel({ params }: BookingPageProps) {
               </p>
               <p className="mt-4 border-t border-line pt-4 text-caption leading-relaxed text-muted">
                 Club staff verify the actual incoming transfer. This page never
-                marks a payment as paid automatically.
+                marks a payment as paid automatically.{" "}
+                <Link
+                  href="/policies/payments"
+                  className="font-semibold text-accent-ink underline decoration-brand-blue/40 underline-offset-2 hover:text-brand-blue-strong"
+                >
+                  Read the payment policy
+                </Link>
+                .
               </p>
             </section>
 

@@ -37,7 +37,7 @@ export async function generateMetadata({
 
   return {
     title: court.name,
-    description: `${court.name} at D-Hidden Pickleball Court & Bistro, Bung-aw, Pondol, Balamban. Open daily 7:00 AM to 12:00 AM with hourly start and end times.`,
+    description: `${court.name} at D-Hidden Pickleball Court & Bistro, ${CLUB.addressLine}. Open daily 7:00 AM to 12:00 AM with hourly start and end times.`,
     robots: { index: false, follow: false },
   };
 }

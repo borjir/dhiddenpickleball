@@ -144,6 +144,12 @@ export function OpenPlayRegistration({
           </p>
         </Alert>
 
+        <p className="text-caption leading-relaxed text-muted">
+          A confirmation email is sent to your account address. If it does not
+          arrive, this page and your account booking history remain the source
+          of truth; no email is required to keep your place.
+        </p>
+
         {paymentStatus === "unpaid" ? (
           <div className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-brand-blue/35 bg-brand-blue-soft/35 p-4">
             <div>

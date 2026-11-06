@@ -14,12 +14,13 @@ import {
   ShieldIcon,
   WalletIcon,
 } from "@/components/ui/icons";
+import { CLUB } from "@/lib/club";
 import { COURTS } from "@/lib/courts";
 
 export const metadata: Metadata = {
   title: "The courts",
   description:
-    "Court 1 and Court 2 at D-Hidden Pickleball Court & Bistro in Balamban. Open daily 7:00 AM to 12:00 AM, with hourly start and end times.",
+    `Court 1 and Court 2 at D-Hidden Pickleball Court & Bistro in ${CLUB.addressShort}. Open daily 7:00 AM to 12:00 AM, with hourly start and end times.`,
   robots: { index: false, follow: false },
 };
 

@@ -23,7 +23,7 @@ export const metadata: Metadata = {
     template: "%s | D-Hidden Pickleball Court & Bistro",
   },
   description:
-    "Book court time at D-Hidden Pickleball Court & Bistro in Balamban. Two courts, open daily 7:00 AM to 12:00 AM, with clear hourly rates and GCash payment review.",
+    "Book court time at D-Hidden Pickleball Court & Bistro in Pondol, Balamban, Cebu. Two courts, open daily 7:00 AM to 12:00 AM, with clear hourly rates and GCash payment review.",
 };
 
 export const viewport: Viewport = {

@@ -8,6 +8,7 @@ import {
   useEffect,
   useRef,
   useState,
+  type MouseEvent as ReactMouseEvent,
   type ReactNode,
 } from "react";
 import { Badge } from "@/components/ui/badge";
@@ -129,6 +130,30 @@ export function BookingModalProvider({ children }: { children: ReactNode }) {
     setLoading(false);
   }, []);
 
+  // The provider sits in the root layout, so a client-side navigation would
+  // otherwise leave the overlay covering the next page. Dismiss it before an
+  // in-modal link navigates; the sign-in return path can reopen it.
+  function handleModalLinkNavigation(event: ReactMouseEvent<HTMLDivElement>) {
+    const target = event.target;
+    if (!(target instanceof Element)) return;
+
+    const link = target.closest("a[href]");
+    if (!link) return;
+
+    const href = link.getAttribute("href");
+    if (
+      !href ||
+      href.startsWith("#") ||
+      link.hasAttribute("download") ||
+      link.getAttribute("target") === "_blank" ||
+      /^(mailto|tel|sms):/i.test(href)
+    ) {
+      return;
+    }
+
+    close();
+  }
+
   useEffect(() => {
     if (!dialog) return;
 
@@ -154,8 +179,10 @@ export function BookingModalProvider({ children }: { children: ReactNode }) {
     const url = new URL(window.location.href);
     url.searchParams.delete("booking");
     window.history.replaceState({}, "", url);
-    const timer = window.setTimeout(() => void openCourt(), 0);
-    return () => window.clearTimeout(timer);
+    // Open on the next tick without a cancellable timer: a dev re-render can
+    // run the cleanup after the param is already gone, which left the overlay
+    // closed and the selection stranded.
+    void Promise.resolve().then(() => openCourt());
   }, [openCourt]);
 
   useEffect(() => {
@@ -185,6 +212,7 @@ export function BookingModalProvider({ children }: { children: ReactNode }) {
           role="dialog"
           aria-modal="true"
           aria-labelledby="booking-modal-title"
+          onClickCapture={handleModalLinkNavigation}
         >
           <button
             type="button"
@@ -265,6 +293,7 @@ export function BookingModalProvider({ children }: { children: ReactNode }) {
                     courts={courtData.courts}
                     today={courtData.today}
                     embedded
+                    onNavigate={close}
                   />
                 </Suspense>
               ) : null}

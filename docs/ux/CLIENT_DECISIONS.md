@@ -63,7 +63,7 @@ unpaid bookings are automatically cancelled). Both were resolved on 4 November
 | D-14 | Staff roles and permissions | P0 | Resolved for Phase 4 — **player and staff only**; named staff accounts remain Phase 8 |
 | D-15 | Staff overrides and manual edits | P1 | **Open** |
 | D-16 | Authentication rules | P1 | Resolved for Phase 4 — email verification, email/password, and Google OAuth; staff MFA open |
-| D-17 | Notifications and reminders | P1 | **Open** |
+| D-17 | Notifications and reminders | P1 | **Implemented for Phase 9 as email-only working recommendation; client sign-off still open** |
 | D-18 | Address, map, contact, social | P1 | Resolved by owner 4 Nov — pin, address, phone, and email supplied; no social links |
 | D-19 | Brand, photography, content rights | P1 | Answered — name confirmed as "D-Hidden Pickleball" |
 | D-20 | Privacy, terms, data retention | P1 | Resolved for Phase 5 — privacy notice and terms published; legal review recommended |
@@ -469,7 +469,13 @@ security question.
 **Working recommendation:** essential transactional email only, in Phase 9. Do
 not promise email delivery earlier.
 
-**Blocks:** Phase 9.
+**Phase 9 implementation (7 Nov 2026):** the working recommendation is
+implemented as transactional email only. SMS and marketing automation are not
+built. Client sign-off on the final notification set, sender identity, and
+24-hour reminder interval is still pending. Live delivery needs a verified
+sender domain and provider credential.
+
+**Blocks:** Phase 9 live delivery.
 
 ---
 

@@ -364,7 +364,14 @@ async function GroupPanel({ params }: GroupPageProps) {
               </p>
               <p className="mt-4 border-t border-line pt-4 text-caption leading-relaxed text-muted">
                 Club staff verify the actual incoming transfer. This page never
-                marks a payment as paid automatically.
+                marks a payment as paid automatically.{" "}
+                <Link
+                  href="/policies/payments"
+                  className="font-semibold text-accent-ink underline decoration-brand-blue/40 underline-offset-2 hover:text-brand-blue-strong"
+                >
+                  Read the payment policy
+                </Link>
+                .
               </p>
             </section>
 
@@ -473,6 +480,13 @@ async function GroupPanel({ params }: GroupPageProps) {
                   Email the club
                 </a>
               </div>
+              <Link
+                href="/policies/booking"
+                className="mt-4 inline-flex min-h-11 items-center gap-1.5 text-sm font-semibold text-accent-ink"
+              >
+                Read the booking and cancellation policy
+                <ArrowRightIcon className="size-4" />
+              </Link>
             </section>
           </div>
         </div>

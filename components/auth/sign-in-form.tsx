@@ -55,7 +55,7 @@ export function SignInForm({ configured }: { configured: boolean }) {
 
     try {
       const supabase = createClient();
-      const { error } = await supabase.auth.signInWithPassword({
+      const { data: signIn, error } = await supabase.auth.signInWithPassword({
         email: parsed.data.email,
         password: parsed.data.password,
       });
@@ -65,7 +65,21 @@ export function SignInForm({ configured }: { configured: boolean }) {
         return;
       }
 
-      router.replace(next);
+      let destination = next;
+      if (signIn.user) {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("role")
+          .eq("id", signIn.user.id)
+          .maybeSingle();
+
+        if (profile?.role === "staff") {
+          destination =
+            next === "/staff" || next.startsWith("/staff/") ? next : "/staff";
+        }
+      }
+
+      router.replace(destination);
       router.refresh();
     } catch (error) {
       setFormError(authErrorMessage(error));

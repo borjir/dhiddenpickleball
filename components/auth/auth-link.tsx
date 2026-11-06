@@ -22,6 +22,7 @@ export function AuthLink({
   onNavigate?: () => void;
 }) {
   const [signedIn, setSignedIn] = useState(false);
+  const [staff, setStaff] = useState(false);
   const configured = isSupabaseConfigured();
 
   useEffect(() => {
@@ -33,10 +34,24 @@ export function AuthLink({
     try {
       const supabase = createClient();
 
+      async function loadRole(userId: string) {
+        const { data } = await supabase
+          .from("profiles")
+          .select("role")
+          .eq("id", userId)
+          .maybeSingle();
+
+        if (active) setStaff(data?.role === "staff");
+      }
+
       void (async () => {
         try {
           const result = await supabase.auth.getClaims();
-          if (active) setSignedIn(Boolean(result?.data?.claims));
+          const userId = result?.data?.claims?.sub;
+          if (!active) return;
+
+          setSignedIn(Boolean(userId));
+          if (userId) await loadRole(userId);
         } catch {
           // Keep the default signed-out label if the check fails.
         }
@@ -45,6 +60,13 @@ export function AuthLink({
       const { data } = supabase.auth.onAuthStateChange(
         (_event: AuthChangeEvent, session: Session | null) => {
           setSignedIn(Boolean(session));
+
+          if (!session) {
+            setStaff(false);
+            return;
+          }
+
+          void loadRole(session.user.id);
         },
       );
 
@@ -61,7 +83,7 @@ export function AuthLink({
 
   return (
     <Link
-      href={signedIn ? "/account" : "/sign-in"}
+      href={signedIn ? (staff ? "/staff" : "/account") : "/sign-in"}
       onClick={onNavigate}
       className={cn(
         "inline-flex min-h-11 items-center rounded-lg px-3 text-sm font-semibold transition-colors duration-200",
@@ -71,7 +93,7 @@ export function AuthLink({
         className,
       )}
     >
-      {signedIn ? "My account" : "Sign in"}
+      {signedIn ? (staff ? "Operations desk" : "My account") : "Sign in"}
     </Link>
   );
 }

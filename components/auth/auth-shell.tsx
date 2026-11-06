@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import Image from "next/image";
 import { AuthTopBar } from "@/components/auth/auth-top-bar";
+import { CLUB } from "@/lib/club";
 import {
   CheckCircleIcon,
   PinIcon,
@@ -73,7 +74,7 @@ export function AuthShell({
               <div>
                 <span className="inline-flex items-center gap-1.5 rounded-full border border-white/25 bg-white/10 px-3 py-1 text-[0.6875rem] font-bold uppercase tracking-[0.14em] text-white/85">
                   <PinIcon className="size-3.5" />
-                  Balamban, Cebu
+                  {CLUB.addressShort}
                 </span>
                 <h2 className="mt-5 max-w-sm font-display text-3xl font-extrabold leading-[1.05] tracking-[-0.03em] text-white xl:text-4xl">
                   Court time without the guesswork.
@@ -124,8 +125,7 @@ export function AuthShell({
             ) : null}
 
             <p className="mt-6 text-center text-xs leading-relaxed text-muted">
-              D-Hidden Pickleball Court &amp; Bistro · Bung-aw, Pondol,
-              Balamban
+              D-Hidden Pickleball Court &amp; Bistro · {CLUB.addressLine}
             </p>
           </section>
         </div>

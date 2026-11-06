@@ -32,6 +32,7 @@ import {
   CheckIcon,
   ClockIcon,
   InfoIcon,
+  PlusIcon,
   ShieldIcon,
 } from "@/components/ui/icons";
 import { cn } from "@/lib/cn";
@@ -52,7 +53,7 @@ const stepContent = [
     eyebrow: "Step 1 · Availability",
     title: "Choose your court time",
     description:
-      "Pick a date, tap a start time, then tap the hour you want to end. Tap again to adjust before adding it.",
+      "Pick a date, then tap an hour to add a court time. Tap an adjacent hour to extend it one hour, or a later open hour to fill the free hours in between. Tap an added hour to remove that hour, or use × to remove a whole range. Use Add court time to book another date or a separate range.",
   },
   {
     eyebrow: "Step 2 · Review",
@@ -67,6 +68,11 @@ const stepContent = [
       "Keep the reference. The 15-minute hold starts when the request is created, and staff verify payment separately.",
   },
 ] as const;
+
+// Saved court times survive the sign-in hop (and a confirmation link opening
+// in a new tab) for two hours, then disappear on their own.
+const CART_STORAGE_KEY = "dhidden-booking-cart";
+const CART_STORAGE_TTL_MS = 2 * 60 * 60 * 1000;
 
 const DAY_OPEN_MINUTE = 7 * 60;
 const DAY_CLOSE_MINUTE = 24 * 60;
@@ -122,6 +128,24 @@ type CartRange = {
   durationMinutes: number;
   amountPhp: number;
 };
+
+function isSavedCartRange(value: unknown): value is CartRange {
+  if (!value || typeof value !== "object") return false;
+
+  const item = value as Partial<CartRange>;
+  return (
+    typeof item.key === "string" &&
+    typeof item.courtId === "string" &&
+    typeof item.courtName === "string" &&
+    typeof item.date === "string" &&
+    typeof item.startsAt === "string" &&
+    typeof item.endsAt === "string" &&
+    typeof item.startMinute === "number" &&
+    typeof item.endMinute === "number" &&
+    typeof item.durationMinutes === "number" &&
+    typeof item.amountPhp === "number"
+  );
+}
 
 type HourCell = {
   key: string;
@@ -302,6 +326,28 @@ function rangeAmount(range: AvailabilitySlot[], hours: number) {
     .reduce((total, slot) => total + slot.amountPhp, 0);
 }
 
+function rangeToCartItem(
+  range: AvailabilitySlot[],
+  dateId: string,
+): CartRange | null {
+  const first = range[0];
+  const last = range[range.length - 1];
+  if (!first || !last) return null;
+
+  return {
+    key: `${dateId}-${first.courtId}-${first.startsAt}`,
+    courtId: first.courtId,
+    courtName: first.courtName,
+    date: dateId,
+    startsAt: first.startsAt,
+    endsAt: last.endsAt,
+    startMinute: first.startMinute,
+    endMinute: last.startMinute + 60,
+    durationMinutes: range.length * 60,
+    amountPhp: rangeAmount(range, range.length),
+  };
+}
+
 function SectionLabel({
   eyebrow,
   title,
@@ -348,11 +394,13 @@ export function CourtBooking({
   courts,
   today,
   embedded = false,
+  onNavigate,
 }: {
   viewer: Viewer | null;
   courts: CourtOption[];
   today: string;
   embedded?: boolean;
+  onNavigate?: () => void;
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -374,7 +422,6 @@ export function CourtBooking({
       : 1;
 
   const [date, setDate] = useState(initialDate);
-  const [selectedHours, setSelectedHours] = useState(1);
   const [courtFilter, setCourtFilter] = useState<"all" | string>(
     requestedCourt && courts.some((court) => court.id === requestedCourt)
       ? requestedCourt
@@ -392,10 +439,21 @@ export function CourtBooking({
     null,
   );
   const [refreshKey, setRefreshKey] = useState(0);
-  const [selectedSlot, setSelectedSlot] = useState<AvailabilitySlot | null>(
-    null,
-  );
   const [cart, setCart] = useState<CartRange[]>([]);
+  const [activeRangeKey, setActiveRangeKey] = useState<string | null>(null);
+  // Snapshots of the cart so a stray tap can be undone in one click.
+  const [history, setHistory] = useState<
+    { cart: CartRange[]; activeRangeKey: string | null }[]
+  >([]);
+  const [hydrated, setHydrated] = useState(false);
+  // Set by "Add court time" so the very next pick starts its own range even
+  // when it is adjacent to one already in the cart.
+  const [forceNewRange, setForceNewRange] = useState(false);
+  // An out-of-range pick the player can confirm as a separate court time.
+  const [blockedSlot, setBlockedSlot] = useState<{
+    slot: AvailabilitySlot;
+    date: string;
+  } | null>(null);
   const [step, setStep] = useState(0);
   const [showCalendar, setShowCalendar] = useState(false);
   const [nowMinute, setNowMinute] = useState(0);
@@ -439,12 +497,26 @@ export function CourtBooking({
           );
 
           if (match) {
-            const range = rangeForSlot(match, result.slots);
-            const hours = Math.min(initialHours, range.length);
-            setSelectedSlot(match);
-            setSelectedHours(hours);
-            if (viewer) setStep(1);
-            else setNotice("Your selection is ready. Sign in to finish the booking.");
+            const range = rangeForSlot(match, result.slots).slice(
+              0,
+              initialHours,
+            );
+            const item = rangeToCartItem(range, date);
+            if (item) {
+              setCart((current) =>
+                current.some((existing) => existing.key === item.key)
+                  ? current
+                  : [...current, item],
+              );
+              setActiveRangeKey(item.key);
+              if (viewer) setStep(1);
+              else
+                setNotice(
+                  "Your selection is ready. Sign in to finish the booking.",
+                );
+            } else {
+              setNotice("That time is no longer available. Choose another.");
+            }
           } else {
             setNotice("That time is no longer available. Choose another.");
           }
@@ -481,33 +553,73 @@ export function CourtBooking({
     return () => window.clearInterval(timer);
   }, []);
 
+  // Restore a selection the player had to leave behind, most often to sign in.
+  // It lives in localStorage so it also survives a confirmation link opening
+  // in a new tab, and it expires so an old half-built selection never returns.
   useEffect(() => {
-    if (searchParams.get("resume") !== "cart") return;
+    const timer = window.setTimeout(() => {
+      try {
+        const raw = window.localStorage.getItem(CART_STORAGE_KEY);
+        if (raw) {
+          const parsed = JSON.parse(raw) as {
+            savedAt?: number;
+            items?: unknown;
+          };
+          const savedAt = typeof parsed?.savedAt === "number" ? parsed.savedAt : 0;
+          const fresh = Date.now() - savedAt < CART_STORAGE_TTL_MS;
+          const items = Array.isArray(parsed?.items) ? parsed.items : [];
+          const valid = fresh ? items.filter(isSavedCartRange) : [];
+
+          if (valid.length > 0) {
+            setCart(valid);
+            setActiveRangeKey(valid[valid.length - 1].key);
+            setNotice(
+              "We kept the court times you picked earlier. Check the hours below, then continue.",
+            );
+            const params = new URLSearchParams(window.location.search);
+            if (params.get("resume") === "cart") {
+              setStep(1);
+              // Consume the hint so a later reopen starts on the picker.
+              params.delete("resume");
+              const query = params.toString();
+              window.history.replaceState(
+                {},
+                "",
+                `${window.location.pathname}${query ? `?${query}` : ""}${window.location.hash}`,
+              );
+            }
+          } else if (!fresh) {
+            window.localStorage.removeItem(CART_STORAGE_KEY);
+          }
+        }
+      } catch {
+        // Ignore a stale or malformed saved selection.
+      }
+
+      setHydrated(true);
+    }, 0);
+
+    return () => window.clearTimeout(timer);
+  }, []);
+
+  // Only start saving once the restore above had its chance to read.
+  useEffect(() => {
+    if (!hydrated) return;
 
     try {
-      const raw = sessionStorage.getItem("dhidden-booking-cart");
-      if (!raw) return;
-      const parsed = JSON.parse(raw) as CartRange[];
-      if (!Array.isArray(parsed)) return;
-      const valid = parsed.filter(
-        (item) =>
-          typeof item?.courtId === "string" &&
-          typeof item?.startsAt === "string" &&
-          typeof item?.endsAt === "string" &&
-          typeof item?.amountPhp === "number",
-      );
-      if (valid.length > 0) {
-        const timer = window.setTimeout(() => {
-          setCart(valid);
-          setStep(1);
-          sessionStorage.removeItem("dhidden-booking-cart");
-        }, 0);
-        return () => window.clearTimeout(timer);
+      if (cart.length === 0) {
+        window.localStorage.removeItem(CART_STORAGE_KEY);
+        return;
       }
+
+      window.localStorage.setItem(
+        CART_STORAGE_KEY,
+        JSON.stringify({ savedAt: Date.now(), items: cart }),
+      );
     } catch {
-      // Ignore a stale or malformed saved cart.
+      // Storage can be unavailable; the selection still works on this page.
     }
-  }, [searchParams]);
+  }, [cart, hydrated]);
 
   const todayParts = parseDateId(today)!;
   const quickDates = Array.from({ length: 14 }, (_, index) =>
@@ -602,6 +714,12 @@ export function CourtBooking({
           startMinute,
           endMinute: startMinute + 60,
           status: "in-cart",
+          // Kept so the cell can trim just its hour out of the range.
+          slot: slots.find(
+            (candidate) =>
+              candidate.courtId === courtId &&
+              candidate.startMinute === startMinute,
+          ),
         });
       }
 
@@ -653,24 +771,6 @@ export function CourtBooking({
     today,
   ]);
 
-  const selectedRange = selectedSlot
-    ? rangeForSlot(selectedSlot, slotsForPicker)
-    : [];
-  const hasSelectedRange = Boolean(selectedSlot && selectedRange.length > 0);
-  const effectiveHours = hasSelectedRange
-    ? Math.max(1, Math.min(selectedHours, selectedRange.length))
-    : 0;
-  const selectedDuration = effectiveHours * 60;
-  const selectedEndMinute = hasSelectedRange
-    ? selectedSlot!.startMinute + selectedDuration
-    : null;
-  const selectedAmount = hasSelectedRange
-    ? rangeAmount(selectedRange, effectiveHours)
-    : 0;
-  const priceLabel = hasSelectedRange ? formatPeso(selectedAmount) : "—";
-  const durationLabel = hasSelectedRange
-    ? `${effectiveHours} ${effectiveHours === 1 ? "hour" : "hours"}`
-    : "Choose a start time";
   const activeContent = stepContent[step];
   const group = bookingState.group;
   const cartTotal = cart.reduce((total, item) => total + item.amountPhp, 0);
@@ -705,45 +805,16 @@ export function CourtBooking({
     );
   }
 
-  function addRange(hours: number) {
-    if (!selectedSlot) return;
-
-    const range = rangeForSlot(selectedSlot, slotsForPicker).slice(0, hours);
-    if (range.length === 0) return;
-
-    const last = range[range.length - 1];
-    const item: CartRange = {
-      key: `${date}-${selectedSlot.courtId}-${selectedSlot.startsAt}`,
-      courtId: selectedSlot.courtId,
-      courtName: selectedSlot.courtName,
-      date,
-      startsAt: selectedSlot.startsAt,
-      endsAt: last.endsAt,
-      startMinute: selectedSlot.startMinute,
-      endMinute: last.startMinute + 60,
-      durationMinutes: range.length * 60,
-      amountPhp: rangeAmount(range, range.length),
-    };
-
-    setCart((current) => {
-      const overlaps = current.some(
-        (existing) =>
-          existing.courtId === item.courtId &&
-          existing.date === item.date &&
-          existing.startMinute < item.endMinute &&
-          item.startMinute < existing.endMinute,
-      );
-      return overlaps ? current : [...current, item];
-    });
-    setSelectedSlot(null);
-    setSelectedHours(1);
-    setNotice(
-      `Added ${formatDateId(date)} · ${formatHourRange(item.startMinute)}. Pick another date or time.`,
-    );
-  }
-
   function removeRange(key: string) {
+    const removed = cart.find((item) => item.key === key);
+    rememberCart();
     setCart((current) => current.filter((item) => item.key !== key));
+    setActiveRangeKey((current) => (current === key ? null : current));
+    if (removed) {
+      setNotice(
+        `Removed ${formatDateId(removed.date)} · ${formatHourRange(removed.startMinute, removed.endMinute)}.`,
+      );
+    }
   }
 
   function changeDate(nextDate: string) {
@@ -752,69 +823,263 @@ export function CourtBooking({
     if (parts) {
       setVisibleMonth({ year: parts.year, monthIndex: parts.monthIndex });
     }
-    setSelectedSlot(null);
+    setActiveRangeKey(null);
+    setBlockedSlot(null);
     setAvailabilityState("loading");
     setAvailabilityError(null);
     clearBookingFeedback();
     setStep(0);
   }
 
+  function rememberCart() {
+    setHistory((entries) =>
+      entries.length >= 20
+        ? [...entries.slice(1), { cart, activeRangeKey }]
+        : [...entries, { cart, activeRangeKey }],
+    );
+  }
+
+  function undoLastChange() {
+    const previous = history[history.length - 1];
+    if (!previous) return;
+
+    setCart(previous.cart);
+    setActiveRangeKey(previous.activeRangeKey);
+    setHistory((entries) => entries.slice(0, -1));
+    setBlockedSlot(null);
+    setForceNewRange(false);
+    setNotice("Restored your previous court times.");
+  }
+
   function changeCourt(nextCourt: "all" | string) {
     setCourtFilter(nextCourt);
-    if (
-      selectedSlot &&
-      nextCourt !== "all" &&
-      selectedSlot.courtId !== nextCourt
-    ) {
-      setSelectedSlot(null);
-    }
     clearBookingFeedback();
   }
 
-  function chooseSlot(slot: AvailabilitySlot) {
-    setBookingState(initialBookingState);
-    setNotice(null);
+  function addAnotherCourtTime() {
+    setActiveRangeKey(null);
+    setBlockedSlot(null);
+    setForceNewRange(true);
+    setNotice(
+      "Choose another date or time. It will be added as a separate court time; use × to remove an existing one.",
+    );
+    document
+      .getElementById("booking-date")
+      ?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }
 
-    if (!selectedSlot || selectedSlot.courtId !== slot.courtId) {
-      setSelectedSlot(slot);
-      setSelectedHours(1);
-      return;
-    }
+  function trimHourFromRange(item: CartRange, startMinute: number) {
+    rememberCart();
 
-    const courtSlots = slotsForPicker
+    const courtSlots = slots
+      .filter((candidate) => candidate.courtId === item.courtId)
+      .sort((a, b) => a.startMinute - b.startMinute);
+    const segments: CartRange[] = [];
+
+    const buildSegment = (segmentStart: number, segmentEnd: number) => {
+      if (segmentEnd <= segmentStart) return;
+
+      const startSlot = courtSlots.find(
+        (candidate) => candidate.startMinute === segmentStart,
+      );
+      if (!startSlot) return;
+
+      const range = rangeForSlot(startSlot, courtSlots).slice(
+        0,
+        (segmentEnd - segmentStart) / 60,
+      );
+      const segment = rangeToCartItem(range, item.date);
+      if (segment) segments.push(segment);
+    };
+
+    // Removing a middle hour splits the range into the part before it and the
+    // part after it; removing an end hour simply shortens the range.
+    buildSegment(item.startMinute, startMinute);
+    buildSegment(startMinute + 60, item.endMinute);
+
+    setCart((current) => [
+      ...current.filter((candidate) => candidate.key !== item.key),
+      ...segments,
+    ]);
+    setActiveRangeKey(segments[0]?.key ?? segments[1]?.key ?? null);
+    setForceNewRange(false);
+    setNotice(
+      `Removed ${formatHourRange(startMinute)} from that court time. Tap an adjacent hour to extend a range, or use × to remove a whole range.`,
+    );
+  }
+
+  // A non-adjacent pick bridges the gap into the range it belongs with when
+  // every hour in between is open, so 4 PM then 10 PM becomes 4 PM – 11 PM.
+  function bridgedRange(slot: AvailabilitySlot): CartRange | null {
+    if (forceNewRange) return null;
+
+    const sameDayRanges = cart.filter(
+      (item) => item.courtId === slot.courtId && item.date === date,
+    );
+    if (sameDayRanges.length === 0) return null;
+
+    const active = activeRangeKey
+      ? sameDayRanges.find((item) => item.key === activeRangeKey)
+      : undefined;
+    const gapFor = (item: CartRange) =>
+      item.startMinute > slot.startMinute
+        ? item.startMinute - (slot.startMinute + 60)
+        : slot.startMinute - item.endMinute;
+    const target =
+      active ?? [...sameDayRanges].sort((a, b) => gapFor(a) - gapFor(b))[0];
+
+    const spanStart = Math.min(target.startMinute, slot.startMinute);
+    const spanEnd = Math.max(target.endMinute, slot.startMinute + 60);
+    const courtSlots = slots
       .filter((candidate) => candidate.courtId === slot.courtId)
       .sort((a, b) => a.startMinute - b.startMinute);
-    const anchorIndex = courtSlots.findIndex(
-      (candidate) => candidate.startsAt === selectedSlot.startsAt,
-    );
-    const targetIndex = courtSlots.findIndex(
-      (candidate) => candidate.startsAt === slot.startsAt,
+    const spanSlots = courtSlots.filter(
+      (candidate) =>
+        candidate.startMinute >= spanStart && candidate.startMinute < spanEnd,
     );
 
-    if (anchorIndex === -1 || targetIndex === -1) {
-      setSelectedSlot(slot);
-      setSelectedHours(1);
+    // Refuse the bridge when any hour in between is taken or closed.
+    if (spanSlots.length !== (spanEnd - spanStart) / 60) return null;
+
+    return rangeToCartItem(spanSlots, date);
+  }
+
+  function addBlockedSlotSeparately() {
+    if (!blockedSlot) return;
+
+    const item = rangeToCartItem([blockedSlot.slot], blockedSlot.date);
+    if (!item) return;
+
+    rememberCart();
+    setCart((current) => [...current, item]);
+    setActiveRangeKey(item.key);
+    setForceNewRange(false);
+    setBlockedSlot(null);
+    setNotice(
+      `Added ${formatDateId(blockedSlot.date)} · ${formatHourRange(blockedSlot.slot.startMinute)} as a separate court time. Tap an adjacent hour to extend it, or use × to remove it.`,
+    );
+  }
+
+  function toggleSlot(slot: AvailabilitySlot) {
+    setBookingState(initialBookingState);
+    setNotice(null);
+    setBlockedSlot(null);
+
+    const existing = cart.find(
+      (item) =>
+        item.courtId === slot.courtId &&
+        item.date === date &&
+        item.startMinute <= slot.startMinute &&
+        slot.startMinute < item.endMinute,
+    );
+
+    // Tapping an added hour trims that hour out of its range; × in the
+    // court-times list removes the whole range.
+    if (existing) {
+      trimHourFromRange(existing, slot.startMinute);
       return;
     }
 
-    const startIndex = Math.min(anchorIndex, targetIndex);
-    const endIndex = Math.max(anchorIndex, targetIndex);
-    const contiguous = courtSlots
-      .slice(startIndex, endIndex + 1)
-      .every(
-        (candidate, index, range) =>
-          index === 0 ||
-          candidate.startMinute === range[index - 1].startMinute + 60,
+    // Any adjacent hour extends whichever existing range it touches, so a
+    // range can keep growing later, not just right after it was created.
+    // "Add court time" clears this list for exactly one pick, so the next
+    // choice starts a separate range even when it is adjacent.
+    const neighbours = forceNewRange
+      ? []
+      : cart.filter(
+          (item) =>
+            item.courtId === slot.courtId &&
+            item.date === date &&
+            (item.endMinute === slot.startMinute ||
+              item.startMinute === slot.startMinute + 60),
+        );
+
+    if (neighbours.length > 0) {
+      const courtSlots = slots
+        .filter((candidate) => candidate.courtId === slot.courtId)
+        .sort((a, b) => a.startMinute - b.startMinute);
+      const startMinute = Math.min(
+        slot.startMinute,
+        ...neighbours.map((item) => item.startMinute),
+      );
+      const endMinute = Math.max(
+        slot.startMinute + 60,
+        ...neighbours.map((item) => item.endMinute),
+      );
+      const startSlot = courtSlots.find(
+        (candidate) => candidate.startMinute === startMinute,
       );
 
-    if (!contiguous) {
-      setSelectedSlot(slot);
-      setSelectedHours(1);
+      if (!startSlot) return;
+
+      const range = rangeForSlot(startSlot, courtSlots).slice(
+        0,
+        (endMinute - startMinute) / 60,
+      );
+      const item = rangeToCartItem(range, date);
+
+      if (!item) return;
+
+      rememberCart();
+      setCart((current) => [
+        ...current.filter(
+          (candidate) =>
+            !neighbours.some((entry) => entry.key === candidate.key),
+        ),
+        item,
+      ]);
+      setActiveRangeKey(item.key);
+      setForceNewRange(false);
+      setNotice(
+        `Extended the court time to ${formatDateId(date)} · ${formatHourRange(item.startMinute, item.endMinute)}. Tap an adjacent hour to extend it again, or use × to remove it.`,
+      );
       return;
     }
 
-    setSelectedSlot(courtSlots[startIndex]);
-    setSelectedHours(endIndex - startIndex + 1);
+    const bridged = bridgedRange(slot);
+    if (bridged) {
+      rememberCart();
+      setCart((current) => [
+        ...current.filter(
+          (item) =>
+            !(
+              item.courtId === slot.courtId &&
+              item.date === date &&
+              item.startMinute < bridged.endMinute &&
+              bridged.startMinute < item.endMinute
+            ),
+        ),
+        bridged,
+      ]);
+      setActiveRangeKey(bridged.key);
+      setForceNewRange(false);
+      setNotice(
+        `Extended the court time to ${formatDateId(date)} · ${formatHourRange(bridged.startMinute, bridged.endMinute)}. Tap an adjacent hour to extend it again, or use × to remove it.`,
+      );
+      return;
+    }
+
+    // A pick away from every existing range would be a separate court time,
+    // which only "Add court time" may start. Otherwise leave the cart as it
+    // is and tell the player how to add one.
+    if (cart.length > 0 && !forceNewRange) {
+      setBlockedSlot({ slot, date });
+      setNotice(
+        "That hour is outside your current court time, so it was not added. Extend an existing range with a neighbouring hour, or add it as a separate court time below.",
+      );
+      return;
+    }
+
+    const item = rangeToCartItem([slot], date);
+    if (!item) return;
+
+    rememberCart();
+    setCart((current) => [...current, item]);
+    setActiveRangeKey(item.key);
+    setForceNewRange(false);
+    setNotice(
+      `Added ${formatDateId(date)} · ${formatHourRange(item.startMinute)} as a separate court time. Tap an adjacent hour to extend any range, or use × to remove one.`,
+    );
   }
 
   function showMonth(offset: number) {
@@ -835,7 +1100,10 @@ export function CourtBooking({
 
     if (!viewer) {
       try {
-        sessionStorage.setItem("dhidden-booking-cart", JSON.stringify(cart));
+        window.localStorage.setItem(
+          CART_STORAGE_KEY,
+          JSON.stringify({ savedAt: Date.now(), items: cart }),
+        );
       } catch {
         // The cart still survives on this page if storage is unavailable.
       }
@@ -843,6 +1111,7 @@ export function CourtBooking({
         window.location.pathname === "/book"
           ? "/"
           : window.location.pathname;
+      onNavigate?.();
       router.push(
         `/sign-in?next=${encodeURIComponent(`${returnPath}?booking=1&resume=cart`)}`,
       );
@@ -876,6 +1145,7 @@ export function CourtBooking({
       const result = await createBookingGroup(initialBookingState, formData);
 
       if (result.code === "session-expired" && result.next) {
+        onNavigate?.();
         router.push(
           `/sign-in?next=${encodeURIComponent(result.next)}&notice=session-expired`,
         );
@@ -886,6 +1156,8 @@ export function CourtBooking({
 
       if (result.status === "success") {
         setCart([]);
+        setHistory([]);
+        setActiveRangeKey(null);
         setStep(2);
         window.scrollTo({ top: 0, behavior: "smooth" });
       }
@@ -906,17 +1178,26 @@ export function CourtBooking({
   }
 
   function renderHourCell(cell: HourCell) {
-    const selected = Boolean(
-      cell.slot &&
-        selectedRange
-          .slice(0, effectiveHours)
-          .some((slot) => slot.startsAt === cell.slot!.startsAt),
-    );
+    const selected = cell.status === "in-cart";
+    const cartItem = selected
+      ? cart.find(
+          (item) =>
+            item.courtId === cell.courtId &&
+            item.date === date &&
+            item.startMinute <= cell.startMinute &&
+            cell.startMinute < item.endMinute,
+        )
+      : undefined;
+    // The most recently edited range is highlighted. Tapping an added hour
+    // trims just that hour; × removes the whole range.
+    const active = Boolean(cartItem && cartItem.key === activeRangeKey);
     const detail =
       cell.status === "open"
-        ? `${cell.courtName ?? "Court"} · ${formatPeso(cell.slot!.amountPhp)}`
+        ? `${cell.courtName ?? "Court"} · ${formatPeso(cell.slot!.amountPhp)} · Tap to add`
         : cell.status === "in-cart"
-          ? `${cell.courtName ?? "Court"} · Added`
+          ? active
+            ? "Current · tap hour to remove"
+            : "Added · tap hour to remove"
           : cell.status === "taken"
             ? "Taken"
             : "Past";
@@ -925,31 +1206,49 @@ export function CourtBooking({
       <button
         key={cell.key}
         type="button"
-        disabled={cell.status !== "open"}
+        disabled={cell.status === "taken" || cell.status === "past"}
         aria-pressed={selected}
-        aria-label={`${formatHourRange(cell.startMinute)}, ${cell.courtName ?? "court"}, ${cell.status === "open" ? "available" : cell.status === "in-cart" ? "already added" : cell.status}${selected ? ", selected" : ""}`}
-        onClick={() => cell.slot && chooseSlot(cell.slot)}
+        aria-label={`${formatHourRange(cell.startMinute)}, ${cell.courtName ?? "court"}, ${
+          cell.status === "open"
+            ? "available, tap to add"
+            : cell.status === "in-cart"
+              ? active
+                ? "current range, tap to remove just this hour"
+                : "added, tap to remove just this hour; use the remove button to delete the whole range"
+              : cell.status
+        }`}
+        onClick={() => cell.slot && toggleSlot(cell.slot)}
         className={cn(
           "group flex min-h-[3.8rem] flex-col justify-between rounded-xl border px-2.5 py-2 text-left transition-colors duration-200",
-          selected
-            ? "border-brand-blue bg-brand-blue text-white shadow-glow"
-            : cell.status === "open"
-              ? "border-line bg-surface text-ink hover:-translate-y-0.5 hover:border-brand-blue/60 hover:bg-brand-blue-soft/50 hover:shadow-card"
-              : "cursor-not-allowed border-line/70 bg-page/65 text-muted/70",
+          active
+            ? "border-brand-blue bg-brand-blue text-white shadow-glow ring-2 ring-brand-blue/25"
+            : selected
+              ? "border-brand-blue/45 bg-brand-blue-soft text-brand-blue"
+              : cell.status === "open"
+                ? "border-line bg-surface text-ink hover:-translate-y-0.5 hover:border-brand-blue/60 hover:bg-brand-blue-soft/50 hover:shadow-card"
+                : "cursor-not-allowed border-line/70 bg-page/65 text-muted/70",
         )}
       >
         <span className="flex items-start justify-between gap-1">
           <span className="text-[0.72rem] font-bold leading-tight">
             {formatHourRange(cell.startMinute)}
           </span>
-          {selected ? (
+          {active ? (
             <CheckIcon className="size-3.5 shrink-0 text-white" />
+          ) : selected ? (
+            <CheckIcon className="size-3.5 shrink-0 text-brand-blue" />
           ) : null}
         </span>
         <span
           className={cn(
             "mt-1 block truncate text-[0.625rem]",
-            selected ? "text-white/80" : cell.status === "open" ? "text-muted" : "text-muted/60",
+            active
+              ? "text-white/80"
+              : selected
+                ? "text-brand-blue/80"
+                : cell.status === "open"
+                  ? "text-muted"
+                  : "text-muted/60",
           )}
         >
           {detail}
@@ -964,8 +1263,10 @@ export function CourtBooking({
         className={cn(
           "mx-auto w-full max-w-7xl px-5",
           embedded
-            ? "pb-8 pt-3 sm:px-7"
-            : "pb-28 pt-5 sm:px-8 sm:pt-7 lg:pb-16",
+            ? step === 0
+              ? "pb-32 pt-3 sm:px-7 lg:pb-8"
+              : "pb-8 pt-3 sm:px-7"
+            : "pb-32 pt-5 sm:px-8 sm:pt-7 lg:pb-16",
         )}
       >
         {embedded ? null : (
@@ -1273,8 +1574,12 @@ export function CourtBooking({
 
                     {embedded ? (
                       <p className="mt-2 text-sm leading-relaxed text-muted">
-                        Tap a start time, then tap an end time. The hours between
-                        fill in automatically. Grey times are already taken.
+                        Tap an open hour to add a court time, tap an adjacent
+                        hour to extend it, or tap a later open hour to fill the
+                        free hours in between. Tap an added hour to remove just
+                        that hour; × removes the whole range. Use Add court time
+                        for another date or a separate range. Grey times are
+                        already taken.
                       </p>
                     ) : null}
 
@@ -1402,46 +1707,15 @@ export function CourtBooking({
                           {hourCells.map(renderHourCell)}
                         </div>
                         <p className="mt-2 text-caption text-muted">
-                          Each block is one hour. Grey times are taken or
-                          already past.
+                          Each block is one hour. Solid blue is the court time
+                          you edited last; pale blue are your other added
+                          times. Tap an added hour to remove just that hour,
+                          tap an open hour beside a range to extend it, or tap
+                          a later open hour to fill everything in between when
+                          those hours are free. Use Add court time for a
+                          separate range; × in your court times list removes a
+                          whole range. Grey times are taken or already past.
                         </p>
-
-                        {hasSelectedRange &&
-                        selectedSlot &&
-                        selectedEndMinute ? (
-                          <div className="mt-3 flex flex-wrap items-center gap-3 rounded-xl border border-brand-blue/40 bg-brand-blue-soft/40 p-3">
-                            <div className="min-w-0 flex-1">
-                              <p className="text-sm font-bold text-heading">
-                                {formatHourRange(
-                                  selectedSlot.startMinute,
-                                  selectedEndMinute,
-                                )}
-                              </p>
-                              <p className="truncate text-caption text-muted">
-                                {selectedSlot.courtName} · {durationLabel} ·{" "}
-                                <span className="font-semibold text-ink">
-                                  {priceLabel}
-                                </span>
-                              </p>
-                            </div>
-                            <div className="flex shrink-0 items-center gap-1">
-                              <button
-                                type="button"
-                                onClick={() => setSelectedSlot(null)}
-                                className="min-h-9 rounded-lg px-2 text-sm font-semibold text-muted transition-colors hover:bg-surface hover:text-heading"
-                              >
-                                Clear
-                              </button>
-                              <Button
-                                type="button"
-                                size="md"
-                                onClick={() => addRange(effectiveHours)}
-                              >
-                                Add court time
-                              </Button>
-                            </div>
-                          </div>
-                        ) : null}
 
                         {notice ? (
                           <p
@@ -1449,7 +1723,40 @@ export function CourtBooking({
                             className="mt-2 text-caption text-muted"
                           >
                             {notice}
+                            {history.length > 0 ? (
+                              <>
+                                {" "}
+                                <button
+                                  type="button"
+                                  onClick={undoLastChange}
+                                  className="font-semibold text-accent-ink underline underline-offset-2 transition-colors hover:text-brand-blue"
+                                >
+                                  Undo
+                                </button>
+                              </>
+                            ) : null}
                           </p>
+                        ) : null}
+
+                        {blockedSlot ? (
+                          <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-brand-blue/40 bg-brand-blue-soft/50 px-3.5 py-3">
+                            <p className="text-caption text-ink">
+                              {formatHourRange(
+                                blockedSlot.slot.startMinute,
+                                blockedSlot.slot.startMinute + 60,
+                              )}{" "}
+                              on {formatDateId(blockedSlot.date)} is not part of
+                              your current court time.
+                            </p>
+                            <Button
+                              type="button"
+                              variant="secondary"
+                              className="shrink-0"
+                              onClick={addBlockedSlotSeparately}
+                            >
+                              Add it as a separate court time
+                            </Button>
+                          </div>
                         ) : null}
                       </div>
                     )}
@@ -1491,8 +1798,13 @@ export function CourtBooking({
                             className="flex items-center gap-2 py-2"
                           >
                             <div className="min-w-0 flex-1">
-                              <p className="truncate text-xs font-semibold text-heading">
+                              <p className="flex items-center gap-1.5 truncate text-xs font-semibold text-heading">
                                 {formatDateId(item.date)}
+                                {item.key === activeRangeKey ? (
+                                  <span className="rounded-full bg-brand-blue-soft px-1.5 py-0.5 text-[0.5625rem] font-bold uppercase tracking-[0.08em] text-brand-blue">
+                                    Current
+                                  </span>
+                                ) : null}
                               </p>
                               <p className="truncate text-[0.6875rem] text-muted">
                                 {formatHourRange(
@@ -1553,7 +1865,7 @@ export function CourtBooking({
                     priceNote={
                       cart.length > 0
                         ? "One reference and one GCash total cover every court time in this reservation."
-                        : "Tap a start, then an end. Add another date or review."
+                        : "Tap a time to add it, then tap an adjacent hour to extend it. Use Add court time for another date or range."
                     }
                   >
                     {cart.length > 0 ? (
@@ -1564,8 +1876,13 @@ export function CourtBooking({
                             className="flex items-center gap-2 py-2"
                           >
                             <div className="min-w-0 flex-1">
-                              <p className="truncate text-xs font-semibold text-heading">
+                              <p className="flex items-center gap-1.5 truncate text-xs font-semibold text-heading">
                                 {formatDateId(item.date)}
+                                {item.key === activeRangeKey ? (
+                                  <span className="rounded-full bg-brand-blue-soft px-1.5 py-0.5 text-[0.5625rem] font-bold uppercase tracking-[0.08em] text-brand-blue">
+                                    Current
+                                  </span>
+                                ) : null}
                               </p>
                               <p className="truncate text-[0.6875rem] text-muted">
                                 {formatHourRange(
@@ -1590,6 +1907,18 @@ export function CourtBooking({
                         ))}
                       </div>
                     ) : null}
+                    {cart.length > 0 ? (
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        size="lg"
+                        className="mb-2 w-full"
+                        onClick={addAnotherCourtTime}
+                      >
+                        <PlusIcon className="size-4" />
+                        Add court time
+                      </Button>
+                    ) : null}
                     <Button
                       type="button"
                       size="lg"
@@ -1608,9 +1937,7 @@ export function CourtBooking({
                         ? viewer
                           ? "No slot is held until you submit the review."
                           : "Sign-in is required after you build your reservation."
-                        : hasSelectedRange
-                          ? "Add this court time, or tap another hour to extend it."
-                          : "Tap a start time to begin."}
+                        : "Tap a time to add it. Use Add court time for another date or range."}
                     </p>
                   </BookingSummary>
 
@@ -1620,6 +1947,7 @@ export function CourtBooking({
                         "Open daily 7:00 AM – 12:00 AM. Holiday and maintenance closures are not yet published.",
                         "Cancellation cutoff: 24 hours before court time. Self-service changes are not available.",
                         "After you confirm, the slot is held for 15 minutes while payment is arranged.",
+                        "One unpaid court hold at a time. Submit proof for the current booking, or wait for its 15-minute hold to expire, before reserving another court.",
                       ]}
                       note="A test GCash QR is shown after booking. The club's official QR and receiving account name are still pending; payment is verified by staff."
                     />
@@ -1638,16 +1966,48 @@ export function CourtBooking({
                       title="Sign in to finish this booking"
                     >
                       <p>
-                        Availability and prices are shown first. Sign in to use
-                        the name, email, and mobile number on your account.
+                        Availability and prices are shown first. Your chosen
+                        court times stay saved while you sign in, and we use the
+                        name, email, and mobile number on your account.
                       </p>
-                      <Button
-                        type="button"
-                        className="mt-3"
-                        onClick={goToReview}
-                      >
-                        Sign in
-                      </Button>
+                      {cart.length > 0 ? (
+                        <ul className="mt-3 space-y-1.5 text-sm">
+                          {cart.map((item) => (
+                            <li
+                              key={item.key}
+                              className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5"
+                            >
+                              <span>
+                                {formatDateId(item.date)} ·{" "}
+                                {formatHourRange(
+                                  item.startMinute,
+                                  item.endMinute,
+                                )}{" "}
+                                · {item.courtName}
+                              </span>
+                              <span className="font-semibold">
+                                {formatPeso(item.amountPhp)}
+                              </span>
+                            </li>
+                          ))}
+                          <li className="flex justify-between gap-3 border-t border-line pt-1.5 font-semibold">
+                            <span>Total</span>
+                            <span>{formatPeso(cartTotal)}</span>
+                          </li>
+                        </ul>
+                      ) : null}
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        <Button type="button" onClick={goToReview}>
+                          Sign in
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          onClick={() => setStep(0)}
+                        >
+                          Change times
+                        </Button>
+                      </div>
                     </Alert>
                   ) : (
                     <>
@@ -1706,7 +2066,6 @@ export function CourtBooking({
                               className="mt-3"
                               onClick={() => {
                                 setStep(0);
-                                setSelectedSlot(null);
                                 setAvailabilityState("loading");
                                 setAvailabilityError(null);
                                 setRefreshKey((value) => value + 1);
@@ -1714,6 +2073,14 @@ export function CourtBooking({
                             >
                               Choose another time
                             </Button>
+                          ) : null}
+                          {bookingState.code === "active-hold" ? (
+                            <Link
+                              href="/account"
+                              className="mt-3 inline-flex min-h-10 items-center font-semibold text-accent-ink underline decoration-brand-blue/40 underline-offset-2 hover:text-brand-blue-strong"
+                            >
+                              View my current booking
+                            </Link>
                           ) : null}
                           {bookingState.errors.form ? (
                             <p className="mt-2">{bookingState.errors.form}</p>
@@ -1914,7 +2281,27 @@ export function CourtBooking({
                               <CheckIcon className="pointer-events-none absolute size-3.5 text-white opacity-0 transition-opacity peer-checked:opacity-100" />
                             </span>
                             <span>
-                              I agree to the booking, cancellation, and payment
+                              I agree to the{" "}
+                              <Link
+                                href="/policies/booking"
+                                className="font-semibold text-accent-ink underline decoration-brand-blue/40 underline-offset-2 hover:text-brand-blue-strong"
+                              >
+                                booking
+                              </Link>
+                              ,{" "}
+                              <Link
+                                href="/policies/booking#cancellation-and-rescheduling"
+                                className="font-semibold text-accent-ink underline decoration-brand-blue/40 underline-offset-2 hover:text-brand-blue-strong"
+                              >
+                                cancellation
+                              </Link>
+                              , and{" "}
+                              <Link
+                                href="/policies/payments"
+                                className="font-semibold text-accent-ink underline decoration-brand-blue/40 underline-offset-2 hover:text-brand-blue-strong"
+                              >
+                                payment
+                              </Link>{" "}
                               terms, and I understand that the slot is only held
                               for 15 minutes.
                             </span>
@@ -2033,11 +2420,22 @@ export function CourtBooking({
               <p className="truncate text-sm font-semibold text-heading">
                 {cart.length > 0
                   ? `${new Set(cart.map((item) => item.date)).size} ${new Set(cart.map((item) => item.date)).size === 1 ? "date" : "dates"} selected`
-                  : hasSelectedRange
-                    ? `${selectedDateLabel} · tap another hour to extend`
-                    : "Choose a start time"}
+                  : "Tap a time to add court time"}
               </p>
             </div>
+            {cart.length > 0 ? (
+              <Button
+                type="button"
+                variant="secondary"
+                size="md"
+                className="shrink-0 px-3"
+                onClick={addAnotherCourtTime}
+                aria-label="Add another court date or time"
+              >
+                <PlusIcon className="size-4" />
+                Add time
+              </Button>
+            ) : null}
             <Button
               type="button"
               onClick={goToReview}

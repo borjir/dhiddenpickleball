@@ -61,7 +61,7 @@ export default function ClubPage() {
     <PublicPage>
       <PageHeader
         eyebrow="The club"
-        title="A two-court club in Balamban."
+        title="A two-court club in Pondol, Balamban, Cebu."
         intro="D-Hidden Pickleball Court & Bistro is a two-court pickleball club in Bung-aw, Pondol, Balamban, Cebu. The courts are open every day, and court time is booked by the hour."
       >
         <Link

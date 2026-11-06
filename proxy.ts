@@ -2,7 +2,15 @@ import type { NextRequest } from "next/server";
 import { updateSession } from "@/lib/supabase/proxy";
 
 export async function proxy(request: NextRequest) {
-  return updateSession(request);
+  const pathname = request.nextUrl.pathname;
+  const isStaffRoute = pathname === "/staff" || pathname.startsWith("/staff/");
+  const isAccountRoute =
+    pathname === "/account" || pathname.startsWith("/account/");
+
+  return updateSession(request, {
+    requireStaff: isStaffRoute,
+    redirectStaffToDashboard: isAccountRoute,
+  });
 }
 
 export const config = {

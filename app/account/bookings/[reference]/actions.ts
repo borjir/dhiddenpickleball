@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import { enqueueBookingEmail } from "@/lib/email/events";
 import { createClient } from "@/lib/supabase/server";
 
 const proofSubmissionSchema = z.object({
@@ -9,6 +10,7 @@ const proofSubmissionSchema = z.object({
   reference: z.string().trim().min(1).max(40),
   proofPath: z.string().trim().min(1).max(400),
   transactionReference: z.string().trim().max(120).optional().default(""),
+  proofConfirmed: z.boolean().optional().default(false),
 });
 
 const groupProofSubmissionSchema = z.object({
@@ -16,6 +18,7 @@ const groupProofSubmissionSchema = z.object({
   reference: z.string().trim().min(1).max(40),
   proofPath: z.string().trim().min(1).max(400),
   transactionReference: z.string().trim().max(120).optional().default(""),
+  proofConfirmed: z.boolean().optional().default(false),
 });
 
 export type PaymentProofResult =
@@ -31,6 +34,7 @@ export async function registerPaymentProof(input: {
   reference: string;
   proofPath: string;
   transactionReference?: string;
+  proofConfirmed?: boolean;
 }): Promise<PaymentProofResult> {
   const parsed = proofSubmissionSchema.safeParse(input);
 
@@ -39,6 +43,15 @@ export async function registerPaymentProof(input: {
       status: "error",
       code: "invalid",
       message: "Check the proof file and booking reference, then try again.",
+    };
+  }
+
+  if (!parsed.data.proofConfirmed) {
+    return {
+      status: "error",
+      code: "invalid",
+      message:
+        "Confirm that the screenshot is a genuine, unaltered record of your completed GCash transfer before submitting.",
     };
   }
 
@@ -115,6 +128,10 @@ export async function registerPaymentProof(input: {
     };
   }
 
+  await enqueueBookingEmail(supabase, "payment_proof_received", {
+    bookingId: parsed.data.bookingId,
+  });
+
   revalidatePath(`/account/bookings/${booking.reference}`);
   revalidatePath("/account");
 
@@ -130,6 +147,7 @@ export async function registerGroupPaymentProof(input: {
   reference: string;
   proofPath: string;
   transactionReference?: string;
+  proofConfirmed?: boolean;
 }): Promise<PaymentProofResult> {
   const parsed = groupProofSubmissionSchema.safeParse(input);
 
@@ -138,6 +156,15 @@ export async function registerGroupPaymentProof(input: {
       status: "error",
       code: "invalid",
       message: "Check the proof file and booking reference, then try again.",
+    };
+  }
+
+  if (!parsed.data.proofConfirmed) {
+    return {
+      status: "error",
+      code: "invalid",
+      message:
+        "Confirm that the screenshot is a genuine, unaltered record of your completed GCash transfer before submitting.",
     };
   }
 
@@ -216,6 +243,10 @@ export async function registerGroupPaymentProof(input: {
         "The proof could not be recorded. Try again, or contact the club with your booking reference.",
     };
   }
+
+  await enqueueBookingEmail(supabase, "payment_proof_received", {
+    groupId: parsed.data.groupId,
+  });
 
   revalidatePath(`/account/bookings/group/${group.reference}`);
   revalidatePath("/account");

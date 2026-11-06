@@ -13,11 +13,13 @@ import { Button } from "@/components/ui/button";
 import { Field, Input } from "@/components/ui/field";
 import { createClient } from "@/lib/supabase/client";
 
-const MAX_BYTES = 5 * 1024 * 1024;
+const MAX_SOURCE_BYTES = 5 * 1024 * 1024;
+const MAX_UPLOAD_BYTES = 2 * 1024 * 1024;
+const MAX_IMAGE_EDGE = 2000;
+const MIN_IMAGE_EDGE = 720;
 
 const MIME_EXTENSIONS: Record<string, string> = {
   "image/jpeg": "jpg",
-  "image/jpg": "jpg",
   "image/png": "png",
   "image/webp": "webp",
   "image/heic": "heic",
@@ -38,8 +40,10 @@ type FormState =
   | PaymentProofResult;
 
 function proofFileType(file: File) {
-  if (MIME_EXTENSIONS[file.type]) {
-    return { extension: MIME_EXTENSIONS[file.type], contentType: file.type };
+  const mime = file.type === "image/jpg" ? "image/jpeg" : file.type;
+
+  if (MIME_EXTENSIONS[mime]) {
+    return { extension: MIME_EXTENSIONS[mime], contentType: mime };
   }
 
   const extension = file.name.split(".").pop()?.toLowerCase() ?? "";
@@ -50,6 +54,96 @@ function proofFileType(file: File) {
 
 function formatFileSize(bytes: number) {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function canvasToBlob(
+  canvas: HTMLCanvasElement,
+  type: string,
+  quality: number,
+) {
+  return new Promise<Blob | null>((resolve) => {
+    canvas.toBlob(resolve, type, quality);
+  });
+}
+
+type PreparedProof = {
+  file: Blob;
+  extension: string;
+  contentType: string;
+};
+
+/**
+ * Shrink the screenshot before it reaches Storage. The stored proof only needs
+ * to be readable enough to check the amount, reference, and recipient; keeping
+ * full-resolution phone screenshots wastes the free-plan storage allowance.
+ */
+async function compressProofImage(file: File): Promise<PreparedProof | null> {
+  let bitmap: ImageBitmap;
+
+  try {
+    bitmap = await createImageBitmap(file);
+  } catch {
+    return null;
+  }
+
+  try {
+    let width = Math.max(
+      1,
+      Math.round(
+        bitmap.width *
+          Math.min(1, MAX_IMAGE_EDGE / Math.max(bitmap.width, bitmap.height)),
+      ),
+    );
+    let height = Math.max(
+      1,
+      Math.round(
+        bitmap.height *
+          Math.min(1, MAX_IMAGE_EDGE / Math.max(bitmap.width, bitmap.height)),
+      ),
+    );
+    let quality = 0.88;
+
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      const canvas = document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = height;
+
+      const context = canvas.getContext("2d");
+      if (!context) return null;
+
+      context.imageSmoothingEnabled = true;
+      context.imageSmoothingQuality = "high";
+      context.drawImage(bitmap, 0, 0, width, height);
+
+      const blob =
+        (await canvasToBlob(canvas, "image/webp", quality)) ??
+        (await canvasToBlob(canvas, "image/jpeg", quality));
+
+      if (blob && blob.size > 0 && blob.size <= MAX_UPLOAD_BYTES) {
+        const contentType = blob.type === "image/jpg" ? "image/jpeg" : blob.type;
+        const extension = MIME_EXTENSIONS[contentType];
+
+        if (extension) {
+          return { file: blob, extension, contentType };
+        }
+      }
+
+      const nextWidth = Math.round(width * 0.8);
+      const nextHeight = Math.round(height * 0.8);
+
+      if (nextWidth < MIN_IMAGE_EDGE || nextHeight < MIN_IMAGE_EDGE) {
+        break;
+      }
+
+      width = nextWidth;
+      height = nextHeight;
+      quality = Math.max(0.6, quality - 0.06);
+    }
+
+    return null;
+  } finally {
+    bitmap.close();
+  }
 }
 
 export function PaymentProofForm({
@@ -70,6 +164,7 @@ export function PaymentProofForm({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
   const [transactionReference, setTransactionReference] = useState("");
+  const [proofConfirmed, setProofConfirmed] = useState(false);
   const [state, setState] = useState<FormState>({ status: "idle" });
   const [pending, setPending] = useState(false);
 
@@ -100,7 +195,7 @@ export function PaymentProofForm({
       return;
     }
 
-    if (file.size > MAX_BYTES) {
+    if (file.size > MAX_SOURCE_BYTES) {
       setState({
         status: "error",
         code: "invalid",
@@ -129,6 +224,16 @@ export function PaymentProofForm({
       return;
     }
 
+    if (!proofConfirmed) {
+      setState({
+        status: "error",
+        code: "invalid",
+        message:
+          "Confirm that the screenshot is a genuine, unaltered record of your completed GCash transfer before submitting.",
+      });
+      return;
+    }
+
     setPending(true);
     setState({ status: "idle" });
 
@@ -148,12 +253,39 @@ export function PaymentProofForm({
       return;
     }
 
-    const proofPath = `${user.id}/${proofOwnerId}/${crypto.randomUUID()}.${fileType.extension}`;
+    let prepared: PreparedProof | null = null;
+
+    try {
+      prepared = await compressProofImage(file);
+    } catch {
+      prepared = null;
+    }
+
+    if (!prepared && file.size <= MAX_UPLOAD_BYTES) {
+      prepared = {
+        file,
+        extension: fileType.extension,
+        contentType: fileType.contentType,
+      };
+    }
+
+    if (!prepared) {
+      setPending(false);
+      setState({
+        status: "error",
+        code: "invalid",
+        message:
+          "We could not shrink this screenshot below 2 MB. Take a fresh screenshot or choose a smaller JPEG or PNG.",
+      });
+      return;
+    }
+
+    const proofPath = `${user.id}/${proofOwnerId}/${crypto.randomUUID()}.${prepared.extension}`;
 
     const { error: uploadError } = await supabase.storage
       .from("payment-proofs")
-      .upload(proofPath, file, {
-        contentType: fileType.contentType,
+      .upload(proofPath, prepared.file, {
+        contentType: prepared.contentType,
         upsert: false,
       });
 
@@ -173,12 +305,14 @@ export function PaymentProofForm({
           reference,
           proofPath,
           transactionReference,
+          proofConfirmed,
         })
       : await registerPaymentProof({
           bookingId: proofOwnerId,
           reference,
           proofPath,
           transactionReference,
+          proofConfirmed,
         });
 
     if (result.status === "error") {
@@ -191,6 +325,7 @@ export function PaymentProofForm({
     setPending(false);
     setFile(null);
     setTransactionReference("");
+    setProofConfirmed(false);
     if (fileInputRef.current) fileInputRef.current.value = "";
     setState(result);
 
@@ -267,7 +402,7 @@ export function PaymentProofForm({
           id="payment-proof-file"
           label="GCash screenshot"
           required
-          hint="JPEG, PNG, WebP, HEIC, or HEIF. Maximum 5 MB."
+          hint="JPEG, PNG, WebP, HEIC, or HEIF. Up to 5 MB; compressed before upload."
         >
           <input
             ref={fileInputRef}
@@ -305,12 +440,47 @@ export function PaymentProofForm({
           />
         </Field>
 
+        <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-line bg-page/50 p-4 text-sm leading-relaxed text-ink/80 transition-colors hover:border-line-strong">
+          <span className="relative mt-0.5 grid size-5 shrink-0 place-items-center">
+            <input
+              type="checkbox"
+              checked={proofConfirmed}
+              onChange={(event) => setProofConfirmed(event.target.checked)}
+              required
+              className="peer size-5 appearance-none rounded-md border border-line-strong bg-surface transition-colors checked:border-brand-blue checked:bg-brand-blue focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-blue"
+            />
+            <span
+              aria-hidden="true"
+              className="pointer-events-none absolute text-sm font-bold text-white opacity-0 transition-opacity peer-checked:opacity-100"
+            >
+              ✓
+            </span>
+          </span>
+          <span>
+            I confirm that this is a genuine, unaltered screenshot of my
+            completed GCash transfer for this booking. I understand that staff
+            will verify the actual transfer and that false or altered proof may
+            result in cancellation. See the{" "}
+            <Link
+              href="/policies/payments#payment-safety"
+              className="font-semibold text-accent-ink underline decoration-brand-blue/40 underline-offset-2 hover:text-brand-blue-strong"
+            >
+              payment policy
+            </Link>
+            .
+          </span>
+        </label>
+
         <div className="flex flex-col gap-3 border-t border-line pt-4 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-caption leading-relaxed text-muted">
             Staff verify the actual incoming transfer before the payment is
             marked paid.
           </p>
-          <Button type="submit" loading={pending} disabled={pending || !file}>
+          <Button
+            type="submit"
+            loading={pending}
+            disabled={pending || !file || !proofConfirmed}
+          >
             {pending ? "Submitting proof" : "Submit proof"}
           </Button>
           </div>

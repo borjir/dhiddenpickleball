@@ -128,6 +128,12 @@ export function BookingGroupConfirmation({
         )}
       </Alert>
 
+      <p className="text-caption leading-relaxed text-muted">
+        A confirmation email is sent to your account address. If it does not
+        arrive, this page and your account booking history remain the source of
+        truth; no email is required to keep the reservation.
+      </p>
+
       <section className="overflow-hidden rounded-2xl border border-line bg-surface shadow-card">
         <div className="relative overflow-hidden bg-brand-navy px-5 py-7 text-white sm:px-7">
           <div

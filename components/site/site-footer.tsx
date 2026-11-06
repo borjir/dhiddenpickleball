@@ -17,7 +17,7 @@ export function SiteFooter() {
             <p className="mt-4 max-w-sm font-display text-xl font-bold leading-tight text-heading">
               Two courts. Open daily.
               <br />
-              Bung-aw, Balamban.
+              {CLUB.addressLine}
             </p>
             <p className="mt-3 max-w-sm text-sm leading-relaxed text-muted">
               Court reservations and level-based open play with clear prices,

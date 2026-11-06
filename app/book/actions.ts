@@ -1,6 +1,7 @@
 "use server";
 
 import { z } from "zod";
+import { enqueueBookingEmail } from "@/lib/email/events";
 import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 import { profileSchema } from "@/lib/validation/profile";
@@ -97,6 +98,7 @@ export type BookingFormState = {
   status: "idle" | "error" | "success";
   code?:
     | "slot-taken"
+    | "active-hold"
     | "email-unverified"
     | "profile-error"
     | "session-expired";
@@ -457,6 +459,19 @@ export async function createBooking(
       };
     }
 
+    if (
+      error.code === "55000" &&
+      error.message.includes("already have a court booking")
+    ) {
+      return {
+        status: "error",
+        code: "active-hold",
+        message: error.message,
+        errors: {},
+        values,
+      };
+    }
+
     if (error.code === "22023" || error.code === "55000") {
       return {
         status: "error",
@@ -492,6 +507,10 @@ export async function createBooking(
     .select("name")
     .eq("id", slot.data.courtId)
     .maybeSingle();
+
+  await enqueueBookingEmail(supabase, "court_booking_received", {
+    bookingId: row.id,
+  });
 
   return {
     status: "success",
@@ -673,6 +692,19 @@ export async function createBookingGroup(
       };
     }
 
+    if (
+      error.code === "55000" &&
+      error.message.includes("already have a court booking")
+    ) {
+      return {
+        status: "error",
+        code: "active-hold",
+        message: error.message,
+        errors: {},
+        values,
+      };
+    }
+
     if (error.code === "22023" || error.code === "55000") {
       return {
         status: "error",
@@ -702,6 +734,10 @@ export async function createBookingGroup(
       values,
     };
   }
+
+  await enqueueBookingEmail(supabase, "court_booking_received", {
+    groupId: result.group.id,
+  });
 
   return {
     status: "success",

@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import { enqueueBookingEmail } from "@/lib/email/events";
 import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 import {
@@ -324,6 +325,10 @@ export async function registerForOpenPlay(input: {
         "The reservation was not returned. Refresh your account before trying again.",
     };
   }
+
+  await enqueueBookingEmail(supabase, "open_play_reserved", {
+    bookingId: row.id,
+  });
 
   revalidatePath("/open-play");
   revalidatePath(`/open-play/${parsed.data.sessionId}`);

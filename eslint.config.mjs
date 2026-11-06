@@ -12,6 +12,10 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Local browser-profile artifacts used by design/QA checks.
+    ".tmp-ui/**",
+    // Generated from node_modules by scripts/sync-maplibre-worker.mjs.
+    "public/vendor/**",
   ]),
 ]);
 

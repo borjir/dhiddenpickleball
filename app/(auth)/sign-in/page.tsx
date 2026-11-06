@@ -9,16 +9,16 @@ import { isSupabaseConfigured } from "@/lib/supabase/env";
 export const metadata: Metadata = {
   title: "Sign in",
   description:
-    "Sign in to D-Hidden Pickleball Court & Bistro to manage court reservations and payment status.",
+    "Sign in to D-Hidden Pickleball Court & Bistro to manage reservations or open the staff operations desk.",
   robots: { index: false, follow: false },
 };
 
 export default function SignInPage() {
   return (
     <AuthShell
-      eyebrow="Player access"
+      eyebrow="Account access"
       title="Welcome back"
-      description="Sign in to manage your court reservations and payment status."
+      description="Sign in to manage your court reservations or open the staff operations desk."
       footer={
         <p>
           New here?{" "}

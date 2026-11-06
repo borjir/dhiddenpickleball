@@ -5,6 +5,7 @@
  */
 export const CLUB = {
   addressLine: "Bung-aw, Pondol, Balamban, Cebu",
+  addressShort: "Pondol, Balamban, Cebu",
   addressFull: "Bung-aw, Pondol, Balamban, Cebu, Philippines",
   coordinates: "10°30'05.5\"N 123°42'58.2\"E",
   latitude: 10.5015278,

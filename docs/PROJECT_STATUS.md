@@ -1,12 +1,362 @@
 # Project Status
 
-**Last updated:** 6 November 2026
+**Last updated:** 7 November 2026
 **Blueprint:** `docs/PRODUCT_BLUEPRINT.md` (v2.5)
-**Current phase:** Phase 7 court-reservation and normal open-play slice implemented — live court availability, booking creation, confirmation, account history, a labelled test GCash QR with a download link, and open-play sessions with player registration. A multi-date court cart now creates one grouped reservation with one reference, total, 15-minute hold, and GCash proof. Court booking and open-play registration open in overlays launched from the page (the site header, homepage CTAs, courts pages, and open-play session rows), with `/book` and `/open-play/[id]` kept as direct-link fallbacks. Open play uses the owner's 6 November defaults: ₱75 per player, Saturdays, beginner/intermediate/advanced, 12 places. Private GCash screenshot upload is added as an early Phase 8 slice; staff review and staff management screens are not built. A signed-in player booking, grouped booking, open-play registration, and upload check is still the remaining verification.
+**Current phase:** Phase 10 QA, security, and pre-launch review is complete for the available local/staging scope; see `docs/PHASE_10_QA.md`. The production build, typecheck, lint, audit, RLS boundaries, booking/capacity constraints, public/auth pages, and authenticated player/staff routing passed. Public launch remains blocked by real player email (unverified Resend domain), the public site URL, the reminder scheduler, the official GCash QR, client acceptance/staff training, and backup/monitoring arrangements. Phase 11 has not been started.
+
 **Phase 3:** Implemented as a design preview with real assets and real rates; three booking rules remain unanswered. Not production-approved.
 **Phase 4:** Core schema, RLS, auth screens, and roles are live on project `ybgcktpyntpcragegwec`. Email/password sign-up, confirmation, sign-in, and Google sign-in are confirmed working. Anonymous access probes match the applied migration; overlapping-booking rejection and password recovery are deferred runtime checks.
 **Phase 5:** The public site now covers the homepage, both courts, the visit/location page, club information, rules, FAQ, and the booking, payment, privacy, and terms policies. The public copy was approved on 5 November 2026, and `Asia/Manila`/PHP were confirmed. At Phase 5 close, open play had no schedule, price, capacity, or levels, so it was omitted; Phase 7 now supplies the owner defaults. Public booking actions lead to `/book`; the Phase 3 preview remains an internal reference route only.
 **Phase 6:** Account profile editing is limited to full name and mobile; booking history and detail read the real `bookings` and `court_reservations` tables, with empty, error, and session-expiry states. Self-service cancel/reschedule remains unavailable per `D-13`. No staff tools or sample reservations were added. Phase 7 now supplies real bookings to this history.
+
+## Storage budget (7 November 2026)
+
+Supabase's Free plan measures database size and file storage separately: **500 MB
+of Postgres database per project** and **1 GB of Storage**, plus 5 GB of egress.
+Public assets in `public/` and the QR image are served by the web host, not from
+Supabase Storage.
+
+The only files this application writes to Supabase Storage are private GCash
+payment proofs. Proof uploads are now resized to a maximum 2,000 px edge and
+converted to WebP (or JPEG when WebP encoding is unavailable) in the browser
+before upload. The form accepts a source image up to 5 MB, but the resulting
+object is capped at 2 MB and normally lands far below that. The bucket limit is
+reduced from 5 MB to 2 MB by
+`supabase/migrations/20261107000100_payment_proof_storage_limit.sql` and applied
+to the production project on 7 November 2026.
+
+No image, base64 payload, or file blob is stored in Postgres. Booking, payment,
+audit, and open-play rows remain small text/numeric records, so the immediate
+free-plan risk is Storage egress and proof volume rather than database size.
+Existing proof objects larger than 2 MB are left untouched; the new ceiling
+applies to new uploads only.
+
+## Phase 10 — QA, security, and pre-launch review (7 November 2026)
+
+Authorized 7 November 2026. Scope was verification and hardening only; no
+Phase 11 or deferred coaching/DUPR work was added. Full results are in
+`docs/PHASE_10_QA.md`.
+
+### Passed
+
+- `npx tsc --noEmit`, `npx eslint . --max-warnings=0`, `npm run build`
+  (47 routes), and `npm audit --omit=dev` (0 vulnerabilities).
+- Production headers: `X-Content-Type-Options`, `X-Frame-Options`,
+  `Referrer-Policy`, and `Permissions-Policy`; `X-Powered-By` removed.
+- RLS and storage isolation: player A saw 4 bookings/4 payments, player B saw
+  2/2, staff saw 20/9; anonymous booking reads, player outbox reads, player
+  self-promotion, cross-profile updates, and player staff RPCs were denied.
+- Booking overlap and open-play capacity were rejected inside rolled-back
+  transactions (`23P01`); no test record persisted.
+- Player `/staff` redirects to the account page; staff `/account` redirects
+  to `/staff`. All staff pages rendered at 1440 and 390 px with no overflow or
+  console errors.
+- 36 public/auth production views at 390–1440 px had one `h1`, no horizontal
+  overflow, labelled inputs, and no real broken images. Map canvas, marker,
+  popup, and attribution rendered without errors.
+- Basic throttled mobile homepage measurement: LCP 1,084 ms, CLS 0, 23
+  resources. This is a local lab observation, not field data.
+
+### Fixed
+
+- Added baseline security headers and disabled `X-Powered-By` in
+  `next.config.ts`.
+- Ignored `.tmp-ui/**` and generated `public/vendor/**` in
+  `eslint.config.mjs`, so lint no longer hangs on QA artifacts.
+
+### Blocked or not run
+
+- Real player email, email logo/links, and password-recovery delivery remain
+  blocked by the unverified Resend domain and private `NEXT_PUBLIC_SITE_URL`.
+- The 24-hour reminder/retry scheduler is not configured.
+- The official GCash QR/account name is still the test asset.
+- Destructive staff writes, full keyboard/focus, WCAG, cross-browser, and
+  real-device checks were not run; the project has no automated test suite.
+- Backups, restore, uptime, and error monitoring were not verified.
+- Production still contains QA accounts and test bookings; decide whether to
+  retain them as demo data or purge before launch.
+
+### Launch-gated work
+
+1. Verify a sending domain, set `EMAIL_FROM`/`EMAIL_REPLY_TO`, and send a real
+   player email.
+2. Set the public HTTPS `NEXT_PUBLIC_SITE_URL`.
+3. Configure `EMAIL_CRON_SECRET` and schedule `/api/cron/email` every 15
+   minutes.
+4. Install the official payment QR and confirmed account details.
+5. Obtain client acceptance and train staff.
+6. Confirm backups, restore, monitoring, and deployment hardening.
+
+Phase 11 has not been started.
+
+## Post-Phase 10 booking-flow follow-up (7 November 2026)
+
+Implemented after the Phase 10 QA pass at the owner's request. This is a
+corrective UX and booking-policy change, not a new phase.
+
+- **Location copy:** the full address is now "Bung-aw, Pondol, Balamban,
+  Cebu". Pages and metadata that showed only "Balamban" now use "Pondol,
+  Balamban, Cebu"; the short footer/auth address uses the full line.
+- **One active unpaid hold:** a player with a pending, unpaid court booking
+  and an unexpired 15-minute hold cannot create another court booking.
+  Submitting proof (booking moves to confirmed/awaiting verification) or
+  letting the hold expire allows the next booking. Staff walk-ins are exempt.
+  The guard is in `supabase/migrations/20261107000400_player_single_active_hold.sql`
+  and is applied to production. Group bookings still create all ranges under
+  one hold through the internal function.
+- **Court-time picker:** tapping an open hour adds a court time immediately
+  and enables Review booking. Tapping an hour adjacent to any existing range
+  extends that range, so ranges can keep growing after later picks too. Tapping
+  an already added hour removes just that hour, splitting the range when the
+  hour is in the middle; × in the court-times list still removes a whole range.
+  Add court time returns the user to the date picker and makes the next pick a
+  separate range, so another time on the same date does not extend or follow
+  the previous range. A non-adjacent pick on the same court and date fills the
+  free hours in between into the same range (4 PM then 10 PM becomes 4 PM–
+  11 PM); when an hour in between is taken the pick is refused and the picker
+  offers a one-click "Add it as a separate court time" action next to the grid.
+  The last-edited range is solid blue and other added ranges are pale blue.
+  Every add, trim, extension, and removal records a cart snapshot, and an
+  **Undo** link next to the picker notice restores the previous court times in
+  one click.
+- **Selection survives sign-in:** Review booking while signed out saves the
+  chosen court times in `localStorage` under `dhidden-booking-cart` for two
+  hours, so they survive the sign-in page, a new tab from an email link, and a
+  closed overlay. Returning to a booking surface restores them with a "We kept
+  the court times you picked earlier" notice; the `?resume=cart` return path
+  opens Review directly, and that step now lists the saved times and total for
+  signed-out players with a Change times button. A successful booking clears
+  the saved copy.
+- **Proof authenticity:** the GCash proof form now requires a confirmation
+  that the screenshot is genuine and unaltered. The server action rejects a
+  submission without that confirmation. The booking and group detail pages
+  link to the payment policy.
+- **Policy links:** the booking terms now link the words booking,
+  cancellation, and payment to the relevant policy sections.
+
+Checks: `npx tsc --noEmit`, `npx eslint . --max-warnings=0`, and `npm run
+build` passed. The database guard was tested in rolled-back transactions:
+a second unpaid booking was rejected, an expired hold and a submitted-proof
+booking were allowed, a two-range group succeeded, and staff booking was
+exempt. Browser checks confirmed auto-add, ranges extending from any adjacent
+pick, single-hour trimming that splits a range, separate ranges after Add
+court time, ×-removal of a whole range, and the refused out-of-range pick
+with its one-click separate-range action, bridging 4 PM to 10 PM into a
+single range, per-hour trimming, the Undo link restoring both a trim and a
+whole-range removal, and the sign-in handoff restoring a signed-out
+selection into Review with its times and total, then back to the picker via
+Change times; the full location wording also rendered with no console errors.
+
+## Phase 9 — Notifications, emails, and customer trust (7 November 2026)
+
+Authorized 7 November 2026, after the owner confirmed the Phase 8 live staff pass.
+Scope is email-only transactional messaging. SMS, marketing automation, waitlist
+promotion, coaching, and DUPR are not included.
+
+### Implemented
+
+- **Database-backed outbox:** `email_outbox` records each event, its audience,
+  booking/group/session target, a unique dedupe key, attempts, availability,
+  provider message id, and delivery status. Rows are inserted by a security-definer
+  function after the related database change; the browser cannot write the table.
+- **Player messages:** booking received (court and grouped reservations),
+  open-play place reserved, proof received, payment verified, proof rejected,
+  booking cancelled, open-play details changed, and a 24-hour reminder.
+- **Staff messages:** new booking, payment proof waiting, booking cancelled, and
+  open-play session reaching capacity. Staff recipients come from
+  `STAFF_NOTIFICATION_EMAILS`, not from a database role scan.
+- **Branded templates:** the approved logo-derived icon, club name, navy/cream
+  palette, address, phone, email, booking reference, service, date/time in
+  `Asia/Manila`, amount due or paid, payment status, cancellation/rejection
+  notes, policy guidance, and a direct account/staff link. Both HTML and plain
+  text versions are sent.
+- **Provider adapter:** server-only Resend HTTP integration with a verified
+  `EMAIL_FROM`, `EMAIL_REPLY_TO`, and the outbox dedupe key sent as the
+  `Idempotency-Key` header.
+- **Safe processing:** an authenticated server action enqueues the event and
+  schedules delivery with Next.js `after()`. A protected
+  `GET /api/cron/email` route claims queued rows with `FOR UPDATE SKIP LOCKED`,
+  sends a batch, records the result, retries failed sends up to five times with
+  spacing, and queues 24-hour reminders. If the provider is not configured,
+  rows stay queued rather than being lost or claimed.
+- **UI fallback:** booking and open-play confirmations now say that the page and
+  account history remain the source of truth if an email does not arrive.
+
+### Files
+
+- `supabase/migrations/20261107000200_phase9_email_outbox.sql` — outbox, event
+  enqueueing, capacity alert, reminder queue, claim, and completion functions.
+- `supabase/migrations/20261107000300_phase9_service_role_reads.sql` — grants the
+  server-only service role read access to the booking tables used by the email
+  processor. Without these grants, queued rows were marked skipped with
+  “Reservation data is no longer available.”
+- `lib/email/types.ts`, `config.ts`, `provider.ts`, `templates.ts`, `process.ts`,
+  and `events.ts` — shared types, configuration, Resend adapter, templates,
+  outbox processor, and action helper.
+- `lib/supabase/admin.ts` — server-only service-role client for outbox processing.
+- `app/api/cron/email/route.ts` — protected reminder/outbox endpoint.
+- `app/book/actions.ts`, `app/open-play/actions.ts`,
+  `app/account/bookings/[reference]/actions.ts`, and `app/staff/actions.ts` —
+  event enqueueing after successful booking, proof, payment, cancellation, and
+  open-play changes.
+- `components/booking/booking-group-confirmation.tsx` and
+  `components/open-play/open-play-registration.tsx` — email fallback copy.
+- `.env.example` — provider, sender, staff recipient, service-role, site URL, and
+  cron secret placeholders.
+
+### Checks
+
+| Check | Result |
+| --- | --- |
+| `npx tsc --noEmit` | Passed, no output |
+| Scoped `npx eslint` on the email modules, route, actions, and fallback components | Passed, no output |
+| `npm run build` | Passed; 47 routes, including the protected `/api/cron/email` handler |
+| Phase 9 migrations | Applied to production project `ybgcktpyntpcragegwec`, including the service-role read grants |
+| Real provider delivery | **Partial** — with `EMAIL_FROM` set to `D-Hidden Pickleball <onboarding@resend.dev>`, two staff messages for test booking `HG-8CFE694F` were received at the Resend account owner (`dhiddenpickleball@gmail.com`). The two player messages remain queued because the sandbox only delivers to that owner, not `joeljexanzjay@gmail.com`. |
+| Reminder scheduler | **Not configured** — needs a platform cron or external scheduler with `EMAIL_CRON_SECRET` |
+| SMS, waitlist promotion, marketing automation | Not built; waitlists do not exist yet |
+
+### Required external setup
+
+1. Create a Resend account, verify the club's sender domain, and set
+   `RESEND_API_KEY`, `EMAIL_FROM`, and `EMAIL_REPLY_TO` in the deployment
+   environment. The API key and service-role key must never use a
+   `NEXT_PUBLIC_*` prefix. For local testing before a domain is verified, use
+   `EMAIL_FROM="D-Hidden Pickleball <onboarding@resend.dev>"` and send only to
+   the Resend account owner's address.
+2. Set `SUPABASE_SERVICE_ROLE_KEY` server-side so the outbox processor can claim
+   rows; set `NEXT_PUBLIC_SITE_URL` to the real site origin for email links.
+3. Set `STAFF_NOTIFICATION_EMAILS` to a comma-separated internal list.
+4. Set `EMAIL_CRON_SECRET` and schedule a request to `/api/cron/email` every
+   15 minutes with `Authorization: Bearer <secret>`. The route queues reminders
+   and retries failed rows.
+5. Send one test booking to a real inbox, then verify the sender name, logo,
+   links, timezone, amount, and reference before launch.
+
+### Phase 9 limitations
+
+1. Staff test messages are confirmed received by the Resend account owner, but
+   player delivery is not yet confirmed. The current `resend.dev` sandbox sender
+   can only deliver to that owner; real player recipients require a verified
+   sending domain. The owner deferred the domain purchase on 7 November, so
+   real-recipient delivery remains a launch blocker rather than a Phase 9 code
+   task.
+2. The 24-hour reminder interval is an implementation choice; the client can
+   change it before launch.
+3. Resend is the configured provider. Changing providers requires editing the
+   server adapter, not the booking actions or templates.
+4. Email images and links use `NEXT_PUBLIC_SITE_URL`. While it is
+   `http://localhost:3000`, Gmail cannot load the logo and recipients cannot open
+   the booking/staff links. A public deployment or tunnel is required for those
+   to work; a custom sending domain does not fix localhost links by itself.
+5. There is no SMS, marketing automation, delivery webhook, or waitlist
+   promotion. The outbox records send attempts, not provider-level opens or
+   bounces.
+6. The official GCash QR/account name is still pending, so payment messages use
+   the existing test-payment wording and link to the booking page rather than
+   embedding a QR image.
+
+## Phase 8 — Staff operations desk (6 November 2026)
+
+Authorized 6 November 2026. Scope was limited to the staff dashboard, daily
+operations, bookings and payments, open play, court blocks, and reports. Coaching
+and DUPR were not added.
+
+### Implemented
+
+- **Focused staff shell:** a navy desktop rail and compact mobile menu, a clear
+  page title and date, and no generic admin-template sidebar. Screen readers get
+  a skip link, the current section is marked, and staff pages are always dynamic.
+- **Today dashboard:** today's KPIs, an hour-by-hour court and open-play
+  timeline, and a short attention queue for payments and expiring holds. The
+  dashboard links directly to the next action instead of presenting every
+  management screen at once.
+- **Payment verification:** a queue of `awaiting_verification` proofs with a
+  short-lived signed URL, amount, booking/player facts, and approve/reject
+  actions. Rejection requires a reason. Approval marks the payment paid and
+  confirms the related booking or group; rejection returns both to a consistent
+  state.
+- **Bookings:** search by booking reference, group reference, player name, email,
+  or phone; filter by status; open a booking or group detail with reschedule-safe
+  facts, payment history, staff record-payment, status changes, and cancellation.
+  Group rows are treated as one reservation for status and payment actions.
+- **Walk-ins:** staff can create a confirmed walk-in against an existing player
+  account, choose court, start, duration, rate, and whether payment was collected
+  now. Walk-ins cannot invent an account because bookings reference a real
+  profile; the form explains that constraint.
+- **Open play:** staff can list and create sessions, edit schedule/price/capacity/
+  level/status, cancel a session with a reason, and open a roster with player and
+  payment information. Attendance and registration status can be updated, with
+  capacity enforced on restore.
+- **Courts:** staff can close one court or all courts for a date or time range
+  with a reason, and remove an existing block.
+- **Reports:** a daily report of bookings, paid revenue, open-play registrations,
+  and court utilisation, plus a CSV export for the selected date range.
+- **Database guards:** staff functions validate staff role, require reasons for
+  destructive changes, prevent confirmation of an expired hold, and prevent
+  restoring an open-play registration beyond capacity.
+- **Account entry point:** players with the `staff` role see a **Staff dashboard**
+  link on `/account`; other players see a short staff-access notice.
+
+### Files
+
+- `supabase/migrations/20261106000600_phase8_staff_operations.sql` — staff-only
+  review, payment, booking, group, open-play, and walk-in functions.
+- `supabase/migrations/20261106000700_phase8_staff_guards.sql` — expired-hold and
+  open-play capacity triggers.
+- `app/staff/layout.tsx`, `components/staff/staff-shell.tsx`, and
+  `components/staff/staff-nav.tsx` — guarded staff frame and navigation.
+- `app/staff/page.tsx` — Today dashboard, timeline, and attention queue.
+- `app/staff/actions.ts` — all staff server actions and path validation.
+- `app/staff/payments/page.tsx` and `components/staff/payment-review.tsx` —
+  payment queue and review cards.
+- `app/staff/bookings/page.tsx`, `app/staff/bookings/[reference]/page.tsx`, and
+  `app/staff/bookings/new/page.tsx` — search, detail, and walk-in flow.
+- `app/staff/open-play/page.tsx` and `app/staff/open-play/[id]/page.tsx` —
+  session management and roster/attendance.
+- `app/staff/courts/page.tsx` — court blocks.
+- `app/staff/reports/page.tsx` and `app/staff/reports/export/route.ts` — daily
+  report and CSV export.
+- `lib/staff/auth.ts`, `lib/staff/time.ts`, `lib/staff/types.ts`, and
+  `lib/staff/reports.ts` — staff access, Manila time, shared types, and report
+  aggregation.
+- `lib/supabase/proxy.ts` and `proxy.ts` — signed-out and non-staff redirects
+  before a staff page renders.
+- `app/account/page.tsx` and `components/ui/icons.tsx` — staff entry point,
+  access notice, and staff icons.
+
+### Checks
+
+| Check | Result |
+| --- | --- |
+| `npx tsc --noEmit` | Passed, no output |
+| Scoped `npx eslint app/staff app/account/page.tsx components/staff lib/staff proxy.ts lib/supabase/proxy.ts` | Passed, no output |
+| `npm run build` | Passed; 46 routes, including every `/staff` page and the CSV export |
+| Phase 8 migrations | Applied to the linked production project; all seven staff functions and both guard triggers exist |
+| Staff foreign keys | Confirmed `bookings_player_id_fkey`, `booking_groups_player_id_fkey`, `payments_booking_id_fkey`, `payments_group_id_fkey`, and `open_play_registrations_player_id_fkey` for the PostgREST joins |
+| Unauthenticated staff routes | `/staff`, `/staff/bookings`, `/staff/payments`, `/staff/open-play`, and `/staff/reports/export` return `307` to `/sign-in` with the staff return path; the public homepage still returns `200` |
+| Signed-in staff dashboard and actions | **Not run** — production has two player profiles and no staff profile |
+| Payment approval/rejection, walk-in, attendance, court block, and CSV content | **Not run** — need a staff session and real operational data |
+| Mobile staff layout and keyboard/screen-reader traversal | **Not run** — no staff session for authenticated visual inspection |
+
+### Phase 8 limitations
+
+1. **No staff account yet:** production has no profile with `role = 'staff'`, so
+   the console redirects every current account to `/account`. Promote the intended
+   staff profile (or create the staff auth user and promote it) before launch;
+   there is intentionally no self-service staff promotion screen.
+2. The signed-in UI and every write action still need a live staff pass: payment
+   approval/rejection, walk-in creation, attendance, court blocking, and CSV
+   content have not been exercised.
+3. Payment verification is manual and tied to the current test GCash QR. The
+   official QR/account name is still pending; there is no automated reconciliation
+   or refund action.
+4. Staff can close courts for a date or time range, but there is no recurring
+   closure or holiday schedule yet.
+5. Reports use recorded bookings and payments only; they do not reconcile against
+   GCash, and CSV exports raw operational fields for internal use.
+6. Notifications, audit-history screens, staff management, coaching, and DUPR
+   remain outside this phase.
 
 ## Phase 7 — Court reservation and open play (6 November 2026)
 

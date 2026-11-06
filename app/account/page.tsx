@@ -9,6 +9,7 @@ import { ConfigNotice } from "@/components/auth/config-notice";
 import { SignOutButton } from "@/components/auth/sign-out-button";
 import { Alert } from "@/components/ui/alert";
 import { buttonClasses } from "@/components/ui/button";
+import { ArrowRightIcon } from "@/components/ui/icons";
 import { CLUB } from "@/lib/club";
 import type { AccountBooking } from "@/lib/bookings";
 import { createClient } from "@/lib/supabase/server";
@@ -28,7 +29,15 @@ type Profile = {
   created_at: string | null;
 };
 
-async function AccountPanel() {
+type AccountPageProps = {
+  searchParams: Promise<{ notice?: string | string[] }>;
+};
+
+function noticeValue(value: string | string[] | undefined) {
+  return Array.isArray(value) ? (value[0] ?? "") : (value ?? "");
+}
+
+async function AccountPanel({ searchParams }: AccountPageProps) {
   if (!isSupabaseConfigured()) {
     return (
       <div className="mt-8">
@@ -91,6 +100,8 @@ async function AccountPanel() {
   const phone = profile?.phone?.trim() ?? "";
   const createdAt = profile?.created_at ?? user.created_at ?? "";
   const verified = Boolean(user.email_confirmed_at);
+  const params = await searchParams;
+  const notice = noticeValue(params.notice);
 
   return (
     <div className="mt-8">
@@ -105,6 +116,38 @@ async function AccountPanel() {
         <span className="font-semibold break-all text-ink">{email}</span>. Update
         your contact details and review your bookings in one place.
       </p>
+
+      {notice === "staff-only" ? (
+        <Alert
+          variant="warning"
+          className="mt-5"
+          eyebrow="Staff access"
+          title="The operations desk is for staff accounts"
+        >
+          Your player account is still active. Ask the club owner if you need staff access.
+        </Alert>
+      ) : null}
+
+      {notice === "staff-config" ? (
+        <Alert
+          variant="warning"
+          className="mt-5"
+          eyebrow="Setup needed"
+          title="Staff tools are not connected in this environment"
+        >
+          Add the Supabase environment variables before using the operations desk.
+        </Alert>
+      ) : null}
+
+      {role === "staff" ? (
+        <Link
+          href="/staff"
+          className={buttonClasses({ className: "mt-5" })}
+        >
+          Open operations desk
+          <ArrowRightIcon className="size-4" />
+        </Link>
+      ) : null}
 
       {profileResult.error ? (
         <Alert
@@ -214,11 +257,11 @@ function AccountSkeleton() {
   );
 }
 
-export default function AccountPage() {
+export default function AccountPage({ searchParams }: AccountPageProps) {
   return (
     <AccountShell>
       <Suspense fallback={<AccountSkeleton />}>
-        <AccountPanel />
+        <AccountPanel searchParams={searchParams} />
       </Suspense>
     </AccountShell>
   );

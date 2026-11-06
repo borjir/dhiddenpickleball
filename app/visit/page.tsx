@@ -27,7 +27,7 @@ export default function VisitPage() {
     <PublicPage>
       <PageHeader
         eyebrow="Visit"
-        title="Find the club in Balamban."
+        title="Find the club in Pondol, Balamban, Cebu."
         intro="D-Hidden is at Bung-aw, Pondol, Balamban, Cebu. The address, hours, and contact details are written out below, so the map is never the only way to find the club."
       >
         <a
