@@ -55,8 +55,8 @@ export const FAQ_ITEMS: readonly FaqItem[] = [
       "If the club closes a court because of weather or maintenance, you can choose a full refund or a free move to another slot.",
   },
   {
-    question: "Do I need an account?",
+    question: "Do I need an account to book?",
     answer:
-      "Yes. You choose a time and see the price first, then create an account at review with your full name, email address, and mobile number. The email must be verified before the slot is held.",
+      "No. Choose a time and see the price first, then enter your full name and mobile number at review; an email address is optional. The reference and mobile number let you check the booking and upload payment proof later. Staff use a separate sign-in.",
   },
 ];

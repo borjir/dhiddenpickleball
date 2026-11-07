@@ -10,7 +10,7 @@ import { getSupabaseEnv } from "@/lib/supabase/env";
  */
 export async function updateSession(
   request: NextRequest,
-  options: { requireStaff?: boolean; redirectStaffToDashboard?: boolean } = {},
+  options: { requireStaff?: boolean } = {},
 ) {
   let response = NextResponse.next({ request });
   const env = getSupabaseEnv();
@@ -43,39 +43,25 @@ export async function updateSession(
 
     const { data: claimsData } = await supabase.auth.getClaims();
 
-    if (options.requireStaff || options.redirectStaffToDashboard) {
+    if (options.requireStaff) {
       const userId = claimsData?.claims?.sub;
 
-      if (options.requireStaff && !userId) {
-        const signInUrl = new URL("/sign-in", request.url);
-        signInUrl.searchParams.set(
-          "next",
-          `${request.nextUrl.pathname}${request.nextUrl.search}`,
-        );
+      if (!userId) {
+        const signInUrl = new URL("/staff-access", request.url);
         signInUrl.searchParams.set("notice", "session-expired");
         return NextResponse.redirect(signInUrl);
       }
 
-      if (userId) {
-        const { data: profile, error: profileError } = await supabase
-          .from("profiles")
-          .select("role")
-          .eq("id", userId)
-          .maybeSingle();
+      const { data: profile, error: profileError } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", userId)
+        .maybeSingle();
 
-        if (options.requireStaff && (profileError || profile?.role !== "staff")) {
-          return NextResponse.redirect(
-            new URL("/account?notice=staff-only", request.url),
-          );
-        }
-
-        if (
-          options.redirectStaffToDashboard &&
-          !profileError &&
-          profile?.role === "staff"
-        ) {
-          return NextResponse.redirect(new URL("/staff", request.url));
-        }
+      if (profileError || profile?.role !== "staff") {
+        return NextResponse.redirect(
+          new URL("/lookup?notice=staff-only", request.url),
+        );
       }
     }
   } catch {

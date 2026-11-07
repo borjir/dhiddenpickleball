@@ -1,16 +1,10 @@
-"use client";
-
-import { useEffect, useState } from "react";
 import Link from "next/link";
-import type { AuthChangeEvent, Session } from "@supabase/supabase-js";
-import { createClient } from "@/lib/supabase/client";
-import { isSupabaseConfigured } from "@/lib/supabase/env";
 import { cn } from "@/lib/cn";
 
 /**
- * Header account entry point. It starts as "Sign in" so the server-rendered
- * header does not depend on a session, then upgrades to "My account" once the
- * browser client confirms a session. The proxy keeps the cookies fresh.
+ * Header entry point for guests. There is no player sign-in or account area;
+ * the reference plus mobile number is the credential, so this links to the
+ * public booking lookup instead.
  */
 export function AuthLink({
   solid,
@@ -21,69 +15,9 @@ export function AuthLink({
   className?: string;
   onNavigate?: () => void;
 }) {
-  const [signedIn, setSignedIn] = useState(false);
-  const [staff, setStaff] = useState(false);
-  const configured = isSupabaseConfigured();
-
-  useEffect(() => {
-    if (!configured) return;
-
-    let active = true;
-    let unsubscribe: (() => void) | undefined;
-
-    try {
-      const supabase = createClient();
-
-      async function loadRole(userId: string) {
-        const { data } = await supabase
-          .from("profiles")
-          .select("role")
-          .eq("id", userId)
-          .maybeSingle();
-
-        if (active) setStaff(data?.role === "staff");
-      }
-
-      void (async () => {
-        try {
-          const result = await supabase.auth.getClaims();
-          const userId = result?.data?.claims?.sub;
-          if (!active) return;
-
-          setSignedIn(Boolean(userId));
-          if (userId) await loadRole(userId);
-        } catch {
-          // Keep the default signed-out label if the check fails.
-        }
-      })();
-
-      const { data } = supabase.auth.onAuthStateChange(
-        (_event: AuthChangeEvent, session: Session | null) => {
-          setSignedIn(Boolean(session));
-
-          if (!session) {
-            setStaff(false);
-            return;
-          }
-
-          void loadRole(session.user.id);
-        },
-      );
-
-      unsubscribe = () => data.subscription.unsubscribe();
-    } catch {
-      // Missing configuration is handled by the auth pages themselves.
-    }
-
-    return () => {
-      active = false;
-      unsubscribe?.();
-    };
-  }, [configured]);
-
   return (
     <Link
-      href={signedIn ? (staff ? "/staff" : "/account") : "/sign-in"}
+      href="/lookup"
       onClick={onNavigate}
       className={cn(
         "inline-flex min-h-11 items-center rounded-lg px-3 text-sm font-semibold transition-colors duration-200",
@@ -93,7 +27,7 @@ export function AuthLink({
         className,
       )}
     >
-      {signedIn ? (staff ? "Operations desk" : "My account") : "Sign in"}
+      Check booking
     </Link>
   );
 }

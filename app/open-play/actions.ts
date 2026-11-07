@@ -2,7 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { enqueueBookingEmail } from "@/lib/email/events";
+import { enqueueGuestBookingEmail } from "@/lib/email/events";
+import { normalizeMobile } from "@/lib/guest";
 import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 import {
@@ -19,6 +20,27 @@ import {
 
 const registrationSchema = z.object({
   sessionId: z.string().uuid("Choose a session again."),
+  fullName: z
+    .string()
+    .trim()
+    .min(2, "Enter the full name for this registration.")
+    .max(100, "Keep the name under 100 characters."),
+  phone: z
+    .string()
+    .trim()
+    .refine(
+      (value) => normalizeMobile(value) !== null,
+      "Enter a valid Philippine mobile number, for example 0917 123 4567.",
+    ),
+  email: z
+    .string()
+    .trim()
+    .max(254, "That email address is too long.")
+    .refine(
+      (value) => value === "" || z.email().safeParse(value).success,
+      "Enter a valid email address, or leave it blank.",
+    )
+    .transform((value) => (value === "" ? null : value.toLowerCase())),
   termsAccepted: z.literal(true, {
     message: "Accept the booking terms before reserving a place.",
   }),
@@ -46,6 +68,9 @@ export type OpenPlayRegistration = {
   paymentStatus: PaymentStatus;
   amountPhp: number;
   createdAt: string;
+  fullName: string;
+  mobile: string;
+  level: string;
 };
 
 export type OpenPlayRegistrationResult =
@@ -56,26 +81,15 @@ export type OpenPlayRegistrationResult =
     }
   | {
       status: "error";
-      code?:
-        | "session-expired"
-        | "email-unverified"
-        | "session-full"
-        | "already-registered"
-        | "invalid";
+      code?: "session-full" | "already-registered" | "invalid";
       message: string;
+      errors?: Record<string, string>;
     };
 
 export type OpenPlayModalData =
   | {
       status: "ok";
       session: OpenPlaySession;
-      viewer: {
-        email: string;
-        fullName: string;
-        role: "player" | "staff";
-        verified: boolean;
-      } | null;
-      existingReference: string | null;
       isPast: boolean;
     }
   | { status: "error"; message: string };
@@ -166,57 +180,19 @@ export async function getOpenPlayModalData(
   }
 
   const session = mapOpenPlaySession(row);
-  const isPast = new Date(session.startsAt).getTime() <= Date.now();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
 
-  let viewer: {
-    email: string;
-    fullName: string;
-    role: "player" | "staff";
-    verified: boolean;
-  } | null = null;
-  let existingReference: string | null = null;
-
-  if (user) {
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("full_name, role")
-      .eq("id", user.id)
-      .maybeSingle();
-
-    viewer = {
-      email: user.email ?? "",
-      fullName: profile?.full_name?.trim() ?? "",
-      role: profile?.role === "staff" ? "staff" : "player",
-      verified: Boolean(user.email_confirmed_at),
-    };
-
-    const { data: registration } = await supabase
-      .from("open_play_registrations")
-      .select("status, booking:bookings(reference)")
-      .eq("session_id", session.id)
-      .eq("player_id", user.id)
-      .maybeSingle();
-
-    const booking = registration?.booking as
-      | { reference?: string }
-      | { reference?: string }[]
-      | null
-      | undefined;
-    const reference = Array.isArray(booking)
-      ? booking[0]?.reference
-      : booking?.reference;
-
-    existingReference = reference ?? null;
-  }
-
-  return { status: "ok", session, viewer, existingReference, isPast };
+  return {
+    status: "ok",
+    session,
+    isPast: new Date(session.startsAt).getTime() <= Date.now(),
+  };
 }
 
 export async function registerForOpenPlay(input: {
   sessionId: string;
+  fullName: string;
+  phone: string;
+  email: string;
   termsAccepted: boolean;
 }): Promise<OpenPlayRegistrationResult> {
   if (!isSupabaseConfigured()) {
@@ -229,55 +205,37 @@ export async function registerForOpenPlay(input: {
   const parsed = registrationSchema.safeParse(input);
 
   if (!parsed.success) {
+    const errors: Record<string, string> = {};
+
+    for (const issue of parsed.error.issues) {
+      const field = issue.path[0];
+      if (typeof field === "string" && !errors[field]) {
+        errors[field] = issue.message;
+      }
+    }
+
     return {
       status: "error",
       code: "invalid",
       message:
         parsed.error.issues[0]?.message ??
         "Choose a session and accept the booking terms.",
+      errors,
     };
   }
 
   const supabase = await createClient();
-  const {
-    data: { user },
-    error: userError,
-  } = await supabase.auth.getUser();
-
-  if (userError || !user) {
-    return {
-      status: "error",
-      code: "session-expired",
-      message: "Your session expired. Sign in again to reserve a place.",
-    };
-  }
-
-  if (!user.email_confirmed_at) {
-    return {
-      status: "error",
-      code: "email-unverified",
-      message:
-        "Verify your email address before reserving a place. Check your inbox for the confirmation link.",
-    };
-  }
-
   const { data, error } = await supabase.rpc(
-    "create_open_play_registration",
+    "create_guest_open_play_registration",
     {
       p_session_id: parsed.data.sessionId,
-      p_player_id: user.id,
+      p_full_name: parsed.data.fullName,
+      p_mobile: parsed.data.phone,
+      p_email: parsed.data.email,
     },
   );
 
   if (error) {
-    if (error.code === "42501") {
-      return {
-        status: "error",
-        code: "session-expired",
-        message: "Your session expired. Sign in again to reserve a place.",
-      };
-    }
-
     if (error.code === "23P01") {
       return {
         status: "error",
@@ -292,7 +250,7 @@ export async function registerForOpenPlay(input: {
         status: "error",
         code: "already-registered",
         message:
-          "You already have a place in this session. Open it from your account to see the payment status.",
+          "That mobile number already has a place in this session. Check the booking status with your reference and mobile number.",
       };
     }
 
@@ -301,14 +259,6 @@ export async function registerForOpenPlay(input: {
         status: "error",
         code: "invalid",
         message: error.message,
-      };
-    }
-
-    if (error.code === "23503") {
-      return {
-        status: "error",
-        message:
-          "Your player profile could not be found. Refresh the page and try again.",
       };
     }
 
@@ -324,18 +274,27 @@ export async function registerForOpenPlay(input: {
   if (!row) {
     return {
       status: "error",
-      message:
-        "The reservation was not returned. Refresh your account before trying again.",
+      message: "The reservation was not returned. Check the booking status instead.",
     };
   }
 
-  await enqueueBookingEmail(supabase, "open_play_reserved", {
-    bookingId: row.id,
-  });
+  // Guests opt in to email by supplying an address. Do not create an outbox
+  // row for a registration that has no address to deliver to.
+  if (parsed.data.email) {
+    await enqueueGuestBookingEmail("open_play_reserved", {
+      bookingId: row.id,
+    });
+  }
 
   revalidatePath("/open-play");
   revalidatePath(`/open-play/${parsed.data.sessionId}`);
-  revalidatePath("/account");
+
+  const { data: session } = await supabase.rpc("get_open_play_session", {
+    p_session_id: parsed.data.sessionId,
+  });
+  const sessionRow = (Array.isArray(session) ? session[0] : session) as
+    | OpenPlaySessionRow
+    | null;
 
   return {
     status: "success",
@@ -351,6 +310,9 @@ export async function registerForOpenPlay(input: {
       paymentStatus: row.payment_status,
       amountPhp: Number(row.amount_php),
       createdAt: row.created_at,
+      fullName: parsed.data.fullName,
+      mobile: normalizeMobile(parsed.data.phone) ?? parsed.data.phone,
+      level: sessionRow ? mapOpenPlaySession(sessionRow).skillLevel : "",
     },
   };
 }

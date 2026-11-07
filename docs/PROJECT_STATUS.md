@@ -1,13 +1,175 @@
 # Project Status
 
-**Last updated:** 7 November 2026
-**Blueprint:** `docs/PRODUCT_BLUEPRINT.md` (v2.5)
-**Current phase:** Phase 10 QA, security, and pre-launch review is complete for the available local/staging scope; see `docs/PHASE_10_QA.md`. The production build, typecheck, lint, audit, RLS boundaries, booking/capacity constraints, public/auth pages, and authenticated player/staff routing passed. Public launch remains blocked by real player email (unverified Resend domain), the public site URL, the reminder scheduler, the official GCash QR, client acceptance/staff training, and backup/monitoring arrangements. Phase 11 has not been started.
+## Resend transactional email + send quotas (8 November 2026)
+
+**Scope:** the owner returned from the brief Brevo trial to Resend's free plan
+(100 sends/day, 3,000/month) and asked to send only booking-critical mail.
+
+### Implemented
+
+- **Resend adapter:** `POST https://api.resend.com/emails` with
+  `RESEND_API_KEY`, a verified `EMAIL_FROM`, and `EMAIL_REPLY_TO`. The outbox
+  dedupe key is sent as Resend's `Idempotency-Key` header, so a retry after a
+  timeout cannot create a duplicate message.
+- **Event policy:** booking received, open-play reserved, payment verified,
+  payment proof rejected, booking cancelled, open-play details changed, and the
+  24-hour reminder still send. The player **payment-proof-received** email is
+  suppressed because the lookup page already shows the new status. All four
+  staff alerts are also suppressed to protect the quota; staff use the dashboard
+  as the source of truth. `STAFF_NOTIFICATION_EMAILS` remains configured for a
+  future re-enable.
+- **Daily and monthly quota guards:** `EMAIL_DAILY_LIMIT` defaults to **100** and
+  `EMAIL_MONTHLY_LIMIT` to **3,000**, matching Resend's free plan. The processor
+  counts successful outbox rows since the start of the UTC day and month, claims
+  only the remaining slots, and leaves excess rows queued instead of failing.
+  Current enabled events have one guest recipient per row, so the row count
+  matches the provider's send count.
+- **Stale-email cutoff:** messages that have waited more than 24 hours are
+  skipped, so an outage cannot send a stale confirmation or reminder.
+- **Docs and env template** now use `RESEND_API_KEY`, `EMAIL_DAILY_LIMIT`, and
+  `EMAIL_MONTHLY_LIMIT` with Resend sender verification instructions.
+- **`EMAIL_FROM` is a mailbox, not the deployed URL.** It must be an address on a
+  Resend-verified domain, for example
+  `D-Hidden Pickleball <bookings@dhiddenpickleball.com>`. `NEXT_PUBLIC_SITE_URL`
+  is the site origin for links and the logo. The `play4serve` part of the current
+  `workers.dev` hostname was the old Worker name, not the client's website name;
+  `wrangler.jsonc` now targets `bookings.dhiddenpickleball.workers.dev`. A custom
+  domain is still the clean client-facing URL.
+
+### Checks
+
+- `npx tsc --noEmit` — passed.
+- Focused ESLint on the email modules — passed.
+- Production build — passed with a 4 GB Node heap; the default heap hit a
+  Windows worker OOM after compilation.
+- No live Resend send was performed in this change. The Phase 9 Resend sandbox
+  delivery to the account owner remains the last live provider check; it cannot
+  reach guests until a domain is verified.
+
+### Required setup
+
+1. Create a Resend API key and add it as `RESEND_API_KEY` (local `.env.local`,
+   Worker secret in production).
+2. Verify the sending domain in Resend, then set `EMAIL_FROM` to a verified
+   mailbox on that domain. Do not use the deployed site URL as `EMAIL_FROM`.
+3. Leave the defaults at 100/day and 3,000/month. Lower them if the club's volume
+   needs less; raise them only on a paid plan.
+4. Run one real booking through to a guest inbox and confirm the sender, logo,
+   links, reference, and timezone.
+
+### Site URL and GitHub/Worker naming
+
+- The target Workers hostname is
+  `https://bookings.dhiddenpickleball.workers.dev`; `bookings` is now the Worker
+  `name` in `wrangler.jsonc`, and `dhiddenpickleball` is the Cloudflare
+  `workers.dev` account subdomain. The old
+  `https://play4serve.dhiddenpickleball.workers.dev` Worker remains live until the
+  renamed Worker is deployed and the Supabase auth URLs are switched. A custom
+  domain such as `book.dhiddenpickleball.com` is still the clean client-facing
+  option.
+- The GitHub repository can be renamed from `play4serve` to
+  `dhiddenpickleball`; GitHub redirects the old URL, but update the local
+  `origin` remote and any deployment/CI references to avoid relying on the
+  redirect.
+
+## Guest booking access — no player accounts (8 November 2026)
+
+**Scope completed:** the client approved removing the player login and
+registration system and keeping staff accounts. Court bookings and open-play
+places now belong to guest customer records instead of player profiles.
+
+### Implemented
+
+- **Database migrations** `20261108000100_guest_booking_no_player_accounts.sql`,
+  `20261108000200_customers_service_role_grant.sql`, and
+  `20261108000300_backfill_staff_history_customers.sql`, applied to project
+  `ybgcktpyntpcragegwec`. They add `customers`, link bookings, booking groups,
+  and open-play registrations through `customer_id`, preserve historical owner
+  details (including staff test bookings), keep 1 staff auth user, delete the
+  player auth users, and grant the service role the `customers` read it needs
+  for email processing.
+- **Guest actions** call security-definer RPCs: guest court/group bookings,
+  guest open-play registration, guest payment proof, and `lookup_guest_record`.
+  Anonymous table access was removed; RLS now exposes these records to staff
+  only.
+- **Mandatory mobile number** on both booking forms, normalised to
+  `63XXXXXXXXXX` in the database. Optional email is used only for confirmation
+  mail.
+- **QR pass:** `DHPB1|<reference>|<mobile>` generated in the browser, with an
+  automatic download at the payment/proof step, a **Download QR code** button,
+  and copyable reference and mobile number. No QR file is stored in Supabase.
+- **`/lookup` page:** upload the QR image (decoded in the browser with `jsqr`)
+  or enter reference plus mobile. It shows status, payment status, court/time
+  items, hold expiry, rejection reason, and the QR pass, and offers payment
+  proof upload when eligible.
+- **`/api/payment-proof`:** verifies reference plus mobile, uploads the file
+  with the service role to `guests/<record id>/<uuid>.<ext>`, then records it
+  through the guest RPC. New bucket MIME type: PDF, in addition to images.
+- **Staff-only auth:** player sign-up/sign-in/account pages were deleted.
+  Staff sign in at the unlisted `/staff-access`, with recovery at
+  `/staff-access/forgot-password` and `/staff-access/reset-password`. A
+  non-staff account is signed out immediately. `/staff` remains guarded by the
+  proxy and `requireStaff`.
+- **Staff pages and email processing** now join `customers` (aliased as the
+  existing `player` fields), and email links point to `/lookup` instead of
+  `/account`.
+- **Walk-in desk** asks for guest name and mobile number instead of a player
+  account email.
+
+### Checks run
+
+- `npx tsc --noEmit` — passed.
+- `npx eslint . --max-warnings=0` — passed.
+- `npm run build` — passed; `/lookup`, `/api/payment-proof`, `/staff-access`,
+  and the staff routes built successfully.
+- `npx supabase db push --remote --yes` — migration applied.
+- Remote SQL verification: 5 customers, 1 auth user (staff), 1 staff profile,
+  0 bookings/groups/registrations without a customer, and 0 records left on the
+  placeholder customer.
+- `lookup_guest_record` executed as the `anon` role against a real booking and
+  returned the expected record.
+- Guest group booking and guest open-play registration executed as `anon`
+  inside rolled-back transactions; both succeeded without persisting data.
+- PostgREST embedded reads with the service role returned `200` for the exact
+  booking, group, and staff-page customer joins used by the app.
+- Production server smoke test: `/lookup`, `/staff-access`, `/book`, and
+  `/open-play` returned `200`; `/staff` redirected to `/staff-access`; legacy
+  `/sign-in`, `/sign-up`, and `/account` redirected to `/lookup`.
+- `/api/payment-proof` rejected an unknown reference/mobile with `400` and a
+  clear message.
+- QR round-trip: the `DHPB1|<reference>|<mobile>` payload encoded with `qrcode`
+  decoded back identically with `jsqr`.
+- Redirect guard checked directly: `/staff-access/reset-password` is preserved
+  after recovery, while `/staff-access`, `/auth/*`, and external URLs fall back
+  to `/staff`.
+
+### Known limitations / follow-up
+
+- Browser pop-up/download policy may suppress the automatic QR download; the
+  visible **Download QR code** button always works.
+- No automated test suite exists. The guest RPCs were verified with manual SQL
+  transactions, not end-to-end UI tests.
+- Production needs `SUPABASE_SERVICE_ROLE_KEY` for guest proof uploads and
+  guest email enqueueing; without it, proof upload returns a configuration
+  error and confirmation emails are skipped, while booking and lookup still
+  work.
+- Supabase Auth email templates should point recovery redirects at
+  `/staff-access/reset-password` (the app also defaults recovery links there).
+- The in-memory lookup throttle is per server instance; the database still
+  requires both the reference and matching mobile number.
+- Player notification rows were removed by the profile cascade; staff
+  notifications and the staff bell remain.
+
+**Last updated:** 8 November 2026
+**Blueprint:** `docs/PRODUCT_BLUEPRINT.md` (v2.5, with the 8 November guest-access scope change)
+**Current phase:** Phase 10 QA, security, and pre-launch review is complete for the available local/staging scope; see `docs/PHASE_10_QA.md`. The production build, typecheck, lint, audit, RLS boundaries, booking/capacity constraints, public pages, and authenticated staff routing passed. Public launch remains blocked by real guest email (unverified Resend sender), the public site URL, the reminder scheduler, the official GCash QR, client acceptance/staff training, and backup/monitoring arrangements. Phase 11 has started only for its hosting slice:
+Cloudflare Workers is configured and verified locally but not deployed, and the
+launch checklist remains open; see `docs/DEPLOYMENT_CLOUDFLARE.md`.
 
 **Phase 3:** Implemented as a design preview with real assets and real rates; three booking rules remain unanswered. Not production-approved.
-**Phase 4:** Core schema, RLS, auth screens, and roles are live on project `ybgcktpyntpcragegwec`. Email/password sign-up, confirmation, sign-in, and Google sign-in are confirmed working. Anonymous access probes match the applied migration; overlapping-booking rejection and password recovery are deferred runtime checks.
+**Phase 4:** Core schema, RLS, auth screens, and roles are live on project `ybgcktpyntpcragegwec`. Email/password sign-up, confirmation, sign-in, and Google sign-in worked at Phase 4 close; the 8 November guest-access change removed player auth, leaving staff email/password sign-in only. Anonymous access probes match the applied migration; overlapping-booking rejection and password recovery are deferred runtime checks.
 **Phase 5:** The public site now covers the homepage, both courts, the visit/location page, club information, rules, FAQ, and the booking, payment, privacy, and terms policies. The public copy was approved on 5 November 2026, and `Asia/Manila`/PHP were confirmed. At Phase 5 close, open play had no schedule, price, capacity, or levels, so it was omitted; Phase 7 now supplies the owner defaults. Public booking actions lead to `/book`; the Phase 3 preview remains an internal reference route only.
-**Phase 6:** Account profile editing is limited to full name and mobile; booking history and detail read the real `bookings` and `court_reservations` tables, with empty, error, and session-expiry states. Self-service cancel/reschedule remains unavailable per `D-13`. No staff tools or sample reservations were added. Phase 7 now supplies real bookings to this history.
+**Phase 6:** At Phase 6 close, account profile editing was limited to full name and mobile; booking history and detail read the real `bookings` and `court_reservations` tables, with empty, error, and session-expiry states. The 8 November guest-access change removed player account pages; the equivalent lookup now lives at `/lookup`. Self-service cancel/reschedule remains unavailable per `D-13`. No staff tools or sample reservations were added. Phase 7 now supplies real bookings to the lookup.
 
 ## Storage budget and data hygiene (7 November 2026)
 
@@ -107,8 +269,8 @@ Phase 11 or deferred coaching/DUPR work was added. Full results are in
 
 ### Blocked or not run
 
-- Real player email, email logo/links, and password-recovery delivery remain
-  blocked by the unverified Resend domain and private `NEXT_PUBLIC_SITE_URL`.
+- Real guest email, email logo/links, and password-recovery delivery remain
+  blocked by the unverified Resend sender and private `NEXT_PUBLIC_SITE_URL`.
 - The 24-hour reminder/retry scheduler is not configured.
 - The official GCash QR/account name is still the test asset.
 - Destructive staff writes, full keyboard/focus, WCAG, cross-browser, and
@@ -128,7 +290,81 @@ Phase 11 or deferred coaching/DUPR work was added. Full results are in
 5. Obtain client acceptance and train staff.
 6. Confirm backups, restore, monitoring, and deployment hardening.
 
-Phase 11 has not been started.
+Phase 11 has not been completed; only its hosting target was started (see below).
+
+## Phase 11 — Hosting target on Cloudflare Workers (7 November 2026)
+
+Authorized 7 November 2026 for the hosting slice of Phase 11 only. Coaching,
+DUPR, and the remaining launch-checklist items were not added. Full deployment
+notes, secret handling, and costs are in `docs/DEPLOYMENT_CLOUDFLARE.md`.
+
+### Implemented
+
+- **Worker deployment via OpenNext.** `@opennextjs/cloudflare` and `wrangler`
+  were added as dev dependencies, with `open-next.config.ts` and
+  `wrangler.jsonc` describing the Worker, the static asset binding, and
+  observability. `next` moved to ^16.4.5 for the adapter's peer range.
+- **Commands.** `npm run cf:build`, `npm run preview`, and `npm run deploy`.
+  Plain `npm run build` is unchanged.
+- **Cache Components disabled** in `next.config.ts`, and the `instant = false`
+  exports removed from `app/staff/layout.tsx` and `app/notifications/page.tsx`.
+  The adapter's CacheSignal patch no longer matches Next 16.4
+  (opennextjs/cloudflare#1318), so every Worker request hung and returned 500
+  while it was enabled. The app uses no `use cache`/`cacheLife`/`cacheTag`
+  directives, so the practical loss is partial prerendering shells.
+- **Lint fix.** `.open-next/**` and `.wrangler/**` are now globally ignored in
+  `eslint.config.mjs`; without it, `npx eslint .` exhausted the heap linting the
+  generated bundle.
+
+### Checks
+
+| Check | Result |
+| --- | --- |
+| `npx opennextjs-cloudflare build` | Passed |
+| `npx tsc --noEmit` | Passed, no output |
+| `npx eslint . --max-warnings=0` | Passed, no output |
+| `npm run build` | Passed |
+| Worker routes under `wrangler dev` | `/`, `/courts`, `/club`, `/sign-in`, `/account`, `/book`, `/open-play`, `/qr/gcash-test-qr.png` returned 200; `/staff` and `/notifications` returned 307 to sign-in; `/api/cron/email` returned 401 |
+| Deployed to Cloudflare (old Worker name) | Live at `https://play4serve.dhiddenpickleball.workers.dev`: `/`, `/courts`, `/club`, `/book`, `/open-play`, `/sign-in`, `/account` returned 200; `/staff` returned 307; `/api/cron/email` returned 401. The renamed `bookings` Worker is configured but not deployed yet. |
+| Worker secrets | **Not set** — `wrangler secret list` is empty |
+| Custom domain | **Not attached** |
+| CPU per request on Workers | **Not measured** — needs a deployed preview and `wrangler tail` |
+
+### Deployment link fix (7 November 2026)
+
+The confirmation/recovery link that arrived as
+`http://localhost:3000/?code=...` was caused by the Supabase project's Auth
+**Site URL** still being `http://localhost:3000` with an empty redirect
+allow-list, so Supabase ignored the app's `emailRedirectTo` and used the Site
+URL. Fixed:
+
+- Updated the remote Supabase project `ybgcktpyntpcragegwec` (via a targeted
+  `npx supabase config push`) so `auth.site_url` was
+  `https://play4serve.dhiddenpickleball.workers.dev` and the redirect
+  allow-list included that origin plus localhost/127.0.0.1 for development. The
+  local target is now `https://bookings.dhiddenpickleball.workers.dev`; push it
+  only after the renamed Worker is deployed.
+  Email confirmations, Google, MFA, and pooler settings were left unchanged.
+- Mirrored those values in `supabase/config.toml` so a future config push does
+  not revert the deployed origin to localhost.
+- Added a root-level auth-result redirect in `proxy.ts`: old links like
+  `/?code=...`, `/?token_hash=...`, or `/?error=...` now go through
+  `/auth/callback` instead of losing the code on the homepage.
+- `lib/email/config.ts` no longer falls back to localhost in a production
+  build; a missing `NEXT_PUBLIC_SITE_URL` uses the current Workers origin.
+- `.env.example` documents the deployed HTTPS origin instead of localhost.
+
+### Remaining launch blockers
+
+A fresh deploy build is still needed to ship the proxy redirect and the
+email-config change to the Worker. No `wrangler secret put` has been run, no
+custom domain is attached, the Resend sender is still unverified, the
+reminder scheduler is not configured, and the official GCash QR is still the
+test asset. Google's consent screen still displays the Supabase project host
+because that is the OAuth callback domain; changing it requires a Supabase
+custom domain and/or Google brand verification (see
+`docs/DEPLOYMENT_CLOUDFLARE.md`). Client acceptance and staff training are
+unchanged.
 
 ## Post-Phase 10 booking-flow follow-up (7 November 2026)
 
@@ -190,6 +426,10 @@ Change times; the full location wording also rendered with no console errors.
 
 ## Phase 9 — Notifications, emails, and customer trust (7 November 2026)
 
+> **Provider note:** this phase originally shipped with Resend. It was briefly
+> switched to Brevo on 8 November 2026, then returned to Resend the same day;
+> see the top section for current setup.
+
 Authorized 7 November 2026, after the owner confirmed the Phase 8 live staff pass.
 Scope is email-only transactional messaging. SMS, marketing automation, waitlist
 promotion, coaching, and DUPR are not included.
@@ -211,9 +451,9 @@ promotion, coaching, and DUPR are not included.
   `Asia/Manila`, amount due or paid, payment status, cancellation/rejection
   notes, policy guidance, and a direct account/staff link. Both HTML and plain
   text versions are sent.
-- **Provider adapter:** server-only Resend HTTP integration with a verified
-  `EMAIL_FROM`, `EMAIL_REPLY_TO`, and the outbox dedupe key sent as the
-  `Idempotency-Key` header.
+- **Provider adapter (at Phase 9 close):** server-only Resend HTTP integration
+  with a verified `EMAIL_FROM`, `EMAIL_REPLY_TO`, and the outbox dedupe key sent
+  as the `Idempotency-Key` header. Resend provides this adapter again.
 - **Safe processing:** an authenticated server action enqueues the event and
   schedules delivery with Next.js `after()`. A protected
   `GET /api/cron/email` route claims queued rows with `FOR UPDATE SKIP LOCKED`,
@@ -232,7 +472,7 @@ promotion, coaching, and DUPR are not included.
   processor. Without these grants, queued rows were marked skipped with
   “Reservation data is no longer available.”
 - `lib/email/types.ts`, `config.ts`, `provider.ts`, `templates.ts`, `process.ts`,
-  and `events.ts` — shared types, configuration, Resend adapter, templates,
+  and `events.ts` — shared types, configuration, email provider adapter, templates,
   outbox processor, and action helper.
 - `lib/supabase/admin.ts` — server-only service-role client for outbox processing.
 - `app/api/cron/email/route.ts` — protected reminder/outbox endpoint.
@@ -253,21 +493,20 @@ promotion, coaching, and DUPR are not included.
 | Scoped `npx eslint` on the email modules, route, actions, and fallback components | Passed, no output |
 | `npm run build` | Passed; 47 routes, including the protected `/api/cron/email` handler |
 | Phase 9 migrations | Applied to production project `ybgcktpyntpcragegwec`, including the service-role read grants |
-| Real provider delivery | **Partial** — with `EMAIL_FROM` set to `D-Hidden Pickleball <onboarding@resend.dev>`, two staff messages for test booking `HG-8CFE694F` were received at the Resend account owner (`dhiddenpickleball@gmail.com`). The two player messages remain queued because the sandbox only delivers to that owner, not `joeljexanzjay@gmail.com`. |
+| Real provider delivery (Phase 9 close) | **Partial** — with `EMAIL_FROM` set to `D-Hidden Pickleball <onboarding@resend.dev>`, two staff messages for test booking `HG-8CFE694F` were received at the Resend account owner (`dhiddenpickleball@gmail.com`). The two player messages remain queued because the sandbox only delivers to that owner, not `joeljexanzjay@gmail.com`. |
 | Reminder scheduler | **Not configured** — needs a platform cron or external scheduler with `EMAIL_CRON_SECRET` |
 | SMS, waitlist promotion, marketing automation | Not built; waitlists do not exist yet |
 
 ### Required external setup
 
 1. Create a Resend account, verify the club's sender domain, and set
-   `RESEND_API_KEY`, `EMAIL_FROM`, and `EMAIL_REPLY_TO` in the deployment
-   environment. The API key and service-role key must never use a
-   `NEXT_PUBLIC_*` prefix. For local testing before a domain is verified, use
-   `EMAIL_FROM="D-Hidden Pickleball <onboarding@resend.dev>"` and send only to
-   the Resend account owner's address.
+   `RESEND_API_KEY`, `EMAIL_FROM`, `EMAIL_REPLY_TO`, `EMAIL_DAILY_LIMIT`, and
+   `EMAIL_MONTHLY_LIMIT` in the deployment environment. The API key and
+   service-role key must never use a `NEXT_PUBLIC_*` prefix.
 2. Set `SUPABASE_SERVICE_ROLE_KEY` server-side so the outbox processor can claim
    rows; set `NEXT_PUBLIC_SITE_URL` to the real site origin for email links.
-3. Set `STAFF_NOTIFICATION_EMAILS` to a comma-separated internal list.
+3. Optional: set `STAFF_NOTIFICATION_EMAILS` only if staff email alerts are
+   re-enabled; the current policy suppresses them.
 4. Set `EMAIL_CRON_SECRET` and schedule a request to `/api/cron/email` every
    15 minutes with `Authorization: Bearer <secret>`. The route queues reminders
    and retries failed rows.
@@ -276,16 +515,14 @@ promotion, coaching, and DUPR are not included.
 
 ### Phase 9 limitations
 
-1. Staff test messages are confirmed received by the Resend account owner, but
-   player delivery is not yet confirmed. The current `resend.dev` sandbox sender
-   can only deliver to that owner; real player recipients require a verified
-   sending domain. The owner deferred the domain purchase on 7 November, so
-   real-recipient delivery remains a launch blocker rather than a Phase 9 code
-   task.
+1. Staff test messages were confirmed received by the Resend account owner at
+   Phase 9 close, but guest delivery is not yet confirmed. A verified Resend
+   sender is required before real guest recipients can receive mail.
 2. The 24-hour reminder interval is an implementation choice; the client can
    change it before launch.
-3. Resend is the configured provider. Changing providers requires editing the
-   server adapter, not the booking actions or templates.
+3. Resend is the configured provider as of 8 November 2026, after a brief
+   Brevo trial. Changing providers again requires editing the server adapter,
+   not the booking actions or templates.
 4. Email images and links use `NEXT_PUBLIC_SITE_URL`. While it is
    `http://localhost:3000`, Gmail cannot load the logo and recipients cannot open
    the booking/staff links. A public deployment or tunnel is required for those

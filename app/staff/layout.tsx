@@ -5,7 +5,8 @@ import { requireStaff } from "@/lib/staff/auth";
 
 // The operations desk is authenticated and request-scoped. It is never
 // prerendered, so blocking data access is the correct route behaviour.
-export const instant = false;
+// (`instant = false` was removed because it requires cacheComponents, which
+// is disabled for the Cloudflare Workers deployment.)
 
 export const metadata: Metadata = {
   title: {

@@ -6,17 +6,17 @@ import { ResetPasswordForm } from "@/components/auth/reset-password-form";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 
 export const metadata: Metadata = {
-  title: "Choose a new password",
-  description: "Set a new password for your club account.",
+  title: "Choose a new staff password",
+  description: "Set a new password for a club staff account.",
   robots: { index: false, follow: false },
 };
 
-export default function ResetPasswordPage() {
+export default function StaffResetPasswordPage() {
   return (
     <AuthShell
-      eyebrow="Account recovery"
+      eyebrow="Staff recovery"
       title="Choose a new password"
-      description="Use at least 8 characters. This replaces the password on your account."
+      description="Use at least 8 characters. This replaces the password on your staff account."
     >
       <Suspense fallback={<AuthFormSkeleton rows={2} />}>
         <ResetPasswordForm configured={isSupabaseConfigured()} />

@@ -7,26 +7,25 @@ import { SignInForm } from "@/components/auth/sign-in-form";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 
 export const metadata: Metadata = {
-  title: "Sign in",
-  description:
-    "Sign in to D-Hidden Pickleball Court & Bistro to manage reservations or open the staff operations desk.",
+  title: "Staff access",
+  description: "Staff sign-in for the D-Hidden Pickleball operations desk.",
   robots: { index: false, follow: false },
 };
 
-export default function SignInPage() {
+export default function StaffAccessPage() {
   return (
     <AuthShell
-      eyebrow="Account access"
-      title="Welcome back"
-      description="Sign in to manage your court reservations or open the staff operations desk."
+      eyebrow="Staff access"
+      title="Operations desk"
+      description="This sign-in is for club staff. Player accounts are not used for court or open-play bookings."
       footer={
         <p>
-          New here?{" "}
+          Looking for a booking?{" "}
           <Link
-            href="/sign-up"
+            href="/lookup"
             className="font-semibold text-accent-ink underline-offset-4 hover:underline"
           >
-            Create an account
+            Check it with your reference
           </Link>
         </p>
       }

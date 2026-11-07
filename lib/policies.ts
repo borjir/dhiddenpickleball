@@ -40,7 +40,7 @@ export const POLICIES: readonly Policy[] = [
           "Court time is booked by the hour. The confirmed rates are ₱250 per hour before 5:00 PM and ₱300 per hour from 5:00 PM. A booking runs from your chosen start time to your chosen end time.",
         ],
         items: [
-          "An account is required at review, after the date, time, and price are shown.",
+          "A full name and valid mobile number are required at review, after the date, time, and price are shown. No account is created.",
           "The booker's full name, email address, and mobile number are required.",
           "The email address must be verified before the slot is held.",
           "One person may book for a group; only the booker's name is required.",
@@ -168,7 +168,7 @@ export const POLICIES: readonly Policy[] = [
     title: "Privacy notice",
     eyebrow: "Policies",
     intro:
-      "What D-Hidden collects when you use this website, create an account, or book a court, and how that information is handled.",
+      "What D-Hidden collects when you use this website, book a court, or join open play, and how that information is handled.",
     sections: [
       {
         id: "who-we-are",
@@ -181,18 +181,18 @@ export const POLICIES: readonly Policy[] = [
         id: "what-we-collect",
         heading: "What we collect",
         items: [
-          "Account details: your full name, email address, mobile number, and the credentials used to sign in. If you use Google sign-in, Google shares your name, email address, and basic profile information; we do not receive your Google password.",
+          "Guest details: your full name, mobile number, and optional email address. No player account or password is created. Staff accounts are separate and are managed by the club.",
           "Booking details: the court or open-play session, skill level where applicable, date, start and end time, duration, amount, booking reference, and booking and payment status.",
           "Payment proof: the GCash transaction reference, the amount, and any receipt or screenshot you submit. Do not send your GCash PIN, one-time code, or password.",
           "Communications: messages you send by phone, email, or the site about a booking.",
-          "Technical information: server logs and the basic device, browser, and network information needed to run and protect the site. Session cookies keep you signed in; your theme choice is stored in your browser.",
+          "Technical information: server logs and the basic device, browser, and network information needed to run and protect the site. Staff session cookies keep staff signed in; your theme choice is stored in your browser.",
         ],
       },
       {
         id: "why-we-use-it",
         heading: "Why we use it",
         items: [
-          "To create and authenticate your account, and to keep you signed in.",
+          "To identify your guest booking and let you check it with the reference and mobile number.",
           "To hold, confirm, change, and manage court bookings and open-play places.",
           "To verify GCash payments, process refunds, and handle disputes.",
           "To contact you about a booking, cancellation, or payment problem.",
@@ -213,7 +213,7 @@ export const POLICIES: readonly Policy[] = [
         heading: "When we share it",
         paragraphs: [
           "We do not sell personal information. We share it only with authorized club staff who need it to run bookings and verify payments, and with service providers that host the site, database, authentication, and file storage, including Supabase. Those providers process the information for us.",
-          "We also share information with Google if you choose Google sign-in, with OpenFreeMap when the visit page loads map tiles, and with authorities or professional advisers when the law requires it or when needed to establish or defend a claim.",
+          "We also share information with OpenFreeMap when the visit page loads map tiles, and with authorities or professional advisers when the law requires it or when needed to establish or defend a claim.",
           "GCash processes the transfer you make. We do not control GCash's own privacy practices; review GCash's notice for information about its service.",
         ],
       },
@@ -221,22 +221,22 @@ export const POLICIES: readonly Policy[] = [
         id: "payment-proof",
         heading: "Payment proof",
         paragraphs: [
-          "Payment proof is private. It is visible only to the player who owns the booking and to authorized staff. Uploading proof does not mark a payment as paid; staff verify the actual transfer before the payment status becomes paid.",
+          "Payment proof is private. It is visible only to authorized staff. Uploading proof does not mark a payment as paid; staff verify the actual transfer before the payment status becomes paid.",
         ],
       },
       {
         id: "retention",
         heading: "How long we keep it",
         paragraphs: [
-          "We keep account and booking records while your account is active and for a reasonable period afterwards for accounting, dispute, security, and legal purposes. We keep payment proof only as long as needed to verify the payment, handle a refund or dispute, and meet accounting or legal requirements, then delete or anonymize it.",
-          "We may keep a record longer when the law requires it or when an open dispute needs it. You may ask us to delete your account; we will delete or anonymize information we do not need to keep.",
+          "We keep guest and booking records for a reasonable period for accounting, dispute, security, and legal purposes. We keep payment proof only as long as needed to verify the payment, handle a refund or dispute, and meet accounting or legal requirements, then delete or anonymize it.",
+          "We may keep a record longer when the law requires it or when an open dispute needs it. You may ask us to delete guest contact details we do not need to keep.",
         ],
       },
       {
         id: "security",
         heading: "How we protect it",
         paragraphs: [
-          "We use access controls, private storage, and encrypted connections. Only authorized staff can review payment proof. No website can promise complete security, so contact us immediately if you think your account has been compromised.",
+          "We use access controls, private storage, and encrypted connections. Only authorized staff can review payment proof. No website can promise complete security, so contact us immediately if you think someone has used your booking reference or mobile number.",
         ],
       },
       {
@@ -294,11 +294,11 @@ export const POLICIES: readonly Policy[] = [
       },
       {
         id: "accounts",
-        heading: "Your account",
+        heading: "Your booking details",
         items: [
-          "Provide an accurate full name, email address, and mobile number, and keep them current.",
-          "Keep your password and sign-in method secure. Do not share them with anyone.",
-          "You are responsible for activity under your account. Tell us promptly if you think someone else has used it.",
+          "Provide an accurate full name and mobile number, and tell us if they change before your booking.",
+          "Keep your booking reference and QR code secure. Anyone with the QR code, or the reference plus your mobile number, can view that booking.",
+          "Tell us promptly if you think someone else has used your reference or mobile number.",
         ],
       },
       {
@@ -310,7 +310,7 @@ export const POLICIES: readonly Policy[] = [
         items: [
           "A confirmed court request holds the slot for 15 minutes. The payment deadline is the same window. If proof is not submitted in time, the request is cancelled and the slot returns to the schedule.",
           "An open-play place is reserved immediately against capacity. Payment stays separate and is verified by staff.",
-          "An account with a verified email address is required at review.",
+          "A full name and a valid Philippine mobile number are required at review. An email address is optional and is used only for the confirmation.",
           "One person may book for a group; only the booker's details are required.",
           "The club may close a court for weather, maintenance, or safety. You may choose a full refund or a free move.",
         ],
@@ -329,7 +329,7 @@ export const POLICIES: readonly Policy[] = [
         heading: "Court conduct and safety",
         paragraphs: [
           "Follow the club rules and staff instructions, use the courts safely and lawfully, and do not damage property or interfere with other players. Pickleball involves physical activity and the ordinary risk of injury. You are responsible for your health, equipment, and belongings.",
-          "We may cancel a booking or suspend an account if we reasonably believe there is fraud, abuse, a safety risk, or a serious breach of these terms.",
+          "We may cancel a booking or refuse future bookings if we reasonably believe there is fraud, abuse, a safety risk, or a serious breach of these terms.",
         ],
       },
       {
@@ -344,7 +344,7 @@ export const POLICIES: readonly Policy[] = [
         heading: "Content and third-party links",
         paragraphs: [
           "The logo, photographs, text, and design are owned by the club or used with permission. Do not copy or reuse them for commercial purposes without permission.",
-          "The site links to Google Maps and offers Google sign-in. Those services have their own terms and privacy notices.",
+          "The site links to Google Maps and OpenFreeMap. Those services have their own terms and privacy notices.",
         ],
       },
       {

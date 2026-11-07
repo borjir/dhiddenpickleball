@@ -60,7 +60,6 @@ type OpenPlayData = Extract<OpenPlayModalData, { status: "ok" }>;
 
 export function BookingModalProvider({ children }: { children: ReactNode }) {
   const [dialog, setDialog] = useState<Dialog | null>(null);
-  const [returnPath, setReturnPath] = useState("/");
   const [courtData, setCourtData] = useState<CourtData | null>(null);
   const [openPlayData, setOpenPlayData] = useState<OpenPlayData | null>(null);
   const [openPlayGroups, setOpenPlayGroups] = useState<
@@ -88,7 +87,6 @@ export function BookingModalProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const openOpenPlay = useCallback(async (sessionId: string) => {
-    setReturnPath(window.location.pathname || "/");
     setDialog({ kind: "open-play", sessionId });
     setOpenPlayData(null);
     setError(null);
@@ -282,18 +280,13 @@ export function BookingModalProvider({ children }: { children: ReactNode }) {
                   )}
                 </div>
               ) : isOpenPlay && openPlayData ? (
-                <OpenPlayModal
-                  data={openPlayData}
-                  signInNext={`${returnPath}?openPlay=${openPlayData.session.id}`}
-                />
+                <OpenPlayModal data={openPlayData} />
               ) : courtData ? (
                 <Suspense fallback={<ModalSkeleton />}>
                   <CourtBooking
-                    viewer={courtData.viewer}
                     courts={courtData.courts}
                     today={courtData.today}
                     embedded
-                    onNavigate={close}
                   />
                 </Suspense>
               ) : null}
@@ -305,14 +298,8 @@ export function BookingModalProvider({ children }: { children: ReactNode }) {
   );
 }
 
-function OpenPlayModal({
-  data,
-  signInNext,
-}: {
-  data: OpenPlayData;
-  signInNext: string;
-}) {
-  const { session, viewer, existingReference, isPast } = data;
+function OpenPlayModal({ data }: { data: OpenPlayData }) {
+  const { session, isPast } = data;
   const level = openPlayLevelMeta(session.skillLevel);
   const full = isOpenPlaySessionFull(session);
   const remaining = openPlaySpotsRemaining(session);
@@ -361,13 +348,7 @@ function OpenPlayModal({
       </div>
 
       <div className="mt-5">
-        <OpenPlayRegistration
-          session={session}
-          viewer={viewer}
-          existingReference={existingReference}
-          isPast={isPast}
-          signInNext={signInNext}
-        />
+        <OpenPlayRegistration session={session} isPast={isPast} />
       </div>
 
       <details className="mt-4 rounded-xl border border-line bg-surface/70 px-4 py-3">

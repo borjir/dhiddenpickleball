@@ -100,8 +100,8 @@ async function Payments({ searchParams }: { searchParams: SearchParams }) {
       .from("payments")
       .select(
         `id, status, amount_php, transaction_reference, proof_path, submitted_at, rejection_reason,
-         booking:bookings!payments_booking_id_fkey(reference, starts_at, player:profiles!bookings_player_id_fkey(full_name, email, phone)),
-         group:booking_groups!payments_group_id_fkey(reference, created_at, player:profiles!booking_groups_player_id_fkey(full_name, email, phone))`,
+         booking:bookings!payments_booking_id_fkey(reference, starts_at, player:customers!bookings_customer_id_fkey(full_name, email, phone:mobile)),
+         group:booking_groups!payments_group_id_fkey(reference, created_at, player:customers!booking_groups_customer_id_fkey(full_name, email, phone:mobile))`,
       )
       .eq("status", status)
       .order(status === "awaiting_verification" ? "submitted_at" : "reviewed_at", {

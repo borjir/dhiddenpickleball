@@ -36,7 +36,7 @@ export function ForgotPasswordForm({ configured }: { configured: boolean }) {
         parsed.data.email,
         {
           redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(
-            "/reset-password",
+            "/staff-access/reset-password",
           )}`,
         },
       );
@@ -98,7 +98,7 @@ export function ForgotPasswordForm({ configured }: { configured: boolean }) {
         <Field
           id="forgot-email"
           label="Email"
-          hint="Use the email connected to your account."
+          hint="Use the email connected to your staff account."
           error={errors.email}
           required
         >

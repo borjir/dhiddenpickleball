@@ -41,8 +41,8 @@ export async function handleAuthCallback(request: NextRequest) {
   const next = nextParam
     ? safeNextPath(nextParam)
     : typeParam === "recovery"
-      ? "/reset-password"
-      : "/account";
+      ? "/staff-access/reset-password"
+      : "/staff";
 
   if (url.searchParams.get("error")) {
     return errorRedirect(origin, "provider");

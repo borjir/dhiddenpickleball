@@ -71,5 +71,5 @@ export function one<T>(value: T | T[] | null | undefined): T | null {
 }
 
 export function personLabel(person: StaffPerson | null | undefined) {
-  return person?.full_name?.trim() || person?.email?.trim() || "Player account";
+  return person?.full_name?.trim() || person?.email?.trim() || "Guest";
 }

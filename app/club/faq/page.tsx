@@ -10,7 +10,7 @@ import { CLUB } from "@/lib/club";
 export const metadata: Metadata = {
   title: "Common questions",
   description:
-    "Answers about court hours, rates, open play, accounts, GCash payment, holds, groups, and cancellations at D-Hidden Pickleball Court & Bistro.",
+    "Answers about court hours, rates, open play, guest booking, GCash payment, holds, groups, and cancellations at D-Hidden Pickleball Court & Bistro.",
   robots: { index: false, follow: false },
 };
 
@@ -20,7 +20,7 @@ export default function ClubFaqPage() {
       <PageHeader
         eyebrow="Common questions"
         title="What players ask before booking."
-        intro="Answers use the club's confirmed hours, rates, open-play defaults, account rule, payment review, and cancellation decisions. Anything still unconfirmed is left out."
+        intro="Answers use the club's confirmed hours, rates, open-play defaults, guest booking details, payment review, and cancellation decisions. Anything still unconfirmed is left out."
       />
 
       <section className="bg-canvas py-12 sm:py-16">

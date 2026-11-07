@@ -1,36 +1,33 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# D-Hidden Pickleball — court booking
 
-## Getting Started
+Next.js app for court reservations, open play, payments, and staff operations.
 
-First, run the development server:
+## Local development
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Runtime configuration for local development lives in `.env.local` (copy
+`.env.example`). `NEXT_PUBLIC_*` values are inlined at build time; the
+server-only values are deployment secrets and must never be committed.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Production deployment
 
-## Learn More
+The app runs as a single Cloudflare Worker through the OpenNext adapter:
 
-To learn more about Next.js, take a look at the following resources:
+```bash
+npm run preview   # build and serve the Worker at http://127.0.0.1:8787
+npm run deploy    # build and deploy to Cloudflare
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Current live Worker: <https://play4serve.dhiddenpickleball.workers.dev>
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Target Worker URL after the rename deploy: <https://bookings.dhiddenpickleball.workers.dev>
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Always deploy with `npm run deploy` (not a bare `wrangler deploy`), because
+`NEXT_PUBLIC_*` values are inlined during the build. Deployment details,
+environment variables, Supabase auth redirect URLs, and the Google consent
+screen note are in [`docs/DEPLOYMENT_CLOUDFLARE.md`](docs/DEPLOYMENT_CLOUDFLARE.md).

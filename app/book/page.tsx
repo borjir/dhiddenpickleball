@@ -1,8 +1,6 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
-import Link from "next/link";
 import { AuthTopBar } from "@/components/auth/auth-top-bar";
-import { Alert } from "@/components/ui/alert";
 import { CourtBooking } from "@/components/booking/court-booking";
 import { ConfigNotice } from "@/components/auth/config-notice";
 import { manilaDateId } from "@/lib/bookings";
@@ -12,17 +10,8 @@ import { isSupabaseConfigured } from "@/lib/supabase/env";
 export const metadata: Metadata = {
   title: "Book a court",
   description:
-    "Check live court availability and request a court reservation at D-Hidden Pickleball Court & Bistro.",
+    "Check live court availability and request a court reservation at D-Hidden Pickleball Court & Bistro. No account needed; your mobile number is your booking pass.",
   robots: { index: false, follow: false },
-};
-
-type Viewer = {
-  email: string;
-  fullName: string;
-  phone: string;
-  role: "player" | "staff";
-  verified: boolean;
-  profileError: boolean;
 };
 
 function BookingShell({ children }: { children: React.ReactNode }) {
@@ -48,57 +37,6 @@ async function BookingPanel() {
   }
 
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  let viewer: Viewer | null = null;
-
-  if (user) {
-    const { data: profile, error: profileError } = await supabase
-      .from("profiles")
-      .select("full_name, phone, role")
-      .eq("id", user.id)
-      .maybeSingle();
-
-    viewer = {
-      email: user.email ?? "",
-      fullName: profile?.full_name?.trim() ?? "",
-      phone: profile?.phone?.trim() ?? "",
-      role: profile?.role === "staff" ? "staff" : "player",
-      verified: Boolean(user.email_confirmed_at),
-      profileError: Boolean(profileError),
-    };
-  }
-
-  // Staff operate the desk; a booking must belong to a player account.
-  if (viewer?.role === "staff") {
-    return (
-      <BookingShell>
-        <div className="mt-8">
-          <Alert
-            variant="info"
-            eyebrow="Staff account"
-            title="Staff accounts can't book court time"
-          >
-            <p>
-              Court bookings belong to player accounts. Use the desk to record a
-              walk-in for a player, or sign in with a player account to play.
-            </p>
-            <p className="mt-2">
-              <Link
-                href="/staff/bookings/new"
-                className="font-semibold text-accent-ink underline-offset-4 hover:underline"
-              >
-                Open the walk-in desk
-              </Link>
-            </p>
-          </Alert>
-        </div>
-      </BookingShell>
-    );
-  }
-
   const { data: courtRows } = await supabase
     .from("courts")
     .select("id, name, slug")
@@ -107,7 +45,6 @@ async function BookingPanel() {
 
   return (
     <CourtBooking
-      viewer={viewer}
       courts={courtRows ?? []}
       today={manilaDateId(new Date())}
     />

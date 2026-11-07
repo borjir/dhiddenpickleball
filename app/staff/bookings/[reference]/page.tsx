@@ -105,7 +105,7 @@ async function BookingDetail({ params, searchParams }: PageProps) {
       .select(
         `id, reference, status, payment_status, amount_php, hold_expires_at,
          confirmed_at, cancelled_at, cancellation_reason, created_at, source,
-         player:profiles!booking_groups_player_id_fkey(full_name, email, phone)`,
+         player:customers!booking_groups_customer_id_fkey(full_name, email, phone:mobile)`,
       )
       .eq("reference", normalized)
       .maybeSingle();
@@ -119,7 +119,7 @@ async function BookingDetail({ params, searchParams }: PageProps) {
       .select(
         `id, reference, starts_at, ends_at, duration_minutes, status, payment_status,
          amount_php, hold_expires_at, group_id, source, notes,
-         player:profiles!bookings_player_id_fkey(full_name, email, phone),
+         player:customers!bookings_customer_id_fkey(full_name, email, phone:mobile),
          service:services(name, code),
          court_reservations(court:courts(name))`,
       )
@@ -136,7 +136,7 @@ async function BookingDetail({ params, searchParams }: PageProps) {
         .select(
           `id, reference, status, payment_status, amount_php, hold_expires_at,
            confirmed_at, cancelled_at, cancellation_reason, created_at, source,
-           player:profiles!booking_groups_player_id_fkey(full_name, email, phone)`,
+           player:customers!booking_groups_customer_id_fkey(full_name, email, phone:mobile)`,
         )
         .eq("id", sourceBooking.group_id)
         .maybeSingle();
@@ -151,7 +151,7 @@ async function BookingDetail({ params, searchParams }: PageProps) {
       .select(
         `id, reference, starts_at, ends_at, duration_minutes, status, payment_status,
          amount_php, hold_expires_at, group_id, source, notes,
-         player:profiles!bookings_player_id_fkey(full_name, email, phone),
+         player:customers!bookings_customer_id_fkey(full_name, email, phone:mobile),
          service:services(name, code),
          court_reservations(court:courts(name))`,
       )

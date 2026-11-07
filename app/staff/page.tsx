@@ -188,7 +188,7 @@ async function Dashboard({ searchParams }: { searchParams: SearchParams }) {
       .select(
         `id, reference, starts_at, ends_at, duration_minutes, status, payment_status,
          amount_php, hold_expires_at, group_id, source, notes,
-         player:profiles!bookings_player_id_fkey(full_name, email, phone),
+         player:customers!bookings_customer_id_fkey(full_name, email, phone:mobile),
          service:services(name, code),
          court_reservations(court:courts(name))`,
       )
@@ -208,8 +208,8 @@ async function Dashboard({ searchParams }: { searchParams: SearchParams }) {
       .from("payments")
       .select(
         `id, status, amount_php, transaction_reference, proof_path, submitted_at, rejection_reason,
-         booking:bookings!payments_booking_id_fkey(reference, starts_at, player:profiles!bookings_player_id_fkey(full_name, email, phone)),
-         group:booking_groups!payments_group_id_fkey(reference, created_at, player:profiles!booking_groups_player_id_fkey(full_name, email, phone))`,
+         booking:bookings!payments_booking_id_fkey(reference, starts_at, player:customers!bookings_customer_id_fkey(full_name, email, phone:mobile)),
+         group:booking_groups!payments_group_id_fkey(reference, created_at, player:customers!booking_groups_customer_id_fkey(full_name, email, phone:mobile))`,
       )
       .eq("status", "awaiting_verification")
       .order("submitted_at", { ascending: true })

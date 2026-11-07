@@ -3,7 +3,10 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
-import { enqueueBookingEmail } from "@/lib/email/events";
+import {
+  enqueueBookingEmail,
+  enqueueGuestBookingEmail,
+} from "@/lib/email/events";
 import { notifyBookingUpdate } from "@/lib/notifications/events";
 import { requireStaff } from "@/lib/staff/auth";
 import { manilaLocalToIso, manilaTimeRange } from "@/lib/staff/time";
@@ -244,7 +247,9 @@ export async function updateBookingStatusAction(formData: FormData) {
 export async function createWalkInAction(formData: FormData) {
   const { supabase } = await requireStaff();
   const returnPath = safeStaffPath(value(formData, "returnPath"), "/staff/bookings/new");
-  const email = value(formData, "email").toLowerCase();
+  const fullName = value(formData, "fullName").trim();
+  const mobile = value(formData, "mobile").trim();
+  const email = value(formData, "email").trim().toLowerCase();
   const courtId = value(formData, "courtId");
   const date = value(formData, "date");
   const time = value(formData, "time");
@@ -257,7 +262,19 @@ export async function createWalkInAction(formData: FormData) {
 
   const parsed = z
     .object({
-      email: z.string().email("Enter the player's account email."),
+      fullName: z
+        .string()
+        .min(2, "Enter the guest's full name.")
+        .max(100, "Keep the name under 100 characters."),
+      mobile: z
+        .string()
+        .refine(
+          (candidate) => /^(?:\+?63|0)9\d{9}$/.test(candidate.replace(/[\s()-]/g, "")),
+          "Enter a valid Philippine mobile number, for example 0917 123 4567.",
+        ),
+      email: z
+        .union([z.literal(""), z.string().email("Enter a valid email address.")])
+        .optional(),
       courtId: uuid,
       startsAt: z.string().datetime(),
       duration: z.coerce.number().int().min(60).max(1020),
@@ -267,7 +284,9 @@ export async function createWalkInAction(formData: FormData) {
       notes: optionalText(500),
     })
     .safeParse({
-      email,
+      fullName,
+      mobile,
+      email: email || "",
       courtId,
       startsAt,
       duration,
@@ -278,26 +297,16 @@ export async function createWalkInAction(formData: FormData) {
     });
 
   if (!parsed.success || !startsAt) {
-    fail(returnPath, "Check the player email, court, date, and time.");
+    fail(returnPath, "Check the guest name, mobile number, court, date, and time.");
   }
 
   if (parsed.data.duration % 60 !== 0) {
     fail(returnPath, "Choose a whole number of hours.");
   }
 
-  const { data: player, error: playerError } = await supabase
-    .from("profiles")
-    .select("id, full_name, email")
-    .ilike("email", parsed.data.email)
-    .limit(1)
-    .maybeSingle();
-
-  if (playerError || !player) {
-    fail(returnPath, "No player account matched that email.");
-  }
-
   const { data, error } = await supabase.rpc("staff_create_walk_in_booking", {
-    p_player_id: player.id,
+    p_full_name: parsed.data.fullName,
+    p_mobile: parsed.data.mobile,
     p_court_id: parsed.data.courtId,
     p_starts_at: parsed.data.startsAt,
     p_duration_minutes: parsed.data.duration,
@@ -305,6 +314,7 @@ export async function createWalkInAction(formData: FormData) {
     p_method: parsed.data.method,
     p_reference: parsed.data.reference,
     p_notes: parsed.data.notes,
+    p_email: parsed.data.email || null,
   });
 
   if (error) {
@@ -318,7 +328,7 @@ export async function createWalkInAction(formData: FormData) {
   }
 
   if (booking.id) {
-    await enqueueBookingEmail(supabase, "court_booking_received", {
+    await enqueueGuestBookingEmail("court_booking_received", {
       bookingId: booking.id,
     });
   }
@@ -460,7 +470,7 @@ export async function updateOpenPlaySessionAction(formData: FormData) {
 
     revalidatePath("/staff", "layout");
     revalidatePath("/staff/open-play");
-    succeed(returnPath, "Session cancelled and registered players notified in their accounts.");
+    succeed(returnPath, "Session cancelled and registered guests notified by email where they gave one.");
   }
 
   const { error } = await supabase
@@ -537,7 +547,7 @@ export async function updateOpenPlayRegistrationAction(formData: FormData) {
   });
 
   if (error) {
-    fail(returnPath, rpcMessage(error, "The player's attendance could not be updated."));
+    fail(returnPath, rpcMessage(error, "The guest's attendance could not be updated."));
   }
 
   if (

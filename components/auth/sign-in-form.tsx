@@ -7,19 +7,23 @@ import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Field, Input } from "@/components/ui/field";
 import { ConfigNotice } from "@/components/auth/config-notice";
-import { GoogleButton } from "@/components/auth/google-button";
-import { OrDivider } from "@/components/auth/or-divider";
 import { createClient } from "@/lib/supabase/client";
 import { authErrorMessage } from "@/lib/auth/errors";
-import { safeNextPath } from "@/lib/auth/redirect";
 import { fieldErrorsFrom, signInSchema } from "@/lib/validation/auth";
 
+/**
+ * Staff-only sign-in. Players have no login; they use the booking reference and
+ * mobile number on the public lookup page. A non-staff account that signs in
+ * here is immediately signed out again so the browser never holds a player
+ * session.
+ */
 export function SignInForm({ configured }: { configured: boolean }) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const next = safeNextPath(searchParams.get("next"));
   const requestedEmail = searchParams.get("email")?.trim() ?? "";
-  const sessionExpired = searchParams.get("notice") === "session-expired";
+  const sessionExpired =
+    searchParams.get("notice") === "session-expired" ||
+    searchParams.get("notice") === "staff-only";
 
   const [values, setValues] = useState({
     email: requestedEmail,
@@ -65,7 +69,8 @@ export function SignInForm({ configured }: { configured: boolean }) {
         return;
       }
 
-      let destination = next;
+      let isStaff = false;
+
       if (signIn.user) {
         const { data: profile } = await supabase
           .from("profiles")
@@ -73,13 +78,18 @@ export function SignInForm({ configured }: { configured: boolean }) {
           .eq("id", signIn.user.id)
           .maybeSingle();
 
-        if (profile?.role === "staff") {
-          destination =
-            next === "/staff" || next.startsWith("/staff/") ? next : "/staff";
-        }
+        isStaff = profile?.role === "staff";
       }
 
-      router.replace(destination);
+      if (!isStaff) {
+        await supabase.auth.signOut();
+        setFormError(
+          "This sign-in is for club staff only. Players check bookings with their reference and mobile number.",
+        );
+        return;
+      }
+
+      router.replace("/staff");
       router.refresh();
     } catch (error) {
       setFormError(authErrorMessage(error));
@@ -99,7 +109,8 @@ export function SignInForm({ configured }: { configured: boolean }) {
           title="Sign in again to continue"
           role="status"
         >
-          Your session ended for security. Sign in to return to your account.
+          Your staff session ended for security. Sign in to return to the
+          operations desk.
         </Alert>
       ) : null}
 
@@ -112,16 +123,8 @@ export function SignInForm({ configured }: { configured: boolean }) {
         />
       ) : null}
 
-      <GoogleButton
-        next={next}
-        onError={setFormError}
-        disabled={loading}
-      />
-
-      <OrDivider />
-
       <form onSubmit={onSubmit} noValidate className="space-y-4">
-        <Field id="sign-in-email" label="Email" error={errors.email} required>
+        <Field id="sign-in-email" label="Staff email" error={errors.email} required>
           <Input
             id="sign-in-email"
             name="email"
@@ -130,7 +133,7 @@ export function SignInForm({ configured }: { configured: boolean }) {
             autoComplete="email"
             autoCapitalize="none"
             spellCheck={false}
-            placeholder="you@example.com"
+            placeholder="staff@example.com"
             value={values.email}
             onChange={(event) => update("email", event.target.value)}
             invalid={Boolean(errors.email)}
@@ -161,7 +164,7 @@ export function SignInForm({ configured }: { configured: boolean }) {
 
         <div className="-mt-1 flex justify-end">
           <Link
-            href="/forgot-password"
+            href="/staff-access/forgot-password"
             className="inline-flex min-h-10 items-center text-sm font-semibold text-accent-ink underline-offset-4 hover:underline"
           >
             Forgot password?
@@ -174,7 +177,14 @@ export function SignInForm({ configured }: { configured: boolean }) {
       </form>
 
       <p className="text-center text-xs leading-relaxed text-muted">
-        One account for court bookings and payment status.
+        Club staff only. Looking for a booking?{" "}
+        <Link
+          href="/lookup"
+          className="font-semibold text-accent-ink underline underline-offset-2"
+        >
+          Check it with your reference
+        </Link>
+        .
       </p>
     </div>
   );

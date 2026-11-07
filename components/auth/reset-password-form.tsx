@@ -110,7 +110,7 @@ export function ResetPasswordForm({ configured }: { configured: boolean }) {
           </p>
         </Alert>
         <Link
-          href="/forgot-password"
+          href="/staff-access/forgot-password"
           className={buttonClasses({ className: "w-full" })}
         >
           Request a new link
@@ -126,10 +126,10 @@ export function ResetPasswordForm({ configured }: { configured: boolean }) {
           <p>Your new password is ready. Sign in again on any other device.</p>
         </Alert>
         <Link
-          href="/account"
+          href="/staff-access"
           className="inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-brand-blue px-5 text-sm font-semibold text-white shadow-card transition-colors hover:bg-brand-blue-strong"
         >
-          Go to my account
+          Go to staff sign in
         </Link>
       </div>
     );

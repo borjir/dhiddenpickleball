@@ -84,51 +84,6 @@ async function SessionPanel({ params }: PageProps) {
   const remaining = openPlaySpotsRemaining(session);
   const isPast = new Date(session.startsAt).getTime() <= new Date().getTime();
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  let viewer: {
-    email: string;
-    fullName: string;
-    role: "player" | "staff";
-    verified: boolean;
-  } | null = null;
-  let existingReference: string | null = null;
-
-  if (user) {
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("full_name, role")
-      .eq("id", user.id)
-      .maybeSingle();
-
-    viewer = {
-      email: user.email ?? "",
-      fullName: profile?.full_name?.trim() ?? "",
-      role: profile?.role === "staff" ? "staff" : "player",
-      verified: Boolean(user.email_confirmed_at),
-    };
-
-    const { data: registration } = await supabase
-      .from("open_play_registrations")
-      .select("status, booking:bookings(reference)")
-      .eq("session_id", session.id)
-      .eq("player_id", user.id)
-      .maybeSingle();
-
-    const booking = registration?.booking as
-      | { reference?: string }
-      | { reference?: string }[]
-      | null
-      | undefined;
-    const reference = Array.isArray(booking)
-      ? booking[0]?.reference
-      : booking?.reference;
-
-    existingReference = reference ?? null;
-  }
-
   return (
     <>
       <section className="border-b border-line bg-surface">
@@ -209,7 +164,7 @@ async function SessionPanel({ params }: PageProps) {
               {[
                 "Bring your paddle, drinking water, and comfortable court shoes.",
                 "Reserve one place per player. Capacity is checked again when you confirm.",
-                "Pay by GCash after reserving. Upload your screenshot from the confirmation or your account.",
+                "Pay by GCash after reserving. Upload your screenshot from the confirmation or the booking lookup page.",
                 "Staff verify the actual transfer. Submitting proof does not mark the payment as paid.",
                 "Contact the club to cancel or change your place. Self-service changes are not available.",
               ].map((item) => (
@@ -229,12 +184,7 @@ async function SessionPanel({ params }: PageProps) {
           </section>
 
           <aside className="order-first lg:order-none lg:sticky lg:top-24">
-            <OpenPlayRegistration
-              session={session}
-              viewer={viewer}
-              existingReference={existingReference}
-              isPast={isPast}
-            />
+            <OpenPlayRegistration session={session} isPast={isPast} />
             <Link
               href="/open-play"
               className="mt-4 inline-flex min-h-11 items-center gap-1.5 text-sm font-semibold text-accent-ink"

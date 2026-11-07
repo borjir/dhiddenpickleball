@@ -11,17 +11,18 @@ export type StaffMember = {
 };
 
 function signInPath() {
-  return `/sign-in?next=${encodeURIComponent("/staff")}&notice=session-expired`;
+  return "/staff-access?notice=session-expired";
 }
 
 /**
  * Resolve the signed-in staff member and return a request-scoped client.
- * Players are sent back to their account; signed-out visitors go to sign-in.
- * The database RLS policies remain the final access boundary.
+ * Signed-out visitors go to the unlisted staff sign-in; non-staff sessions go
+ * back to the public booking lookup. The database RLS policies remain the final
+ * access boundary.
  */
 export async function requireStaff() {
   if (!isSupabaseConfigured()) {
-    redirect("/account?notice=staff-config");
+    redirect("/staff-access?notice=config");
   }
 
   const supabase = await createClient();
@@ -39,7 +40,7 @@ export async function requireStaff() {
     .maybeSingle();
 
   if (profile?.role !== "staff") {
-    redirect("/account?notice=staff-only");
+    redirect("/lookup?notice=staff-only");
   }
 
   return {

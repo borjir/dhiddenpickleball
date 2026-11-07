@@ -14,6 +14,18 @@ Do not overwrite working code or introduce a new library/framework without a
 clear reason. Use TypeScript, preserve established project conventions, and
 explain important decisions in plain language.
 
+APPROVED SCOPE CHANGE — 8 NOVEMBER 2026
+- Player self-service accounts, sign-up, sign-in, and the player account area
+  are removed from the MVP at the client's request.
+- Court bookings and open-play places are guest records: full name, mandatory
+  Philippine mobile number, and an optional email. A booking reference plus the
+  mobile number, or the booking QR code, is the access credential.
+- Status lookup, QR download, and payment-proof upload work without an account.
+- Supabase Auth is retained only for staff, through an unlisted `/staff-access`
+  route with role checks. Staff operations, RLS, and email notifications remain.
+- This change supersedes the player-account requirements in Phases 6–9; the
+  rest of the v2.5 blueprint and its phase sequencing still apply.
+
 VERSION 2.5 SCOPE GATE — MVP FIRST
 - MVP priority: public club website, court reservations, normal open play,
   player accounts where required, staff operations, manual QR payment proof

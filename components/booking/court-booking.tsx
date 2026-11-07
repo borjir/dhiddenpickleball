@@ -9,7 +9,7 @@ import {
   type ReactNode,
 } from "react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import {
   createBookingGroup,
@@ -59,7 +59,7 @@ const stepContent = [
     eyebrow: "Step 2 · Review",
     title: "Check your details",
     description:
-      "Confirm the contact details on your account and accept the booking terms. The slot is not held until you submit.",
+      "Add the name and mobile number for this booking, accept the booking terms, and submit. The slot is not held until you submit.",
   },
   {
     eyebrow: "Step 3 · Booking created",
@@ -69,8 +69,8 @@ const stepContent = [
   },
 ] as const;
 
-// Saved court times survive the sign-in hop (and a confirmation link opening
-// in a new tab) for two hours, then disappear on their own.
+// Saved court times survive a page reload (and a confirmation link opening in
+// a new tab) for two hours, then disappear on their own.
 const CART_STORAGE_KEY = "dhidden-booking-cart";
 const CART_STORAGE_TTL_MS = 2 * 60 * 60 * 1000;
 
@@ -99,15 +99,8 @@ const initialBookingState: BookingFormState = {
   values: {
     fullName: "",
     phone: "",
+    email: "",
   },
-};
-
-type Viewer = {
-  email: string;
-  fullName: string;
-  phone: string;
-  verified: boolean;
-  profileError: boolean;
 };
 
 type CourtOption = {
@@ -390,19 +383,14 @@ function SlotSkeleton() {
 }
 
 export function CourtBooking({
-  viewer,
   courts,
   today,
   embedded = false,
-  onNavigate,
 }: {
-  viewer: Viewer | null;
   courts: CourtOption[];
   today: string;
   embedded?: boolean;
-  onNavigate?: () => void;
 }) {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const reduce = useReducedMotion();
 
@@ -509,11 +497,7 @@ export function CourtBooking({
                   : [...current, item],
               );
               setActiveRangeKey(item.key);
-              if (viewer) setStep(1);
-              else
-                setNotice(
-                  "Your selection is ready. Sign in to finish the booking.",
-                );
+              setStep(1);
             } else {
               setNotice("That time is no longer available. Choose another.");
             }
@@ -534,7 +518,7 @@ export function CourtBooking({
     return () => {
       cancelled = true;
     };
-  }, [date, initialHours, refreshKey, requestedCourt, requestedStart, viewer]);
+  }, [date, initialHours, refreshKey, requestedCourt, requestedStart]);
 
   useEffect(() => {
     if (!hasMounted.current) {
@@ -553,9 +537,9 @@ export function CourtBooking({
     return () => window.clearInterval(timer);
   }, []);
 
-  // Restore a selection the player had to leave behind, most often to sign in.
-  // It lives in localStorage so it also survives a confirmation link opening
-  // in a new tab, and it expires so an old half-built selection never returns.
+  // Restore a selection after a reload or a confirmation link opening in a new
+  // tab. It lives in localStorage and expires so an old half-built selection
+  // never returns.
   useEffect(() => {
     const timer = window.setTimeout(() => {
       try {
@@ -774,12 +758,7 @@ export function CourtBooking({
   const activeContent = stepContent[step];
   const group = bookingState.group;
   const cartTotal = cart.reduce((total, item) => total + item.amountPhp, 0);
-  const canSubmit =
-    Boolean(viewer) &&
-    Boolean(viewer?.verified) &&
-    !viewer?.profileError &&
-    cart.length > 0 &&
-    !pending;
+  const canSubmit = cart.length > 0 && !pending;
 
   function clearBookingFeedback() {
     setBookingState(initialBookingState);
@@ -1098,26 +1077,6 @@ export function CourtBooking({
   function goToReview() {
     if (cart.length === 0) return;
 
-    if (!viewer) {
-      try {
-        window.localStorage.setItem(
-          CART_STORAGE_KEY,
-          JSON.stringify({ savedAt: Date.now(), items: cart }),
-        );
-      } catch {
-        // The cart still survives on this page if storage is unavailable.
-      }
-      const returnPath =
-        window.location.pathname === "/book"
-          ? "/"
-          : window.location.pathname;
-      onNavigate?.();
-      router.push(
-        `/sign-in?next=${encodeURIComponent(`${returnPath}?booking=1&resume=cart`)}`,
-      );
-      return;
-    }
-
     setBookingState(initialBookingState);
     setNotice(null);
     setStep(1);
@@ -1144,14 +1103,6 @@ export function CourtBooking({
       );
       const result = await createBookingGroup(initialBookingState, formData);
 
-      if (result.code === "session-expired" && result.next) {
-        onNavigate?.();
-        router.push(
-          `/sign-in?next=${encodeURIComponent(result.next)}&notice=session-expired`,
-        );
-        return;
-      }
-
       setBookingState(result);
 
       if (result.status === "success") {
@@ -1168,8 +1119,9 @@ export function CourtBooking({
           "The booking request could not be sent. Check your connection and try again.",
         errors: {},
         values: {
-          fullName: viewer?.fullName ?? "",
-          phone: viewer?.phone ?? "",
+          fullName: bookingState.values.fullName,
+          phone: bookingState.values.phone,
+          email: bookingState.values.email,
         },
       });
     } finally {
@@ -1290,10 +1242,10 @@ export function CourtBooking({
           <div className="flex items-center gap-1.5">
             <ThemeToggle />
             <Link
-              href={viewer ? "/account" : "/sign-in?next=/book"}
+              href="/lookup"
               className="inline-flex min-h-11 items-center rounded-lg px-2.5 text-sm font-semibold text-ink transition-colors hover:text-accent-ink sm:px-3"
             >
-              {viewer ? "My account" : "Sign in"}
+              Check booking
             </Link>
             <Link
               href="/"
@@ -1317,7 +1269,7 @@ export function CourtBooking({
             </h1>
             <p className="mt-3 max-w-xl text-base leading-relaxed text-muted">
               Live times and prices, a 15-minute hold after you confirm, and a
-              clear payment status in your account.
+              status you can check any time with your reference and mobile.
             </p>
           </div>
           <div className="hidden shrink-0 items-center gap-2.5 rounded-xl border border-line bg-surface px-4 py-3 text-caption text-muted shadow-card sm:flex">
@@ -1934,9 +1886,7 @@ export function CourtBooking({
                       aria-live="polite"
                     >
                       {cart.length > 0
-                        ? viewer
-                          ? "No slot is held until you submit the review."
-                          : "Sign-in is required after you build your reservation."
+                        ? "No slot is held until you submit the review."
                         : "Tap a time to add it. Use Add court time for another date or range."}
                     </p>
                   </BookingSummary>
@@ -1959,97 +1909,6 @@ export function CourtBooking({
             {step === 1 ? (
               <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-start">
                 <div className="min-w-0 space-y-6">
-                  {!viewer ? (
-                    <Alert
-                      variant="warning"
-                      eyebrow="Sign in required"
-                      title="Sign in to finish this booking"
-                    >
-                      <p>
-                        Availability and prices are shown first. Your chosen
-                        court times stay saved while you sign in, and we use the
-                        name, email, and mobile number on your account.
-                      </p>
-                      {cart.length > 0 ? (
-                        <ul className="mt-3 space-y-1.5 text-sm">
-                          {cart.map((item) => (
-                            <li
-                              key={item.key}
-                              className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5"
-                            >
-                              <span>
-                                {formatDateId(item.date)} ·{" "}
-                                {formatHourRange(
-                                  item.startMinute,
-                                  item.endMinute,
-                                )}{" "}
-                                · {item.courtName}
-                              </span>
-                              <span className="font-semibold">
-                                {formatPeso(item.amountPhp)}
-                              </span>
-                            </li>
-                          ))}
-                          <li className="flex justify-between gap-3 border-t border-line pt-1.5 font-semibold">
-                            <span>Total</span>
-                            <span>{formatPeso(cartTotal)}</span>
-                          </li>
-                        </ul>
-                      ) : null}
-                      <div className="mt-3 flex flex-wrap gap-2">
-                        <Button type="button" onClick={goToReview}>
-                          Sign in
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="secondary"
-                          onClick={() => setStep(0)}
-                        >
-                          Change times
-                        </Button>
-                      </div>
-                    </Alert>
-                  ) : (
-                    <>
-                      <div className="flex flex-wrap items-start justify-between gap-3">
-                        <div>
-                          <p className="text-eyebrow font-bold uppercase text-accent-ink">
-                            Account
-                          </p>
-                          <p className="mt-1 text-sm font-semibold break-all text-heading">
-                            {viewer.email}
-                          </p>
-                        </div>
-                        <Badge
-                          variant={viewer.verified ? "success" : "warning"}
-                          dot
-                        >
-                          {viewer.verified ? "Email verified" : "Email unverified"}
-                        </Badge>
-                      </div>
-
-                      {!viewer.verified ? (
-                        <Alert
-                          variant="warning"
-                          eyebrow="Verify your email"
-                          title="Confirm your email before holding a court"
-                        >
-                          Check your inbox for the confirmation link. If you need
-                          a new link, contact the club.
-                        </Alert>
-                      ) : null}
-
-                      {viewer.profileError ? (
-                        <Alert
-                          variant="warning"
-                          eyebrow="Profile not loaded"
-                          title="Your account details could not be read"
-                        >
-                          Refresh the page and try again. If it keeps failing,
-                          contact the club before booking.
-                        </Alert>
-                      ) : null}
-
                       {bookingState.status === "error" &&
                       bookingState.message ? (
                         <Alert
@@ -2076,10 +1935,10 @@ export function CourtBooking({
                           ) : null}
                           {bookingState.code === "active-hold" ? (
                             <Link
-                              href="/account"
+                              href="/lookup"
                               className="mt-3 inline-flex min-h-10 items-center font-semibold text-accent-ink underline decoration-brand-blue/40 underline-offset-2 hover:text-brand-blue-strong"
                             >
-                              View my current booking
+                              Check my current booking
                             </Link>
                           ) : null}
                           {bookingState.errors.form ? (
@@ -2166,8 +2025,9 @@ export function CourtBooking({
                             </span>
                           </div>
                           <p className="mt-2 text-sm leading-relaxed text-muted">
-                            The name and mobile number below are saved to your
-                            account when the booking is created.
+                            No account is needed. This name and mobile number
+                            identify the booking and let you check its status
+                            later.
                           </p>
 
                           <div className="mt-5 grid gap-4 sm:grid-cols-2">
@@ -2183,11 +2043,7 @@ export function CourtBooking({
                                 autoComplete="name"
                                 required
                                 maxLength={100}
-                                defaultValue={
-                                  bookingState.status === "idle"
-                                    ? viewer.fullName
-                                    : bookingState.values.fullName
-                                }
+                                defaultValue={bookingState.values.fullName}
                                 invalid={Boolean(bookingState.errors.fullName)}
                                 aria-describedby={
                                   bookingState.errors.fullName
@@ -2197,24 +2053,36 @@ export function CourtBooking({
                               />
                             </Field>
 
-                            <div className="rounded-lg border border-line bg-page/60 px-3.5 py-3">
-                              <p className="text-[0.6875rem] font-bold uppercase tracking-[0.14em] text-muted">
-                                Email address
-                              </p>
-                              <p className="mt-1 break-all text-sm font-semibold text-heading">
-                                {viewer.email}
-                              </p>
-                              <p className="mt-1 text-caption text-muted">
-                                The booking is tied to this account.
-                              </p>
-                            </div>
+                            <Field
+                              id="booking-email"
+                              label="Email address"
+                              optionalLabel
+                              hint="Optional. We only email booking updates and reminders."
+                              error={bookingState.errors.email}
+                            >
+                              <Input
+                                id="booking-email"
+                                name="email"
+                                type="email"
+                                inputMode="email"
+                                autoComplete="email"
+                                maxLength={254}
+                                defaultValue={bookingState.values.email}
+                                invalid={Boolean(bookingState.errors.email)}
+                                aria-describedby={
+                                  bookingState.errors.email
+                                    ? "booking-email-error"
+                                    : "booking-email-hint"
+                                }
+                              />
+                            </Field>
 
                             <Field
                               id="booking-phone"
                               label="Mobile number"
                               required
                               className="sm:col-span-2"
-                              hint="Used by the club on the day of your booking."
+                              hint="Required. Your reference plus this number is how you check the booking and upload payment proof."
                               error={bookingState.errors.phone}
                             >
                               <Input
@@ -2225,11 +2093,7 @@ export function CourtBooking({
                                 autoComplete="tel"
                                 required
                                 maxLength={30}
-                                defaultValue={
-                                  bookingState.status === "idle"
-                                    ? viewer.phone
-                                    : bookingState.values.phone
-                                }
+                                defaultValue={bookingState.values.phone}
                                 invalid={Boolean(bookingState.errors.phone)}
                                 aria-describedby={
                                   bookingState.errors.phone
@@ -2241,9 +2105,9 @@ export function CourtBooking({
                           </div>
 
                           <p className="mt-4 rounded-xl border border-line bg-page/60 px-4 py-3 text-caption leading-relaxed text-muted">
-                            Group bookings are allowed. Only your name is
-                            required. The maximum number of players per court is
-                            not yet confirmed.
+                            Keep the mobile number handy. It is part of the
+                            booking pass and the only way to look the booking up
+                            without signing in.
                           </p>
                         </section>
 
@@ -2345,8 +2209,6 @@ export function CourtBooking({
                         <ArrowLeftIcon className="size-4" />
                         Back to time selection
                       </Button>
-                    </>
-                  )}
                 </div>
 
                 <aside className="hidden min-w-0 space-y-4 lg:sticky lg:top-6 lg:block">

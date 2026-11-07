@@ -5,7 +5,14 @@ import {
   type PaymentStatus,
 } from "@/lib/bookings";
 import type { OpenPlaySkillLevel } from "@/lib/open-play";
-import { siteUrl, staffNotificationRecipients, isEmailConfigured } from "./config";
+import {
+  siteUrl,
+  staffNotificationRecipients,
+  isEmailConfigured,
+  isEmailEventEnabled,
+  emailDailyLimit,
+  emailMonthlyLimit,
+} from "./config";
 import { sendEmail } from "./provider";
 import {
   renderPlayerEmail,
@@ -35,7 +42,7 @@ type BookingRecord = {
   hold_expires_at: string | null;
   cancellation_reason: string | null;
   group_id: string | null;
-  player: Person | null;
+  customer: Person | null;
   service: { code: string; name: string } | null;
   court_reservations: Array<{ court: { name: string } | null }> | null;
   open_play_registrations: Array<{
@@ -51,7 +58,7 @@ type GroupRecord = {
   amount_php: number | string;
   hold_expires_at: string | null;
   cancellation_reason: string | null;
-  player: Person | null;
+  customer: Person | null;
   bookings: Array<{
     starts_at: string;
     ends_at: string;
@@ -122,10 +129,8 @@ function bookingItems(
     }));
 }
 
-function accountUrl(row: EmailOutboxRow, reference: string, group?: boolean) {
-  return group
-    ? `${siteUrl()}/account/bookings/group/${encodeURIComponent(reference)}`
-    : `${siteUrl()}/account/bookings/${encodeURIComponent(reference)}`;
+function lookupUrl(reference: string) {
+  return `${siteUrl()}/lookup?reference=${encodeURIComponent(reference)}`;
 }
 
 function staffBookingUrl(reference: string) {
@@ -142,7 +147,7 @@ async function loadBookingEmail(
       .select(
         `id, reference, status, payment_status, amount_php, hold_expires_at,
          cancellation_reason,
-         player:profiles!booking_groups_player_id_fkey(full_name, email),
+         customer:customers!booking_groups_customer_id_fkey(full_name, email),
          bookings!bookings_group_id_fkey(
            starts_at, ends_at, amount_php,
            court_reservations(court:courts(name))
@@ -160,8 +165,8 @@ async function loadBookingEmail(
     const items = bookingItems(group.bookings ?? []);
     const context: PlayerEmailContext = {
       reference: group.reference,
-      playerName: group.player?.full_name ?? "",
-      playerEmail: group.player?.email ?? "",
+      playerName: group.customer?.full_name ?? "",
+      playerEmail: group.customer?.email ?? "",
       status: group.status,
       paymentStatus: group.payment_status,
       amountPhp: Number(group.amount_php),
@@ -172,7 +177,7 @@ async function loadBookingEmail(
       isOpenPlay: false,
       openPlayLevel: null,
       isGroup: true,
-      accountUrl: accountUrl(row, group.reference, true),
+      accountUrl: lookupUrl(group.reference),
     };
 
     if (isStaffEvent(row)) {
@@ -210,7 +215,7 @@ async function loadBookingEmail(
     }
 
     if (!context.playerEmail) {
-      return { skip: "The player has no email address." };
+      return { skip: "The customer has no email address." };
     }
 
     return {
@@ -231,7 +236,7 @@ async function loadBookingEmail(
     .select(
       `id, reference, starts_at, ends_at, status, payment_status, amount_php,
        hold_expires_at, cancellation_reason, group_id,
-       player:profiles!bookings_player_id_fkey(full_name, email),
+       customer:customers!bookings_customer_id_fkey(full_name, email),
        service:services!bookings_service_id_fkey(code, name),
        court_reservations(court:courts(name)),
        open_play_registrations(session:open_play_sessions(skill_level))`,
@@ -262,8 +267,8 @@ async function loadBookingEmail(
   ];
   const context: PlayerEmailContext = {
     reference: booking.reference,
-    playerName: booking.player?.full_name ?? "",
-    playerEmail: booking.player?.email ?? "",
+    playerName: booking.customer?.full_name ?? "",
+    playerEmail: booking.customer?.email ?? "",
     status: booking.status,
     paymentStatus: booking.payment_status,
     amountPhp: Number(booking.amount_php),
@@ -274,7 +279,7 @@ async function loadBookingEmail(
     isOpenPlay,
     openPlayLevel,
     isGroup: false,
-    accountUrl: accountUrl(row, booking.reference),
+    accountUrl: lookupUrl(booking.reference),
   };
 
   if (isStaffEvent(row)) {
@@ -314,7 +319,7 @@ async function loadBookingEmail(
   }
 
   if (!context.playerEmail) {
-    return { skip: "The player has no email address." };
+    return { skip: "The customer has no email address." };
   }
 
   return {
@@ -401,10 +406,50 @@ async function complete(
   }
 }
 
+/** Never send a stale confirmation or reminder after an outage. */
+const MAX_EMAIL_AGE_MS = 24 * 60 * 60 * 1000;
+
+function startOfUtcDay() {
+  const now = new Date();
+  return new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
+  ).toISOString();
+}
+
+function startOfUtcMonth() {
+  const now = new Date();
+  return new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1),
+  ).toISOString();
+}
+
+/**
+ * Count delivered outbox rows since a UTC boundary; null means it failed.
+ * Current enabled events have one guest recipient per row. If staff alerts are
+ * re-enabled, include their recipient count so the quota guard stays accurate.
+ */
+async function sentSince(admin: SupabaseClient, since: string) {
+  const { count, error } = await admin
+    .from("email_outbox")
+    .select("id", { count: "exact", head: true })
+    .eq("status", "sent")
+    .gte("sent_at", since);
+
+  if (error) {
+    console.error("[email] Could not read sent email count:", error.message);
+    return null;
+  }
+
+  return count ?? 0;
+}
+
 /**
  * Drain a small batch of the email outbox. The route and server actions call
  * this; it is safe to run concurrently because claim_email_outbox uses
  * FOR UPDATE SKIP LOCKED.
+ *
+ * Both caps protect the Resend free plan. Rows left over stay queued for the
+ * next day, subject to the age cutoff above.
  */
 export async function processEmailOutbox(
   limit = 25,
@@ -423,8 +468,24 @@ export async function processEmailOutbox(
   const admin = createAdminClient();
   if (!admin) return result;
 
+  const [deliveredToday, deliveredThisMonth] = await Promise.all([
+    sentSince(admin, startOfUtcDay()),
+    sentSince(admin, startOfUtcMonth()),
+  ]);
+
+  if (deliveredToday === null || deliveredThisMonth === null) return result;
+
+  const remaining = Math.max(
+    Math.min(
+      emailDailyLimit() - deliveredToday,
+      emailMonthlyLimit() - deliveredThisMonth,
+    ),
+    0,
+  );
+  if (remaining === 0) return result;
+
   const { data, error } = await admin.rpc("claim_email_outbox", {
-    p_limit: limit,
+    p_limit: Math.min(limit, remaining),
   });
 
   if (error) {
@@ -437,6 +498,32 @@ export async function processEmailOutbox(
 
   for (const row of rows) {
     try {
+      const age = Date.now() - new Date(row.created_at).getTime();
+
+      if (!Number.isFinite(age) || age > MAX_EMAIL_AGE_MS) {
+        await complete(
+          admin,
+          row,
+          "skipped",
+          null,
+          "Email expired before it could be delivered.",
+        );
+        result.skipped += 1;
+        continue;
+      }
+
+      if (!isEmailEventEnabled(row.event)) {
+        await complete(
+          admin,
+          row,
+          "skipped",
+          null,
+          "This email event is intentionally not sent.",
+        );
+        result.skipped += 1;
+        continue;
+      }
+
       const loaded =
         row.event === "staff_session_full"
           ? await loadSessionFullEmail(admin, row)

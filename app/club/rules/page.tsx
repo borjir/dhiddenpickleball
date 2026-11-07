@@ -47,12 +47,12 @@ const sections: readonly RuleSection[] = [
   },
   {
     id: "booking-and-account",
-    heading: "Booking and account",
+    heading: "Booking details",
     items: [
-      "An account is required at review, after the date, time, and price are shown.",
-      "The booker's full name, email address, and mobile number are required.",
-      "The email address must be verified before the slot is held.",
+      "No account is needed. Enter the booker's full name and mobile number at review, after the date, time, and price are shown. An email address is optional.",
+      "The reference and mobile number are how you check the booking, download the QR pass, and upload payment proof later.",
       "One person may book for a group. Only the booker's name is required; a full player roster is not.",
+      "Keep the QR code and reference private. Anyone with them and the mobile number can view the booking.",
     ],
   },
   {
@@ -108,7 +108,7 @@ export default function ClubRulesPage() {
       <PageHeader
         eyebrow="Club rules"
         title="How a booking works at D-Hidden."
-        intro="The confirmed court, account, payment, and cancellation rules in one place. Anything still awaiting the club's answer is named as open."
+        intro="The confirmed court, booking, payment, and cancellation rules in one place. Anything still awaiting the club's answer is named as open."
       />
 
       <section className="bg-canvas py-12 sm:py-16">

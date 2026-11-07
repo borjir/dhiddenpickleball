@@ -43,8 +43,7 @@ export async function generateMetadata({
 }
 
 const bookingRules = [
-  "An account is required at review, after the date, time, and price are shown.",
-  "The booker's full name, email address, and mobile number are required, and the email must be verified.",
+  "No account is needed. Enter the booker's full name and mobile number at review, after the date, time, and price are shown; email is optional.",
   "One person may book for a group; only the booker's name is required.",
   "A confirmed request holds the slot for 15 minutes. Payment is due in the same window.",
   "Cancel at least 24 hours before court time for a full refund or one free move. Self-service changes are not available.",

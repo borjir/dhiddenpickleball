@@ -8,7 +8,7 @@ import { buttonClasses } from "@/components/ui/button";
 const messages: Record<string, { title: string; body: string }> = {
   provider: {
     title: "Sign-in was cancelled or refused",
-    body: "Nothing was changed. You can try Google again, or sign in with your email and password.",
+    body: "Nothing was changed. Try the staff sign-in again with your email and password.",
   },
   missing_code: {
     title: "This link is incomplete",
@@ -23,12 +23,12 @@ const messages: Record<string, { title: string; body: string }> = {
     body: "The link may have already been used or opened in a different browser. Request a new one and try again.",
   },
   config: {
-    title: "Accounts are not connected in this environment",
+    title: "Sign-in is not connected in this environment",
     body: "Add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY to .env.local, then restart the app.",
   },
   unknown: {
     title: "That link did not work",
-    body: "Start again from the sign-in page. If it keeps failing, contact the club so staff can check your account.",
+    body: "Start again from the staff sign-in page. If it keeps failing, contact the club owner to check the staff account.",
   },
 };
 
@@ -43,14 +43,14 @@ export function AuthCodeError() {
         <p>{message.body}</p>
       </Alert>
 
-      <Link href="/sign-in" className={buttonClasses({ className: "w-full" })}>
-        Go to sign in
+      <Link href="/staff-access" className={buttonClasses({ className: "w-full" })}>
+        Go to staff sign in
       </Link>
 
       <p className="text-center text-sm text-muted">
         Need a new link?{" "}
         <Link
-          href="/forgot-password"
+          href="/staff-access/forgot-password"
           className="font-semibold text-accent-ink underline-offset-4 hover:underline"
         >
           Reset your password

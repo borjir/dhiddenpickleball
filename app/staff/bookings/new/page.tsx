@@ -54,7 +54,7 @@ async function WalkInForm({ searchParams }: { searchParams: SearchParams }) {
       <StaffPageHeader
         eyebrow="Walk-in"
         title="Create a court booking"
-        description="Use the player's account email so the reservation appears in their history. The booking is confirmed immediately."
+        description="Record the guest's name and mobile number. No player account is needed; the booking is confirmed immediately."
         actions={
           <Link
             href="/staff/bookings"
@@ -75,19 +75,48 @@ async function WalkInForm({ searchParams }: { searchParams: SearchParams }) {
           <form action={createWalkInAction} className="space-y-4">
             <input type="hidden" name="returnPath" value="/staff/bookings/new" />
 
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Field id="walkin-name" label="Guest name" required>
+                <Input
+                  id="walkin-name"
+                  name="fullName"
+                  autoComplete="name"
+                  maxLength={100}
+                  placeholder="Full name"
+                  required
+                />
+              </Field>
+              <Field
+                id="walkin-mobile"
+                label="Mobile number"
+                required
+                hint="Used with the reference for guest lookup."
+              >
+                <Input
+                  id="walkin-mobile"
+                  name="mobile"
+                  type="tel"
+                  inputMode="tel"
+                  autoComplete="tel"
+                  maxLength={30}
+                  placeholder="0917 123 4567"
+                  required
+                />
+              </Field>
+            </div>
+
             <Field
               id="walkin-email"
-              label="Player account email"
-              required
-              hint="The player must already have a D-Hidden account."
+              label="Email address"
+              optionalLabel
+              hint="Optional; used only for the booking confirmation."
             >
               <Input
                 id="walkin-email"
                 name="email"
                 type="email"
                 autoComplete="email"
-                placeholder="player@example.com"
-                required
+                placeholder="guest@example.com"
               />
             </Field>
 
@@ -198,9 +227,10 @@ async function WalkInForm({ searchParams }: { searchParams: SearchParams }) {
             </div>
           </StaffPanel>
 
-          <Alert variant="info" title="Account requirement">
-            The current schema ties every booking to a player account. If a walk-in does not have
-            one, ask them to sign up first, then create the booking here.
+          <Alert variant="info" title="No account needed">
+            Walk-ins are saved with the guest&apos;s name and mobile number. The
+            guest can check the booking or upload payment proof with the
+            reference and that number.
           </Alert>
         </div>
       </div>

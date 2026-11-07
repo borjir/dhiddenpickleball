@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { PaymentProofForm } from "@/components/account/payment-proof-form";
+import { GuestQrCode } from "@/components/guest/guest-qr";
+import { PaymentProofForm } from "@/components/payment/payment-proof-form";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { buttonClasses } from "@/components/ui/button";
@@ -31,7 +32,7 @@ export function BookingGroupConfirmation({
   group,
   onProofSubmitted,
 }: {
-  group: BookingGroupConfirmation;
+  group: BookingGroupConfirmation & { fullName: string; mobile: string };
   onProofSubmitted: () => void;
 }) {
   const [copied, setCopied] = useState(false);
@@ -128,10 +129,18 @@ export function BookingGroupConfirmation({
         )}
       </Alert>
 
+      <GuestQrCode
+        reference={group.reference}
+        mobile={group.mobile}
+        fullName={group.fullName}
+        autoDownload
+      />
+
       <p className="text-caption leading-relaxed text-muted">
-        A confirmation email is sent to your account address. If it does not
-        arrive, this page and your account booking history remain the source of
-        truth; no email is required to keep the reservation.
+        The QR code, reference, and mobile number above are all you need to
+        check the reservation later; no email or account is required. If you
+        gave an email address, the club will use it only for booking updates and
+        reminders.
       </p>
 
       <section className="overflow-hidden rounded-2xl border border-line bg-surface shadow-card">
@@ -267,8 +276,8 @@ export function BookingGroupConfirmation({
 
           {canSubmitProof ? (
             <PaymentProofForm
-              groupId={group.id}
               reference={group.reference}
+              mobile={group.mobile}
               timingNote="before the hold ends"
               onSubmitted={onProofSubmitted}
             />
@@ -304,7 +313,7 @@ export function BookingGroupConfirmation({
                 "Pay the exact total with the GCash QR shown on this page.",
                 "Upload one screenshot before the 15-minute hold ends.",
                 "Staff verify the actual transfer; proof alone does not mark it paid.",
-                "Open this reservation anytime from your account.",
+                "Check this reservation anytime with the reference and mobile number.",
               ].map((item, index) => (
                 <li
                   key={item}
@@ -321,10 +330,10 @@ export function BookingGroupConfirmation({
 
           <div className="flex flex-col gap-2">
             <Link
-              href={`/account/bookings/group/${encodeURIComponent(group.reference)}`}
+              href={`/lookup?reference=${encodeURIComponent(group.reference)}`}
               className={buttonClasses({ variant: "primary", className: "w-full" })}
             >
-              View reservation
+              Check reservation
               <ArrowRightIcon className="size-4" />
             </Link>
             <a

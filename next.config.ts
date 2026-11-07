@@ -5,8 +5,13 @@ const nextConfig: NextConfig = {
   experimental: {
     agentFeedback: true,
   },
-  cacheComponents: true,
-  partialPrefetching: true,
+  // Cache Components stays off for the Cloudflare Workers deployment: the
+  // OpenNext adapter's CacheSignal patch stopped matching Next 16.4
+  // (opennextjs/cloudflare#1318), and with it enabled every Worker request
+  // hung and returned a 500. The app uses no `use cache`/`cacheLife`/`cacheTag`
+  // directives, so the only loss is partial prerendering shells. Re-enable
+  // once a fixed adapter release ships, restoring `instant` route exports too.
+  cacheComponents: false,
   turbopack: {
     rules: {
       "*.css": {

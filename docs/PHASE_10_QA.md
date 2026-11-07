@@ -153,8 +153,8 @@ mobile networks and devices.
 
 | Item | Status | Reason |
 | --- | --- | --- |
-| Real player email delivery | **Blocked** | Resend sandbox only delivers to the account owner; no verified sending domain |
-| Email logo and links in a real inbox | **Blocked** | `NEXT_PUBLIC_SITE_URL` is still `http://localhost:3000`; no public URL |
+| Real guest email delivery | **Blocked** | No verified Resend sender yet; the app is ready once `RESEND_API_KEY` and a verified `EMAIL_FROM` are set. The processor caps delivery at 100/day and 3,000/month by default. |
+| Email logo and links in a real inbox | **Partially unverified** | `NEXT_PUBLIC_SITE_URL` points at the Workers origin; logo and links still need a real-inbox check, and a client-facing custom domain is pending |
 | 24-hour reminder and retry scheduler | **Not configured** | No platform cron or external scheduler is calling `/api/cron/email` |
 | Password recovery end-to-end | **Not run** | Requires a real inbox and verified sender; the route and form exist |
 | Staff write actions (approve/reject payment, block court, walk-in, cancel) | **Not repeated in this pass** | Read access and database permissions were verified; destructive production writes were intentionally avoided |
@@ -170,9 +170,10 @@ mobile networks and devices.
 
 1. **Domain and real email.** Buy/verify a sending domain, configure Resend DNS,
    set `EMAIL_FROM` and `EMAIL_REPLY_TO` to the verified domain, and send a real
-   player booking email. The current sandbox sender cannot reach players.
-2. **Public site URL.** Set `NEXT_PUBLIC_SITE_URL` to the deployed HTTPS origin
-   so email logo URLs, account links, and staff links work.
+   guest booking email. The current sandbox sender cannot reach guests.
+2. **Public site URL.** Keep `NEXT_PUBLIC_SITE_URL` on the deployed HTTPS origin
+   for testing, then switch it to the client's custom domain so email logo URLs
+   and lookup links match the public site.
 3. **Scheduler.** Set `EMAIL_CRON_SECRET` and schedule
    `GET /api/cron/email` every 15 minutes. Verify reminders, retries, and
    idempotency with a real provider.

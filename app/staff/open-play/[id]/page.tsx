@@ -93,7 +93,7 @@ async function SessionDetail({ params, searchParams }: PageProps) {
     .from("open_play_registrations")
     .select(
       `id, status, created_at,
-       player:profiles!open_play_registrations_player_id_fkey(full_name, email, phone),
+       player:customers!open_play_registrations_customer_id_fkey(full_name, email, phone:mobile),
        booking:bookings(reference, status, payment_status)`,
     )
     .eq("session_id", session.id)

@@ -36,7 +36,7 @@ const steps = [
   {
     number: "02",
     title: "Review the full cost",
-    body: "Court, date, start and end time, duration, and amount due are in the summary before you create an account or accept the terms.",
+    body: "Court, date, start and end time, duration, and amount due are in the summary before you enter your details or accept the terms.",
     icon: CourtIcon,
     detail: "No surprise totals",
   },

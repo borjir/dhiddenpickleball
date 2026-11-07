@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { Logo } from "@/components/brand/logo";
-import { NotificationBell } from "@/components/notifications/notification-bell";
 import { ArrowLeftIcon } from "@/components/ui/icons";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 
@@ -25,7 +24,6 @@ export function AuthTopBar() {
       </Link>
 
       <div className="flex items-center gap-2">
-        <NotificationBell />
         <ThemeToggle />
         <Link
           href="/"

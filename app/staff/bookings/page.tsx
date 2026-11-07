@@ -80,7 +80,7 @@ async function BookingList({ searchParams }: { searchParams: SearchParams }) {
       `id, reference, starts_at, ends_at, duration_minutes, status, payment_status,
        amount_php, hold_expires_at, group_id, source, notes,
        booking_group:booking_groups(reference),
-       player:profiles!bookings_player_id_fkey(full_name, email, phone),
+       player:customers!bookings_customer_id_fkey(full_name, email, phone:mobile),
        service:services(name, code),
        court_reservations(court:courts(name))`,
     )

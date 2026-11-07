@@ -1,0 +1,36 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  // The Worker name is the first label of the free workers.dev URL.
+  // Deploying under a new name creates a new Worker; re-set its secrets and
+  // update the Supabase auth URLs before retiring the old Worker.
+  "name": "bookings",
+  "main": ".open-next/worker.js",
+  "compatibility_date": "2026-11-06",
+  "compatibility_flags": ["nodejs_compat"],
+  // The app gates /staff and /account in proxy.ts, and the Phase 10 baseline
+  // security headers come from next.config.ts, so every request has to reach
+  // the Worker rather than being answered by static assets alone.
+  "assets": {
+    "directory": ".open-next/assets",
+    "binding": "ASSETS",
+    "run_worker_first": true,
+    "html_handling": "none",
+    "not_found_handling": "none"
+  },
+  // Request logs and errors, for launch monitoring.
+  "observability": {
+    "enabled": true
+  }
+  // Custom domain: add once the club's domain is confirmed, e.g.
+  // "routes": [{ "pattern": "bookings.example.com", "custom_domain": true }]
+  //
+  // Image optimization: next/image serves the ORIGINAL file while no IMAGES
+  // binding exists. The club's photos are already pre-sized in public/, so
+  // this is fine and keeps the deployment on the free plan. Adding
+  // "images": { "binding": "IMAGES" } enables on-the-fly resizing on the paid
+  // Cloudflare Images plan.
+  //
+  // Secrets are NOT set here. Use `wrangler secret put <NAME>` for the
+  // server-only values listed in .env.example. NEXT_PUBLIC_* values are inlined
+  // at build time, so they must be present when `npm run deploy` builds.
+}
