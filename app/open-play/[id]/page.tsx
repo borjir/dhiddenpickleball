@@ -121,7 +121,7 @@ async function SessionPanel({ params }: PageProps) {
                 </span>
               </p>
               <p className="mt-3 max-w-2xl text-sm leading-relaxed text-muted">
-                Normal open play, organized by skill level. {level.description}
+                {level.description}
               </p>
             </div>
 
@@ -143,7 +143,7 @@ async function SessionPanel({ params }: PageProps) {
                   {remaining}/{session.capacity}
                 </p>
                 <p className="text-caption text-muted">
-                  {full ? "places left" : "places available"}
+                  {full ? "session full" : "places available"}
                 </p>
               </div>
             </div>
@@ -162,11 +162,10 @@ async function SessionPanel({ params }: PageProps) {
             </h2>
             <ul className="mt-4 space-y-2.5">
               {[
-                "Bring your paddle, drinking water, and comfortable court shoes.",
-                "Reserve one place per player. Capacity is checked again when you confirm.",
-                "Pay by GCash after reserving. Upload your screenshot from the confirmation or the booking lookup page.",
-                "Staff verify the actual transfer. Submitting proof does not mark the payment as paid.",
-                "Contact the club to cancel or change your place. Self-service changes are not available.",
+                "Bring a paddle, water, and court shoes.",
+                "One place per player.",
+                "Pay by GCash after reserving. Upload your screenshot before the session.",
+                "Contact the club to cancel or change your place.",
               ].map((item) => (
                 <li
                   key={item}
@@ -177,10 +176,6 @@ async function SessionPanel({ params }: PageProps) {
                 </li>
               ))}
             </ul>
-            <p className="mt-5 border-t border-line pt-4 text-caption leading-relaxed text-muted">
-              This is normal open play. DUPR-enabled sessions and coaching are not
-              offered here.
-            </p>
           </section>
 
           <aside className="order-first lg:order-none lg:sticky lg:top-24">

@@ -110,21 +110,21 @@ export function BookingGroupConfirmation({
       >
         {holdExpired ? (
           <>
-            One or more selected slots may have been released. If you already
-            sent the GCash payment, contact the club with reference{" "}
-            <strong>{group.reference}</strong> before sending anything else.
+            The hold may have been released. If you already paid, contact the
+            club with reference <strong>{group.reference}</strong> before sending
+            anything else.
           </>
         ) : proofClosed ? (
           <>
-            Your GCash screenshot is recorded for all your court times. Payment stays{" "}
-            <strong>awaiting staff verification</strong> until the actual
-            transfer is checked.
+            Your screenshot is recorded. Payment stays{" "}
+            <strong>awaiting staff verification</strong> until the transfer is
+            checked.
           </>
         ) : (
           <>
-            Keep the reference below. The hold ends at{" "}
+            Keep the reference. The hold ends at{" "}
             <strong>{formatDateTime(group.holdExpiresAt)}</strong>. Staff verify
-            payment separately; this page does not mark a payment as paid.
+            your payment separately.
           </>
         )}
       </Alert>
@@ -137,10 +137,9 @@ export function BookingGroupConfirmation({
       />
 
       <p className="text-caption leading-relaxed text-muted">
-        The QR code, reference, and mobile number above are all you need to
-        check the reservation later; no email or account is required. If you
-        gave an email address, the club will use it only for booking updates and
-        reminders.
+        Use the QR code, reference, and mobile number to check this booking
+        later. No account needed. If you gave an email, we only use it for
+        booking updates.
       </p>
 
       <section className="overflow-hidden rounded-2xl border border-line bg-surface shadow-card">
@@ -293,7 +292,7 @@ export function BookingGroupConfirmation({
               {formatPeso(group.amountPhp)}
             </p>
             <p className="mt-2 text-sm leading-relaxed text-muted">
-              This total covers all {group.items.length}{" "}
+              Covers all {group.items.length}{" "}
               {group.items.length === 1 ? "court time" : "court times"} in this
               reservation.
             </p>
@@ -310,10 +309,9 @@ export function BookingGroupConfirmation({
             </h3>
             <ol className="mt-4 space-y-3">
               {[
-                "Pay the exact total with the GCash QR shown on this page.",
-                "Upload one screenshot before the 15-minute hold ends.",
-                "Staff verify the actual transfer; proof alone does not mark it paid.",
-                "Check this reservation anytime with the reference and mobile number.",
+                "Pay the exact total with GCash.",
+                "Upload one screenshot before the hold ends.",
+                "Staff verify the transfer. Check this booking anytime with your reference and mobile.",
               ].map((item, index) => (
                 <li
                   key={item}
@@ -330,7 +328,7 @@ export function BookingGroupConfirmation({
 
           <div className="flex flex-col gap-2">
             <Link
-              href={`/lookup?reference=${encodeURIComponent(group.reference)}`}
+              href={`/lookup?reference=${encodeURIComponent(group.reference)}#mobile=${encodeURIComponent(group.mobile)}`}
               className={buttonClasses({ variant: "primary", className: "w-full" })}
             >
               Check reservation

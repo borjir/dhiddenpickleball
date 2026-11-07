@@ -3,7 +3,6 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { PageHeader } from "@/components/site/page-header";
 import { PublicPage } from "@/components/site/public-page";
-import { Alert } from "@/components/ui/alert";
 import {
   ArrowRightIcon,
   ClockIcon,
@@ -67,24 +66,7 @@ export default async function PolicyPage({ params }: PolicyPageProps) {
               <ClockIcon className="size-4 text-brand-lime" />
               Current as of {POLICY_UPDATED}
             </span>
-            <span className="inline-flex items-center gap-1.5">
-              <ShieldIcon className="size-4 text-brand-lime" />
-              Public copy approved — {POLICY_UPDATED}
-            </span>
           </div>
-
-          <Alert
-            variant="info"
-            eyebrow="Policy status"
-            title="Published 5 November 2026"
-            className="mb-10"
-          >
-            <p>
-              These policies are kept together with the club rules and booking
-              screens. If a confirmed rule changes, each surface is updated
-              together.
-            </p>
-          </Alert>
 
           <div className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_15rem] lg:gap-16">
             <div className="space-y-10">

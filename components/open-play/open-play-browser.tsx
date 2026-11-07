@@ -49,6 +49,9 @@ export function OpenPlayBrowser({ groups }: { groups: OpenPlaySessionGroup[] }) 
 
   return (
     <div className="mt-7">
+      <p className="mb-2 text-sm text-muted">
+        Choose a date, then pick a time.
+      </p>
       <div
         role="group"
         aria-label="Choose an open-play date"

@@ -2,8 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { PageHeader } from "@/components/site/page-header";
 import { PublicPage } from "@/components/site/public-page";
-import { Alert } from "@/components/ui/alert";
-import { ArrowRightIcon, ClockIcon, ShieldIcon, WalletIcon } from "@/components/ui/icons";
+import { ArrowRightIcon, ClockIcon, WalletIcon } from "@/components/ui/icons";
 import { CLUB } from "@/lib/club";
 import { POLICY_UPDATED } from "@/lib/policies";
 
@@ -107,8 +106,8 @@ export default function ClubRulesPage() {
     <PublicPage>
       <PageHeader
         eyebrow="Club rules"
-        title="How a booking works at D-Hidden."
-        intro="The confirmed court, booking, payment, and cancellation rules in one place. Anything still awaiting the club's answer is named as open."
+        title="How a booking works."
+        intro="Court, booking, payment, and cancellation rules."
       />
 
       <section className="bg-canvas py-12 sm:py-16">
@@ -118,24 +117,7 @@ export default function ClubRulesPage() {
               <ClockIcon className="size-4 text-brand-lime" />
               Current as of {POLICY_UPDATED}
             </span>
-            <span className="inline-flex items-center gap-1.5">
-              <ShieldIcon className="size-4 text-brand-lime" />
-              Public copy approved — {POLICY_UPDATED}
-            </span>
           </div>
-
-          <Alert
-            variant="info"
-            eyebrow="Policy status"
-            title="These rules reflect the club's current decisions"
-            className="mb-10"
-          >
-            <p>
-              The public copy was approved on {POLICY_UPDATED}. Facilities,
-              holiday closures, weekend pricing, and the official GCash QR
-              remain open and are not stated as rules.
-            </p>
-          </Alert>
 
           <div className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_15rem] lg:gap-16">
             <div className="space-y-10">

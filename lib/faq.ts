@@ -22,12 +22,12 @@ export const FAQ_ITEMS: readonly FaqItem[] = [
   {
     question: "How do I pay?",
     answer:
-      "Court bookings are paid by GCash. The confirmation shows the current GCash QR, which is a test account while the club's official account is being confirmed. You can download the QR, pay the exact amount, and upload your GCash screenshot from the confirmation or booking page. Staff verify the actual transfer; a booking is never marked paid automatically.",
+      "Pay by GCash. The confirmation shows the QR, which is still a test account until the club's official one is ready. Upload your screenshot; staff verify the transfer before payment is marked paid.",
   },
   {
     question: "Is open play available?",
     answer:
-      "Yes. Normal open play is listed on the open-play page. The current default schedule is Saturday sessions for beginner, intermediate, and advanced players, and the club controls the published date, time, price, capacity, and level. Payment uses the same GCash proof and staff verification as court bookings.",
+      "Yes. Sessions are listed on the open-play page by date, level, price, and remaining places. Payment uses the same GCash proof and staff verification as court bookings.",
   },
   {
     question: "Can I book for a group?",
@@ -37,12 +37,12 @@ export const FAQ_ITEMS: readonly FaqItem[] = [
   {
     question: "How do cancellations work?",
     answer:
-      "Cancel at least 24 hours before your court time for a full refund or one free move. Inside 24 hours the court fee is not refunded and the slot is released. Self-service cancellation is not available, so contact the club directly to make the change.",
+      "Cancel at least 24 hours before court time for a refund or one free move. Inside 24 hours, the court fee is not refunded. Contact the club for changes.",
   },
   {
     question: "How long is my slot held?",
     answer:
-      "When you confirm a booking request, the slot is held for 15 minutes. If proof is submitted before the hold expires, the slot is confirmed and the payment stays awaiting staff verification. If no proof is submitted, the request is cancelled and the slot returns to the schedule.",
+      "Your slot is held for 15 minutes. Upload proof before it ends. After that, the request is cancelled and the slot returns to the schedule.",
   },
   {
     question: "What happens if I arrive late or miss my booking?",
@@ -57,6 +57,6 @@ export const FAQ_ITEMS: readonly FaqItem[] = [
   {
     question: "Do I need an account to book?",
     answer:
-      "No. Choose a time and see the price first, then enter your full name and mobile number at review; an email address is optional. The reference and mobile number let you check the booking and upload payment proof later. Staff use a separate sign-in.",
+      "No. Choose a time, enter your full name and mobile number, then pay by GCash. Your reference and mobile number check the booking later.",
   },
 ];

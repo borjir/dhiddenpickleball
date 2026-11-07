@@ -53,7 +53,7 @@ export default function CourtsPage() {
       <PageHeader
         eyebrow="The courts"
         title="Two courts. One clear hourly rate."
-        intro="Court 1 and Court 2 are bookable every day from 7:00 AM to 12:00 AM. Choose your start and end time; the rate changes once, at 5:00 PM."
+        intro="Court 1 and Court 2 are bookable daily, 7:00 AM to 12:00 AM. Rates change once, at 5:00 PM."
       >
         <BookingTrigger className={buttonClasses({ size: "lg" })}>
           Book a court
@@ -151,9 +151,8 @@ export default function CourtsPage() {
             className="mt-10"
           >
             <p>
-              The booking page reads the club&apos;s live schedule and creates a
-              15-minute hold when you confirm. Payment is arranged with the
-              club; no payment is taken on this site.
+              Confirming holds the slot for 15 minutes. Pay by GCash; staff verify
+              the transfer before payment is marked paid.
             </p>
           </Alert>
         </div>
@@ -176,8 +175,7 @@ export default function CourtsPage() {
                 What a court booking includes.
               </h2>
               <p className="mt-4 max-w-md text-sm leading-relaxed text-muted">
-                These are the facts the club has confirmed. Unconfirmed
-                facilities and policies are not presented as part of the booking.
+                Hours, rates, and payment at a glance.
               </p>
               <Link
                 href="/club/rules"
@@ -225,9 +223,8 @@ export default function CourtsPage() {
                 Pick a court and see the full amount.
               </h2>
               <p className="mt-4 text-base leading-relaxed text-white/70">
-                Choose a date, court, start time, and end time. The booking page
-                shows the live amount before you confirm and holds the slot for
-                15 minutes.
+                Choose a date, start time, and end time. The full total is shown
+                before you confirm.
               </p>
               <div className="mt-7 flex flex-col gap-3 sm:flex-row">
                 <BookingTrigger

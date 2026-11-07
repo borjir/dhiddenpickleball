@@ -116,11 +116,9 @@ export function SiteFooter() {
           <p>© 2026 D-Hidden Pickleball Court &amp; Bistro.</p>
           <p className="max-w-xl leading-relaxed">
             Online court booking and open-play registration are live. A court
-            request creates a 15-minute hold; payment is arranged with the club
-            and verified by staff. No payment is taken on this site. Court
-            photography, hours, and rates are supplied by the club. Booking
-            confirmation currently shows the project owner&apos;s test GCash QR;
-            the club&apos;s official code is still being confirmed.
+            request holds the slot for 15 minutes; pay by GCash and staff verify
+            the transfer. Confirmation currently shows the project owner&apos;s
+            test GCash QR; the club&apos;s official code is still pending.
           </p>
         </div>
       </div>

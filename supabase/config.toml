@@ -2,7 +2,7 @@
 # https://supabase.com/docs/guides/local-development/cli/config
 # A string used to distinguish different Supabase projects on the same host. Defaults to the
 # working directory name when running `supabase init`.
-project_id = "play4serve"
+project_id = "dhidden-pickleball"
 
 [api]
 enabled = true
@@ -165,7 +165,6 @@ site_url = "https://bookings.dhiddenpickleball.workers.dev"
 # Include the deployed origin and local development so `supabase config push` keeps both valid.
 additional_redirect_urls = [
   "https://bookings.dhiddenpickleball.workers.dev/**",
-  "https://play4serve.dhiddenpickleball.workers.dev/**",
   "http://localhost:3000/**",
   "http://127.0.0.1:3000/**",
 ]

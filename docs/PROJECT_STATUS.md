@@ -31,10 +31,9 @@
 - **`EMAIL_FROM` is a mailbox, not the deployed URL.** It must be an address on a
   Resend-verified domain, for example
   `D-Hidden Pickleball <bookings@dhiddenpickleball.com>`. `NEXT_PUBLIC_SITE_URL`
-  is the site origin for links and the logo. The `play4serve` part of the current
-  `workers.dev` hostname was the old Worker name, not the client's website name;
-  `wrangler.jsonc` now targets `bookings.dhiddenpickleball.workers.dev`. A custom
-  domain is still the clean client-facing URL.
+  is the site origin for links and the logo. The current Workers hostname is
+  `bookings.dhiddenpickleball.workers.dev`. A custom domain is still the clean
+  client-facing URL.
 
 ### Checks
 
@@ -59,18 +58,13 @@
 
 ### Site URL and GitHub/Worker naming
 
-- The target Workers hostname is
-  `https://bookings.dhiddenpickleball.workers.dev`; `bookings` is now the Worker
+- The current Workers hostname is
+  `https://bookings.dhiddenpickleball.workers.dev`; `bookings` is the Worker
   `name` in `wrangler.jsonc`, and `dhiddenpickleball` is the Cloudflare
-  `workers.dev` account subdomain. The old
-  `https://play4serve.dhiddenpickleball.workers.dev` Worker remains live until the
-  renamed Worker is deployed and the Supabase auth URLs are switched. A custom
-  domain such as `book.dhiddenpickleball.com` is still the clean client-facing
-  option.
-- The GitHub repository can be renamed from `play4serve` to
-  `dhiddenpickleball`; GitHub redirects the old URL, but update the local
-  `origin` remote and any deployment/CI references to avoid relying on the
-  redirect.
+  `workers.dev` account subdomain. A custom domain such as
+  `book.dhiddenpickleball.com` is still the clean client-facing option.
+- The GitHub repository can be renamed to `dhiddenpickleball`; update the local
+  `origin` remote and any deployment/CI references after the rename.
 
 ## Guest booking access — no player accounts (8 November 2026)
 
@@ -162,9 +156,7 @@ places now belong to guest customer records instead of player profiles.
 
 **Last updated:** 8 November 2026
 **Blueprint:** `docs/PRODUCT_BLUEPRINT.md` (v2.5, with the 8 November guest-access scope change)
-**Current phase:** Phase 10 QA, security, and pre-launch review is complete for the available local/staging scope; see `docs/PHASE_10_QA.md`. The production build, typecheck, lint, audit, RLS boundaries, booking/capacity constraints, public pages, and authenticated staff routing passed. Public launch remains blocked by real guest email (unverified Resend sender), the public site URL, the reminder scheduler, the official GCash QR, client acceptance/staff training, and backup/monitoring arrangements. Phase 11 has started only for its hosting slice:
-Cloudflare Workers is configured and verified locally but not deployed, and the
-launch checklist remains open; see `docs/DEPLOYMENT_CLOUDFLARE.md`.
+**Current phase:** Phase 10 QA, security, and pre-launch review is complete for the available local/staging scope; see `docs/PHASE_10_QA.md`. The production build, typecheck, lint, audit, RLS boundaries, booking/capacity constraints, public pages, and authenticated staff routing passed. Public launch remains blocked by real guest email (unverified Resend sender), the reminder scheduler, the official GCash QR, client acceptance/staff training, and backup/monitoring arrangements. The Phase 11 hosting slice is deployed on Cloudflare Workers at `https://bookings.dhiddenpickleball.workers.dev`; the launch checklist remains open. See `docs/DEPLOYMENT_CLOUDFLARE.md`.
 
 **Phase 3:** Implemented as a design preview with real assets and real rates; three booking rules remain unanswered. Not production-approved.
 **Phase 4:** Core schema, RLS, auth screens, and roles are live on project `ybgcktpyntpcragegwec`. Email/password sign-up, confirmation, sign-in, and Google sign-in worked at Phase 4 close; the 8 November guest-access change removed player auth, leaving staff email/password sign-in only. Anonymous access probes match the applied migration; overlapping-booking rejection and password recovery are deferred runtime checks.
@@ -325,8 +317,8 @@ notes, secret handling, and costs are in `docs/DEPLOYMENT_CLOUDFLARE.md`.
 | `npx eslint . --max-warnings=0` | Passed, no output |
 | `npm run build` | Passed |
 | Worker routes under `wrangler dev` | `/`, `/courts`, `/club`, `/sign-in`, `/account`, `/book`, `/open-play`, `/qr/gcash-test-qr.png` returned 200; `/staff` and `/notifications` returned 307 to sign-in; `/api/cron/email` returned 401 |
-| Deployed to Cloudflare (old Worker name) | Live at `https://play4serve.dhiddenpickleball.workers.dev`: `/`, `/courts`, `/club`, `/book`, `/open-play`, `/sign-in`, `/account` returned 200; `/staff` returned 307; `/api/cron/email` returned 401. The renamed `bookings` Worker is configured but not deployed yet. |
-| Worker secrets | **Not set** — `wrangler secret list` is empty |
+| Deployed to Cloudflare (initial Worker) | The initial Worker returned 200 for `/`, `/courts`, `/club`, `/book`, `/open-play`, `/sign-in`, and `/account`; `/staff` returned 307 and `/api/cron/email` returned 401. The current Worker is deployed separately. |
+| Worker secrets | **Configured** — the Worker has the expected secret names; values were not read |
 | Custom domain | **Not attached** |
 | CPU per request on Workers | **Not measured** — needs a deployed preview and `wrangler tail` |
 
@@ -339,11 +331,10 @@ allow-list, so Supabase ignored the app's `emailRedirectTo` and used the Site
 URL. Fixed:
 
 - Updated the remote Supabase project `ybgcktpyntpcragegwec` (via a targeted
-  `npx supabase config push`) so `auth.site_url` was
-  `https://play4serve.dhiddenpickleball.workers.dev` and the redirect
-  allow-list included that origin plus localhost/127.0.0.1 for development. The
-  local target is now `https://bookings.dhiddenpickleball.workers.dev`; push it
-  only after the renamed Worker is deployed.
+  `npx supabase config push`) so `auth.site_url` pointed at the then-current
+  Worker origin and the redirect allow-list included that origin plus
+  localhost/127.0.0.1 for development. The local target is now
+  `https://bookings.dhiddenpickleball.workers.dev`.
   Email confirmations, Google, MFA, and pooler settings were left unchanged.
 - Mirrored those values in `supabase/config.toml` so a future config push does
   not revert the deployed origin to localhost.

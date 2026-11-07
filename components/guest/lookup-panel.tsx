@@ -1,6 +1,13 @@
 "use client";
 
-import { useRef, useState, type ChangeEvent, type FormEvent } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type ChangeEvent,
+  type FormEvent,
+} from "react";
 import Link from "next/link";
 import jsQR from "jsqr";
 import {
@@ -13,6 +20,7 @@ import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Field, Input } from "@/components/ui/field";
+import { StatusPair } from "@/components/ui/status-pair";
 import {
   BOOKING_STATUS,
   PAYMENT_STATUS,
@@ -22,7 +30,11 @@ import {
   formatPeso,
   isUpcomingRange,
 } from "@/lib/bookings";
-import { formatMobileDisplay, parseGuestQrPayload } from "@/lib/guest";
+import {
+  formatMobileDisplay,
+  normalizeMobile,
+  parseGuestQrPayload,
+} from "@/lib/guest";
 
 const MAX_QR_BYTES = 8 * 1024 * 1024;
 const MAX_DECODE_EDGE = 1200;
@@ -69,8 +81,11 @@ export function LookupPanel({ initialReference = "" }: { initialReference?: stri
   const [pending, setPending] = useState(false);
   const [scanning, setScanning] = useState(false);
   const qrInputRef = useRef<HTMLInputElement>(null);
+  const didAutoLookup = useRef(false);
+  const record = result?.status === "ok" ? result.record : null;
 
-  async function runLookup(nextReference: string, nextMobile: string) {
+  const runLookup = useCallback(async (nextReference: string, nextMobile: string) => {
+    setMobile(formatMobileDisplay(nextMobile));
     setPending(true);
     setResult(null);
 
@@ -88,7 +103,53 @@ export function LookupPanel({ initialReference = "" }: { initialReference?: stri
     } finally {
       setPending(false);
     }
-  }
+  }, []);
+
+  // Confirmation links include the mobile in the URL fragment, which never
+  // reaches the server. Opening one checks the booking immediately.
+  useEffect(() => {
+    if (didAutoLookup.current || !initialReference) return;
+
+    const params = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+    const mobileFromLink = normalizeMobile(params.get("mobile") ?? "");
+
+    if (!mobileFromLink) return;
+
+    didAutoLookup.current = true;
+    window.history.replaceState(
+      null,
+      "",
+      `${window.location.pathname}${window.location.search}`,
+    );
+
+    const timer = window.setTimeout(() => {
+      void runLookup(initialReference.toUpperCase(), mobileFromLink);
+    }, 0);
+
+    return () => window.clearTimeout(timer);
+  }, [initialReference, runLookup]);
+
+  // Keep an open status page current when staff verify or update a booking.
+  useEffect(() => {
+    if (!record) return;
+
+    const timer = window.setInterval(() => {
+      if (document.visibilityState !== "visible") return;
+
+      void lookupGuestRecord({
+        reference: record.reference,
+        mobile: record.mobile,
+      })
+        .then((response) => {
+          if (response.status === "ok") setResult(response);
+        })
+        .catch(() => {
+          // Keep the last visible status; the next interval can retry.
+        });
+    }, 45_000);
+
+    return () => window.clearInterval(timer);
+  }, [record]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -134,14 +195,12 @@ export function LookupPanel({ initialReference = "" }: { initialReference?: stri
       }
 
       setReference(payload.reference);
-      setMobile(formatMobileDisplay(payload.mobile));
       await runLookup(payload.reference, payload.mobile);
     } finally {
       setScanning(false);
     }
   }
 
-  const record = result?.status === "ok" ? result.record : null;
   const status = record ? BOOKING_STATUS[record.status] : null;
   const payment = record ? PAYMENT_STATUS[record.paymentStatus] : null;
   const canUploadProof =
@@ -151,15 +210,13 @@ export function LookupPanel({ initialReference = "" }: { initialReference?: stri
   return (
     <div className="space-y-6">
       <section className="rounded-2xl border border-line bg-surface p-6 shadow-card sm:p-7">
-        <p className="text-eyebrow font-bold uppercase text-accent-ink">
-          No account needed
-        </p>
-        <h2 className="mt-1 font-display text-2xl font-bold text-heading">
-          Find your booking
+        <h2 className="font-display text-2xl font-bold text-heading">
+          Check booking status
         </h2>
         <p className="mt-2 text-sm leading-relaxed text-muted">
-          Upload the QR code from your booking pass, or enter the reference and
-          the mobile number you booked with.
+          Upload your booking QR code, or enter the reference and mobile number
+          you booked with. Court bookings and open-play places use the same
+          lookup.
         </p>
 
         <div className="mt-5 rounded-xl border border-dashed border-line-strong bg-page/50 p-4">
@@ -247,50 +304,34 @@ export function LookupPanel({ initialReference = "" }: { initialReference?: stri
       {record && status && payment ? (
         <div className="space-y-5">
           <section className="rounded-2xl border border-line bg-surface p-6 shadow-card sm:p-7">
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div>
-                <p className="text-eyebrow font-bold uppercase text-accent-ink">
-                  {record.kind === "group"
-                    ? "Court reservation"
-                    : record.isOpenPlay
-                      ? "Open-play place"
-                      : "Court booking"}
-                </p>
-                <h2 className="mt-1 font-mono text-2xl font-bold tracking-[0.08em] text-heading">
-                  {record.reference}
-                </h2>
-                <p className="mt-2 text-sm text-muted">
-                  {record.fullName} · {formatMobileDisplay(record.mobile)}
-                </p>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                <Badge variant={status.variant} dot>
-                  {status.label}
-                </Badge>
-                <Badge variant={payment.variant} dot>
-                  {payment.label}
-                </Badge>
-              </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge variant={record.isOpenPlay ? "lime" : "blue"}>
+                {record.isOpenPlay ? "Open play" : "Court booking"}
+              </Badge>
+              <span className="text-caption text-muted">Booking reference</span>
             </div>
+            <h2 className="mt-2 font-mono text-2xl font-bold tracking-[0.08em] text-heading">
+              {record.reference}
+            </h2>
+            <p className="mt-2 text-sm text-muted">
+              {record.fullName} · {formatMobileDisplay(record.mobile)}
+            </p>
 
-            <dl className="mt-5 grid gap-3 sm:grid-cols-2">
-              <div className="rounded-xl border border-line bg-page/50 p-4">
-                <dt className="text-caption uppercase tracking-[0.12em] text-muted">
-                  Amount
-                </dt>
-                <dd className="mt-1 font-display text-xl font-bold text-heading">
-                  {formatPeso(record.amountPhp)}
-                </dd>
-              </div>
-              <div className="rounded-xl border border-line bg-page/50 p-4">
-                <dt className="text-caption uppercase tracking-[0.12em] text-muted">
-                  Booked
-                </dt>
-                <dd className="mt-1 text-sm font-semibold text-heading">
-                  {formatDateTime(record.createdAt)}
-                </dd>
-              </div>
-            </dl>
+            <StatusPair
+              booking={status}
+              payment={payment}
+              className="mt-5"
+            />
+
+            <p className="mt-4 text-sm text-muted">
+              Total{" "}
+              <span className="font-semibold text-heading">
+                {formatPeso(record.amountPhp)}
+              </span>
+              {record.isOpenPlay
+                ? ` · ${record.openPlayLevel ?? "Open play"} level`
+                : ` · ${record.items.length} court ${record.items.length === 1 ? "time" : "times"}`}
+            </p>
 
             {record.status === "pending" &&
             record.paymentStatus === "unpaid" &&
@@ -331,14 +372,6 @@ export function LookupPanel({ initialReference = "" }: { initialReference?: stri
               ))}
             </ul>
 
-            {record.isOpenPlay ? (
-              <p className="mt-4 text-sm text-muted">
-                Open-play level:{" "}
-                <span className="font-semibold text-heading">
-                  {record.openPlayLevel ?? "—"}
-                </span>
-              </p>
-            ) : null}
           </section>
 
           <GuestQrCode

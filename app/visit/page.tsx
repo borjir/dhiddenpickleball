@@ -28,7 +28,7 @@ export default function VisitPage() {
       <PageHeader
         eyebrow="Visit"
         title="Find the club in Pondol, Balamban, Cebu."
-        intro="D-Hidden is at Bung-aw, Pondol, Balamban, Cebu. The address, hours, and contact details are written out below, so the map is never the only way to find the club."
+        intro="Address, hours, and contact details for D-Hidden in Balamban, Cebu."
       >
         <a
           href={CLUB.mapUrl}
@@ -89,8 +89,7 @@ export default function VisitPage() {
                 </p>
                 <p className="mt-1 text-sm text-muted">7:00 AM – 12:00 AM</p>
                 <p className="mt-3 text-caption leading-relaxed text-muted">
-                  Slots that would run past midnight are not offered. Holiday
-                  closures are not published yet.
+                  Last court time ends at midnight.
                 </p>
               </div>
             </Reveal>
@@ -122,8 +121,7 @@ export default function VisitPage() {
                   </li>
                 </ul>
                 <p className="mt-2 text-caption leading-relaxed text-muted">
-                  Call or email for cancellations, rescheduling, and same-day
-                  questions.
+                  Call or email for cancellations and changes.
                 </p>
               </div>
             </Reveal>
@@ -136,10 +134,8 @@ export default function VisitPage() {
             className="mt-8"
           >
             <p>
-              Choose a court and time before you travel. Online court booking is
-              live; a confirmed request creates a 15-minute hold. Contact the
-              club to arrange payment. Parking, access notes, and other arrival
-              details will be published only when the club confirms them.
+              Choose a court and time before you travel. Book online and pay by
+              GCash; staff verify the transfer before payment is marked paid.
             </p>
           </Alert>
         </div>
@@ -156,11 +152,10 @@ export default function VisitPage() {
               The map
             </p>
             <h2 className="mt-3 text-title font-bold text-white">
-              The pin is the club&apos;s confirmed location.
+              Find us on the map.
             </h2>
             <p className="mt-4 text-base leading-relaxed text-white/70">
-              The map loads when it approaches the viewport. If it cannot load,
-              the address and the directions link above still work.
+              Use the pin or open directions in Google Maps.
             </p>
           </div>
           <div className="mt-8">
@@ -180,8 +175,7 @@ export default function VisitPage() {
                 See the courts and the rates.
               </h2>
               <p className="mt-2 max-w-xl text-sm leading-relaxed text-muted">
-                Two courts, hourly start and end times, and one rate change at
-                5:00 PM. The full amount is shown before you confirm.
+                Two courts, hourly rates, and the full total before you confirm.
               </p>
             </div>
             <div className="flex flex-col gap-3 sm:flex-row">

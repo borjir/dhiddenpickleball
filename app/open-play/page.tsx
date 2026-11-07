@@ -72,9 +72,9 @@ async function OpenPlayPanel() {
   return (
     <>
       <PageHeader
-        eyebrow="Normal open play"
-        title="Find your level. Join the session."
-        intro="Open play is scheduled by the club. Every session shows the live date, time, skill level, price, and remaining places. Normal open play only; no DUPR sessions or coaching are listed."
+        eyebrow="Open play"
+        title="Pick a session. Reserve your place."
+        intro="Choose a date and skill level, then enter your name and mobile number. Pay by GCash after reserving. No account needed."
       >
         <BookingTrigger
           className={buttonClasses({ variant: "secondary", size: "lg" })}
@@ -96,11 +96,10 @@ async function OpenPlayPanel() {
               >
                 Open-play schedule.
               </h2>
-            </div>
-            <p className="inline-flex items-center gap-2 text-sm text-muted">
-              <BallIcon className="size-4 text-brand-lime" />
-              Next eight session dates · reserve one place per player
-            </p>
+            </div>              <p className="inline-flex items-center gap-2 text-sm text-muted">
+                <BallIcon className="size-4 text-brand-lime" />
+                Next eight dates · one place per player
+              </p>
           </div>
 
           {error ? (
@@ -137,13 +136,13 @@ async function OpenPlayPanel() {
           <div className="mt-10 grid gap-4 rounded-2xl border border-line bg-surface p-5 shadow-card sm:grid-cols-2 sm:p-6">
             <p className="flex items-start gap-3 text-sm leading-relaxed text-muted">
               <WalletIcon className="mt-0.5 size-5 shrink-0 text-accent-ink" />
-              Pay by GCash after reserving. Staff verify the actual transfer;
-              uploading a screenshot never marks the payment as paid.
+              Pay by GCash after reserving. Staff verify the transfer before it
+              is marked paid.
             </p>
             <p className="flex items-start gap-3 text-sm leading-relaxed text-muted">
               <ClockIcon className="mt-0.5 size-5 shrink-0 text-accent-ink" />
-              Arrive a few minutes before the session. Contact the club to cancel
-              or change your place; self-service changes are not available.
+              Arrive a few minutes early. Contact the club to cancel or change
+              your place.
             </p>
           </div>
         </div>

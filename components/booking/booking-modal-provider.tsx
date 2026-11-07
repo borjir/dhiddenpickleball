@@ -235,7 +235,7 @@ export function BookingModalProvider({ children }: { children: ReactNode }) {
                   ? "Book a court"
                   : dialog.kind === "open-play-list"
                     ? "Open play schedule"
-                    : "Open play"}
+                    : "Reserve open play"}
               </h2>
               <button
                 ref={closeRef}

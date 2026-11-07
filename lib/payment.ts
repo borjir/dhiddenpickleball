@@ -15,5 +15,5 @@ export const PAYMENT_DETAILS = {
   qrDownloadName: "dhidden-gcash-qr.png",
   isTest: true,
   testNote:
-    "This is the project owner's test GCash QR, not the club's receiving account. The club's official QR and account name are still being confirmed. Pay only the exact amount shown, keep the booking reference with the transfer, and upload your GCash screenshot from the confirmation or booking page.",
+    "This is the project owner's test GCash QR, not the club's receiving account. Pay the exact amount, keep the booking reference, and upload your screenshot. Staff verify every transfer.",
 } as const;

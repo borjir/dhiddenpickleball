@@ -41,8 +41,7 @@ export const POLICIES: readonly Policy[] = [
         ],
         items: [
           "A full name and valid mobile number are required at review, after the date, time, and price are shown. No account is created.",
-          "The booker's full name, email address, and mobile number are required.",
-          "The email address must be verified before the slot is held.",
+          "An email address is optional and is used only for booking updates and reminders.",
           "One person may book for a group; only the booker's name is required.",
         ],
       },
@@ -77,9 +76,9 @@ export const POLICIES: readonly Policy[] = [
       },
       {
         id: "still-being-confirmed",
-        heading: "Rules still being confirmed",
+        heading: "Additional rules",
         paragraphs: [
-          "The club has not yet confirmed weekend pricing, partial-hour rounding, buffer time between bookings, how far ahead bookings open, same-day cutoffs, maximum players per court, or holiday closures. These are not stated as policy here, and none will be enforced until the club confirms them.",
+          "Weekend pricing, partial-hour rounding, buffer time, booking windows, player limits, and holiday closures are not yet published. Contact the club if your booking depends on one of these.",
         ],
       },
       {
@@ -149,9 +148,9 @@ export const POLICIES: readonly Policy[] = [
       },
       {
         id: "still-being-confirmed",
-        heading: "Details still being confirmed",
+        heading: "Test QR",
         paragraphs: [
-          "The club's official GCash QR image and receiving account name have not been supplied yet. Until they are confirmed, the booking confirmation shows the project owner's test GCash QR. It is not the club's receiving account, and the site does not process the payment. Contact the club with your booking reference if you have a payment question.",
+          "The official GCash QR and account name are still pending. Until then, the confirmation shows the project owner's test QR. Staff verify each transfer manually.",
         ],
       },
       {
@@ -275,21 +274,21 @@ export const POLICIES: readonly Policy[] = [
     title: "Terms of use",
     eyebrow: "Policies",
     intro:
-      "The rules for using the D-Hidden website, creating an account, and booking court time or an open-play place.",
+      "The rules for using the D-Hidden website and booking court time or an open-play place.",
     sections: [
       {
         id: "agreement",
         heading: "Agreement to these terms",
         paragraphs: [
-          "These terms govern your use of the D-Hidden Pickleball Court & Bistro website and booking service. By using the site or creating an account, you agree to these terms and to the privacy notice. If you do not agree, do not use the booking service.",
+          "These terms govern your use of the D-Hidden Pickleball Court & Bistro website and booking service. By using the site or making a booking, you agree to these terms and to the privacy notice. If you do not agree, do not use the booking service.",
         ],
       },
       {
         id: "the-service",
         heading: "The service",
         paragraphs: [
-          `The site lets players check court information, request court time, and register for normal open play at ${CLUB.addressFull}. A court request creates a 15-minute hold. Open play reserves a place against the published capacity. The site does not take a payment; the club verifies payment separately.`,
-          "A court slot is confirmed when proof is submitted inside the hold, while payment stays awaiting staff verification. An open-play place is confirmed when registration succeeds, while payment stays separate. Sending payment details never marks a payment as paid by itself.",
+          `The site lets players check court information, request court time, and register for normal open play at ${CLUB.addressFull}. A court request creates a 15-minute hold. Open play reserves a place against the published capacity. GCash is processed by the club, not automatically by this site.`,
+          "A court slot is confirmed when proof is submitted inside the hold, while payment stays awaiting staff verification. An open-play place is confirmed when registration succeeds, while payment stays separate. Uploading proof never marks a payment as paid by itself.",
         ],
       },
       {

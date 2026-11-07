@@ -19,8 +19,8 @@ export default function ClubFaqPage() {
     <PublicPage>
       <PageHeader
         eyebrow="Common questions"
-        title="What players ask before booking."
-        intro="Answers use the club's confirmed hours, rates, open-play defaults, guest booking details, payment review, and cancellation decisions. Anything still unconfirmed is left out."
+        title="Common questions."
+        intro="Short answers about booking, payment, and visiting."
       />
 
       <section className="bg-canvas py-12 sm:py-16">
@@ -30,15 +30,13 @@ export default function ClubFaqPage() {
               <Faq />
               <Alert
                 variant="info"
-                eyebrow="Still open"
-                title="Some rules are waiting on the club"
+                eyebrow="Payment"
+                title="The official GCash QR is still pending"
                 className="mt-8"
               >
                 <p>
-                  Weekend pricing, partial-hour rounding, booking windows,
-                  buffer time, maximum players, holiday closures, and the official
-                  GCash code are not confirmed yet. They are not answered here as
-                  if they were settled.
+                  The club&apos;s final GCash QR and account name are not yet
+                  published. Staff verify each transfer manually.
                 </p>
               </Alert>
             </div>

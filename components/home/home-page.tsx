@@ -28,24 +28,24 @@ import { COURTS } from "@/lib/courts";
 const steps = [
   {
     number: "01",
-    title: "Choose your court time",
-    body: "Pick a date, a court, a start time, and an end time. Slots that run past midnight simply aren't offered.",
+    title: "Pick your time",
+    body: "Choose a date and tap open hours. Add another time if you need it.",
     icon: CalendarIcon,
-    detail: "Live availability at launch",
+    detail: "Live availability",
   },
   {
     number: "02",
-    title: "Review the full cost",
-    body: "Court, date, start and end time, duration, and amount due are in the summary before you enter your details or accept the terms.",
+    title: "Check the total",
+    body: "See the court, time, and full price before you enter your details.",
     icon: CourtIcon,
-    detail: "No surprise totals",
+    detail: "No surprise total",
   },
   {
     number: "03",
     title: "Pay by GCash",
-    body: "Scan the QR shown at payment, upload your proof, and the payment moves to awaiting verification. The booking is confirmed only after staff check the transfer.",
+    body: "Upload your proof. Staff verify the transfer before payment is marked paid.",
     icon: WalletIcon,
-    detail: "Verified by a person",
+    detail: "Verified by staff",
   },
 ];
 
@@ -65,22 +65,22 @@ const promises = [
   {
     icon: ShieldIcon,
     title: "Payment is verified, never assumed",
-    body: "Booking status and payment status are shown separately. Uploading a screenshot never marks a booking as paid.",
+    body: "Uploading a screenshot never marks a booking as paid. Staff check the transfer.",
   },
   {
     icon: ClockIcon,
     title: "A clear cancellation cutoff",
-    body: "Cancel at least 24 hours before court time. Self-service cancellation is not available, so the club handles the change directly.",
+    body: "Cancel at least 24 hours before court time. Contact the club for changes.",
   },
   {
     icon: CheckCircleIcon,
     title: "The price is settled up front",
-    body: "Day and evening rates are stated per hour, and the computed amount is shown before you confirm the request.",
+    body: "The hourly rate and full total are shown before you confirm.",
   },
   {
     icon: BallIcon,
     title: "Built for groups",
-    body: "Book for your group with only the booker's name required — no roster to fill in before you can reserve the court.",
+    body: "Book for your group with only the booker's name. No roster needed.",
   },
 ];
 
@@ -131,10 +131,8 @@ export function HomePage() {
 
                 <FadeIn delay={0.16}>
                   <p className="mt-6 max-w-xl text-base leading-relaxed text-white/80 sm:text-lg">
-                    Two courts in {CLUB.addressShort}, with clear hourly rates
-                    and a booking summary you can read in one breath. See the full
-                    price, the duration, and the payment steps before you
-                    commit.
+                    Two courts in {CLUB.addressShort}. See live times, the full
+                    price, and the payment steps before you book.
                   </p>
                 </FadeIn>
 
@@ -157,8 +155,8 @@ export function HomePage() {
                     </OpenPlayTrigger>
                   </div>
                   <p className="mt-3 text-[0.6875rem] text-white/50">
-                    Online booking is live. A request creates a 15-minute hold;
-                    payment is arranged with the club.
+                    Book online. Your slot is held for 15 minutes while you pay
+                    by GCash.
                   </p>
                 </FadeIn>
 
@@ -261,9 +259,8 @@ export function HomePage() {
                     Two courts. Pick your side.
                   </h2>
                   <p className="mt-4 max-w-xl text-base leading-relaxed text-muted">
-                    Both courts are bookable by the hour, daily. Choose a side
-                    and the summary carries the rate, duration, and amount
-                    through the rest of the booking.
+                    Both courts are bookable by the hour, daily. Pick a side;
+                    the time and price follow you through checkout.
                   </p>
                 </div>
                 <p className="inline-flex items-center gap-2 text-sm font-semibold text-muted">
@@ -352,9 +349,8 @@ export function HomePage() {
                   Nothing buried.
                 </h2>
                 <p className="mt-4 max-w-md text-base leading-relaxed text-muted">
-                  The rate changes once at 5:00 PM. You choose the session
-                  length, and the computed amount appears in the summary before
-                  you confirm.
+                  Day rate before 5:00 PM, evening rate after. The full amount
+                  appears before you confirm.
                 </p>
                 <BookingTrigger
                   className={buttonClasses({ size: "lg", className: "mt-7" })}
@@ -458,11 +454,10 @@ export function HomePage() {
                   id="how-title"
                   className="max-w-2xl text-title font-bold text-heading"
                 >
-                  Three steps from looking to playing.
+                  Three steps. No account.
                 </h2>
                 <p className="max-w-sm text-sm leading-relaxed text-muted">
-                  No hidden step, no surprise at the counter. Every confirmation
-                  shows the same facts you reviewed.
+                  Pick a time, check the total, then pay by GCash.
                 </p>
               </div>
             </Reveal>
@@ -512,18 +507,17 @@ export function HomePage() {
             <div className="grid gap-10 lg:grid-cols-[0.75fr_1.25fr] lg:gap-16">
               <Reveal>
                 <p className="text-eyebrow font-bold uppercase text-accent-ink">
-                  The details that matter
+                  Good to know
                 </p>
                 <h2
                   id="details-title"
                   className="mt-3 text-title font-bold text-heading"
                 >
-                  Built around the way a booking actually works.
+                  Clear before you commit.
                 </h2>
                 <p className="mt-4 max-w-sm text-sm leading-relaxed text-muted">
-                  A reservation is more than a time slot. The interface keeps the
-                  court, the money, and the status separate so nothing important
-                  gets lost.
+                  The court, price, and payment status stay separate, so nothing
+                  important is hidden.
                 </p>
               </Reveal>
 
@@ -580,8 +574,7 @@ export function HomePage() {
                   Easy to find.
                 </h2>
                 <p className="mt-4 max-w-md text-base leading-relaxed text-white/70">
-                  D-Hidden is at {CLUB.addressLine}. The address is written out
-                  here as text, so you can read it without opening a map.
+                  D-Hidden is at {CLUB.addressLine}.
                 </p>
 
                 <div className="mt-8 flex items-start gap-3">
@@ -705,12 +698,10 @@ export function HomePage() {
                   id="faq-title"
                   className="mt-3 text-title font-bold text-heading"
                 >
-                  Everything you need before you book.
+                  Common questions.
                 </h2>
                 <p className="mt-4 max-w-sm text-sm leading-relaxed text-muted">
-                  Answers use the club&apos;s confirmed hours, rates, and payment
-                  rules. Anything still unconfirmed is left out rather than
-                  guessed at.
+                  Booking, payment, and visiting, answered.
                 </p>
               </Reveal>
 

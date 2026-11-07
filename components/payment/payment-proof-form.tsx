@@ -247,9 +247,9 @@ export function PaymentProofForm({
       </h2>
       {state.status !== "success" ? (
         <p className="mt-2 text-sm leading-relaxed text-muted">
-          Upload the screenshot from your GCash transfer {timingNote}. Keep the
-          amount, reference, date, and recipient visible. Uploading proof does
-          not mark the payment as paid.
+          Upload a clear GCash screenshot {timingNote}. Show the amount,
+          reference, date, and recipient. Proof does not mark the payment as
+          paid.
         </p>
       ) : null}
 
@@ -336,10 +336,9 @@ export function PaymentProofForm({
               </span>
             </span>
             <span>
-              I confirm that this is a genuine, unaltered screenshot of my
-              completed GCash transfer for this booking. I understand that staff
-              will verify the actual transfer and that false or altered proof may
-              result in cancellation. See the{" "}
+              I confirm this is a genuine screenshot of my completed GCash
+              transfer. I understand staff verify the actual transfer and that
+              false proof may be cancelled. See the{" "}
               <Link
                 href="/policies/payments#payment-safety"
                 className="font-semibold text-accent-ink underline decoration-brand-blue/40 underline-offset-2 hover:text-brand-blue-strong"
@@ -352,8 +351,7 @@ export function PaymentProofForm({
 
           <div className="flex flex-col gap-3 border-t border-line pt-4 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-caption leading-relaxed text-muted">
-              Staff verify the actual incoming transfer before the payment is
-              marked paid.
+              Staff verify the transfer before the payment is marked paid.
             </p>
             <Button
               type="submit"

@@ -14,6 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button, buttonClasses } from "@/components/ui/button";
 import { Field, Input } from "@/components/ui/field";
 import { PaymentInstructions } from "@/components/ui/payment-instructions";
+import { Stepper } from "@/components/ui/stepper";
 import {
   ArrowRightIcon,
   ClockIcon,
@@ -37,6 +38,12 @@ import { PAYMENT_DETAILS } from "@/lib/payment";
 type RegistrationState =
   | { status: "idle" }
   | OpenPlayRegistrationResult;
+
+const registerSteps = [
+  { label: "Choose session" },
+  { label: "Your details" },
+  { label: "Pay" },
+] as const;
 
 function formatPaymentWindow(totalSeconds: number) {
   const minutes = Math.floor(totalSeconds / 60);
@@ -123,10 +130,11 @@ export function OpenPlayRegistration({
 
     return (
       <div id="reserve" className="space-y-5">
+        <Stepper steps={registerSteps} current={2} />
         <Alert
           variant="success"
           eyebrow="Place reserved"
-          title="Your open-play place is confirmed"
+          title="Your place is reserved"
         >
           <p>
             {formatBookingDate(registration.startsAt)} ·{" "}
@@ -147,7 +155,7 @@ export function OpenPlayRegistration({
           <p className="text-caption leading-relaxed text-muted">
             You can check this place any time on the{" "}
             <Link
-              href={`/lookup?reference=${encodeURIComponent(registration.reference)}`}
+              href={`/lookup?reference=${encodeURIComponent(registration.reference)}#mobile=${encodeURIComponent(registration.mobile)}`}
               className="font-semibold text-accent-ink underline underline-offset-2"
             >
               booking lookup page
@@ -260,7 +268,7 @@ export function OpenPlayRegistration({
               note={
                 PAYMENT_DETAILS.isTest
                   ? PAYMENT_DETAILS.testNote
-                  : "Pay the exact amount, keep the reference with the transfer, and upload your GCash screenshot before the session starts."
+                  : "Pay the exact amount, keep the reference, and upload your screenshot before the session starts."
               }
             />
 
@@ -329,6 +337,7 @@ export function OpenPlayRegistration({
       id="reserve"
       className="rounded-2xl border border-line bg-surface p-5 shadow-card sm:p-6"
     >
+      <Stepper steps={registerSteps} current={1} className="mb-5" />
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="text-eyebrow font-bold uppercase text-accent-ink">
@@ -344,8 +353,7 @@ export function OpenPlayRegistration({
       </div>
 
       <p className="mt-2 text-sm leading-relaxed text-muted">
-        No account needed. One place per player; the place is reserved
-        immediately and payment is verified separately by staff.
+        No account needed. One place per player. Pay by GCash after reserving.
       </p>
 
       <dl className="mt-4 divide-y divide-line text-sm">
@@ -433,7 +441,7 @@ export function OpenPlayRegistration({
           id="open-play-phone"
           label="Mobile number"
           required
-          hint="Required. Use this number with your reference to check the booking."
+          hint="Used with your reference to check your place."
           error={state.status === "error" ? state.errors?.phone : undefined}
         >
           <Input
@@ -517,9 +525,8 @@ export function OpenPlayRegistration({
           <ArrowRightIcon className="size-4" />
         </Button>
         <p className="text-caption leading-relaxed text-muted">
-          The reservation is confirmed immediately. Pay by GCash and send proof
-          before the session starts; the payment stays awaiting staff
-          verification.
+          Your place is reserved immediately. Pay by GCash and upload proof
+          before the session starts.
         </p>
       </form>
     </div>

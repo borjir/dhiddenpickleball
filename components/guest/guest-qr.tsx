@@ -38,7 +38,7 @@ export function GuestQrCode({
   const downloadedRef = useRef(false);
   const normalizedMobile = normalizeMobile(mobile) ?? mobile.replace(/\D/g, "");
   const payload = guestQrPayload(reference, mobile);
-  const fileBase = `play4serve-${reference}`;
+  const fileBase = `dhidden-${reference}`;
 
   useEffect(() => {
     let cancelled = false;

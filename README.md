@@ -23,9 +23,7 @@ npm run preview   # build and serve the Worker at http://127.0.0.1:8787
 npm run deploy    # build and deploy to Cloudflare
 ```
 
-Current live Worker: <https://play4serve.dhiddenpickleball.workers.dev>
-
-Target Worker URL after the rename deploy: <https://bookings.dhiddenpickleball.workers.dev>
+Current live Worker: <https://bookings.dhiddenpickleball.workers.dev>
 
 Always deploy with `npm run deploy` (not a bare `wrangler deploy`), because
 `NEXT_PUBLIC_*` values are inlined during the build. Deployment details,

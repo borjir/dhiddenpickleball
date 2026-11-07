@@ -1,12 +1,10 @@
 # Cloudflare Workers deployment
 
-**Last updated:** 7 November 2026
+**Last updated:** 8 November 2026
 **Blueprint:** `docs/PRODUCT_BLUEPRINT.md` (v2.5), Phase 11 — Production Launch and Handover
-**Status:** The current live Worker is at **https://play4serve.dhiddenpickleball.workers.dev**
-(old Worker name). `wrangler.jsonc` now targets **https://bookings.dhiddenpickleball.workers.dev**;
-the new URL does not exist until that Worker is deployed and its secrets are set. The Supabase Site
-URL and redirect allow-list still point at the old origin until the cutover. Worker secrets are not
-set yet, so email delivery and the cron endpoint are inactive. Launch checklist items remain open.
+**Status:** The live Worker is at **https://bookings.dhiddenpickleball.workers.dev**. Runtime
+secret names are configured on the Worker. Guest email delivery is still inactive until a custom
+sending domain is verified in Resend; launch checklist items remain open.
 
 **Always deploy with `npm run deploy`, not a bare `wrangler deploy`.** The bare command reuses the
 last `.open-next` build, so any change to `NEXT_PUBLIC_*` values — which are inlined at build time —
@@ -85,16 +83,14 @@ for a future re-enable.
 - `bookings` is the Worker's `name` from `wrangler.jsonc`.
 
 You cannot remove the Worker-name label while staying on `workers.dev`; the Worker name is always
-the first label. `wrangler.jsonc` was changed from `play4serve` to `bookings` so the free URL no
-longer carries the old project name. The old `play4serve.dhiddenpickleball.workers.dev` Worker
-remains live until the new Worker is deployed and the auth URLs are switched.
+the first label. The Worker is named `bookings` in `wrangler.jsonc`.
 
 For a client-facing address, attach a custom domain such as `book.dhiddenpickleball.com` to the
 Worker and set `NEXT_PUBLIC_SITE_URL` to that origin. The same domain can be verified in Resend for
 `bookings@dhiddenpickleball.com`, so one domain solves both the public URL and sender identity.
 
 Changing the Worker name in `wrangler.jsonc` creates a different Worker; re-set its secrets and any
-cron/domain configuration before deleting the old one. Do not rename it casually after launch.
+cron/domain configuration before deleting the previous one. Do not rename it casually after launch.
 
 ## Supabase auth redirect URLs
 
@@ -105,14 +101,13 @@ email confirmations, Google, MFA, and pooler settings were left unchanged):
 - **Site URL target:** `https://bookings.dhiddenpickleball.workers.dev`
 - **Redirect URLs:**
   - `https://bookings.dhiddenpickleball.workers.dev/**`
-  - `https://play4serve.dhiddenpickleball.workers.dev/**` (old Worker, kept during cutover)
   - `http://localhost:3000/**`
   - `http://127.0.0.1:3000/**`
 
-The target values are in `supabase/config.toml`. Apply them with `npx supabase config push` only
-after the new Worker is deployed, then remove the old redirect URL once no old links are in use. Without this, Supabase ignores the app's
-`emailRedirectTo` and builds confirmation/recovery links from the Site URL, which is why players
-received `http://localhost:3000/?code=...`.
+The target values are in `supabase/config.toml`. Apply them with `npx supabase config push` after
+the Worker is deployed. Without this, Supabase ignores the app's `emailRedirectTo` and builds
+confirmation/recovery links from the Site URL, which is why players received
+`http://localhost:3000/?code=...`.
 
 `proxy.ts` also redirects a root-level `?code=`/`?token_hash=`/`?error=` result to `/auth/callback`,
 so links that were already sent before this change still complete.

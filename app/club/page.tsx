@@ -62,7 +62,7 @@ export default function ClubPage() {
       <PageHeader
         eyebrow="The club"
         title="A two-court club in Pondol, Balamban, Cebu."
-        intro="D-Hidden Pickleball Court & Bistro is a two-court pickleball club in Bung-aw, Pondol, Balamban, Cebu. The courts are open every day, and court time is booked by the hour."
+        intro="Two courts in Bung-aw, Pondol, Balamban, Cebu. Open daily, with court time booked by the hour."
       >
         <Link
           href="/courts"
@@ -99,18 +99,12 @@ export default function ClubPage() {
                 The essentials
               </p>
               <h2 className="mt-3 text-title font-bold text-heading">
-                What the club has confirmed.
+                Two courts. Clear rates.
               </h2>
               <p className="mt-4 text-base leading-relaxed text-muted">
-                D-Hidden has two bookable courts, daily hours from 7:00 AM to
-                12:00 AM, and hourly rates that change once at 5:00 PM. Court
-                time is reserved by the hour, and payment is reviewed by staff
-                before it is marked paid.
-              </p>
-              <p className="mt-3 text-base leading-relaxed text-muted">
-                The club&apos;s full facilities list, holiday closures, and
-                additional policies are still being confirmed. They are not
-                presented here as facts.
+                Two bookable courts, open daily from 7:00 AM to 12:00 AM.
+                Hourly rates change once at 5:00 PM. Staff verify every GCash
+                payment before it is marked paid.
               </p>
               <address className="mt-6 not-italic">
                 <p className="text-sm font-semibold text-ink">

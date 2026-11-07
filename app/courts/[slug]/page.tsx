@@ -43,10 +43,10 @@ export async function generateMetadata({
 }
 
 const bookingRules = [
-  "No account is needed. Enter the booker's full name and mobile number at review, after the date, time, and price are shown; email is optional.",
-  "One person may book for a group; only the booker's name is required.",
-  "A confirmed request holds the slot for 15 minutes. Payment is due in the same window.",
-  "Cancel at least 24 hours before court time for a full refund or one free move. Self-service changes are not available.",
+  "No account needed. Enter the booker's name and mobile number at review.",
+  "One person may book for a group.",
+  "The slot is held for 15 minutes. Pay by GCash in the same window.",
+  "Cancel at least 24 hours before court time for a refund or one free move.",
   "No-shows and late arrivals are not refunded or extended.",
 ];
 
@@ -152,8 +152,8 @@ export default async function CourtPage({ params }: CourtPageProps) {
                 </Link>
               </div>
               <p className="mt-3 text-caption text-muted">
-                Live booking creates a 15-minute hold. No payment is taken on
-                this site.
+                Booking holds the slot for 15 minutes. Pay by GCash; staff verify
+                the transfer.
               </p>
             </div>
           </div>
@@ -173,12 +173,11 @@ export default async function CourtPage({ params }: CourtPageProps) {
                   id="court-details"
                   className="mt-3 text-title font-bold text-heading"
                 >
-                  Confirmed facts only.
+                  Book by the hour.
                 </h2>
                 <p className="mt-4 text-sm leading-relaxed text-muted">
-                  {court.name} is one of two bookable courts at the club. The
-                  club has not confirmed a facilities list yet, so this page does
-                  not claim lighting, covered areas, parking, or other amenities.
+                  {court.name} is one of two bookable courts at the club, open
+                  daily from 7:00 AM to 12:00 AM.
                 </p>
 
                 <div className="mt-7 rounded-xl border border-line bg-canvas p-4">
@@ -234,20 +233,18 @@ export default async function CourtPage({ params }: CourtPageProps) {
                   Check live court availability.
                 </h2>
                 <p className="mt-4 max-w-lg text-sm leading-relaxed text-muted">
-                  The booking page reads the club&apos;s live schedule for both
-                  courts, shows the computed amount, and creates a 15-minute hold
-                  when you confirm.
+                  See live times for both courts, check the full total, and hold
+                  your slot for 15 minutes.
                 </p>
                 <Alert
                   variant="info"
                   eyebrow="Payment note"
-                  title="The club&apos;s payment QR is still pending"
+                  title="The official GCash QR is still pending"
                   className="mt-6"
                 >
                   <p>
-                    Bookings can be requested now. Contact the club with your
-                    booking reference to arrange payment; no payment is taken on
-                    this site.
+                    Use the test QR shown after booking. Staff verify every
+                    transfer before payment is marked paid.
                   </p>
                 </Alert>
               </div>
@@ -258,8 +255,7 @@ export default async function CourtPage({ params }: CourtPageProps) {
                   {CLUB.addressLine}
                 </div>
                 <p className="mt-2 text-sm leading-relaxed text-muted">
-                  The club is open daily from 7:00 AM to 12:00 AM. The address is
-                  written here so the map is not the only way to find it.
+                  Open daily, 7:00 AM – 12:00 AM.
                 </p>
                 <div className="mt-5 flex flex-wrap gap-3">
                   <a

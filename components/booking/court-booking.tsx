@@ -44,28 +44,28 @@ import {
 
 const steps = [
   { label: "Choose time" },
-  { label: "Review" },
-  { label: "Confirm" },
+  { label: "Your details" },
+  { label: "Hold & pay" },
 ] as const;
 
 const stepContent = [
   {
-    eyebrow: "Step 1 · Availability",
-    title: "Choose your court time",
+    eyebrow: "Step 1 · Choose a time",
+    title: "Pick your court time",
     description:
-      "Pick a date, then tap an hour to add a court time. Tap an adjacent hour to extend it one hour, or a later open hour to fill the free hours in between. Tap an added hour to remove that hour, or use × to remove a whole range. Use Add court time to book another date or a separate range.",
+      "Tap an open hour. Tap adjacent hours to extend your booking, then review your total.",
   },
   {
-    eyebrow: "Step 2 · Review",
-    title: "Check your details",
+    eyebrow: "Step 2 · Your details",
+    title: "Tell us who is playing",
     description:
-      "Add the name and mobile number for this booking, accept the booking terms, and submit. The slot is not held until you submit.",
+      "Enter the booker’s name and mobile number, accept the terms, then hold the slot.",
   },
   {
-    eyebrow: "Step 3 · Booking created",
-    title: "Your slot is on hold",
+    eyebrow: "Step 3 · Hold & pay",
+    title: "Pay within 15 minutes",
     description:
-      "Keep the reference. The 15-minute hold starts when the request is created, and staff verify payment separately.",
+      "Your slot is held for 15 minutes. Pay by GCash and upload your proof before the hold ends.",
   },
 ] as const;
 
@@ -1268,8 +1268,8 @@ export function CourtBooking({
               Reserve a court
             </h1>
             <p className="mt-3 max-w-xl text-base leading-relaxed text-muted">
-              Live times and prices, a 15-minute hold after you confirm, and a
-              status you can check any time with your reference and mobile.
+              Choose a time, check the total, then pay by GCash. No account
+              needed.
             </p>
           </div>
           <div className="hidden shrink-0 items-center gap-2.5 rounded-xl border border-line bg-surface px-4 py-3 text-caption text-muted shadow-card sm:flex">
@@ -1496,9 +1496,7 @@ export function CourtBooking({
                             })}
                           </div>
                           <p className="mt-2 text-caption text-muted">
-                            Past dates are disabled. The maximum advance booking
-                            window is not yet confirmed, so later months remain
-                            open.
+                            Past dates are unavailable.
                           </p>
                         </div>
                       ) : null}
@@ -1526,12 +1524,8 @@ export function CourtBooking({
 
                     {embedded ? (
                       <p className="mt-2 text-sm leading-relaxed text-muted">
-                        Tap an open hour to add a court time, tap an adjacent
-                        hour to extend it, or tap a later open hour to fill the
-                        free hours in between. Tap an added hour to remove just
-                        that hour; × removes the whole range. Use Add court time
-                        for another date or a separate range. Grey times are
-                        already taken.
+                        Tap an open hour. Tap adjacent hours to extend. Use Add
+                        court time for another date or range.
                       </p>
                     ) : null}
 
@@ -1659,14 +1653,8 @@ export function CourtBooking({
                           {hourCells.map(renderHourCell)}
                         </div>
                         <p className="mt-2 text-caption text-muted">
-                          Each block is one hour. Solid blue is the court time
-                          you edited last; pale blue are your other added
-                          times. Tap an added hour to remove just that hour,
-                          tap an open hour beside a range to extend it, or tap
-                          a later open hour to fill everything in between when
-                          those hours are free. Use Add court time for a
-                          separate range; × in your court times list removes a
-                          whole range. Grey times are taken or already past.
+                          Blue is selected. Grey is taken or past. Tap a selected
+                          hour to remove it; × removes the range.
                         </p>
 
                         {notice ? (
@@ -1714,10 +1702,8 @@ export function CourtBooking({
                     )}
 
                     {embedded ? null : (
-                      <p className="mt-5 border-t border-line pt-4 text-caption leading-relaxed text-muted">
-                        Each block is one hour. Weekend rates, partial-hour
-                        rounding, holiday closures, and the maximum booking window
-                        are not yet confirmed.
+                      <p className="mt-5 border-t border-line pt-4 text-caption text-muted">
+                        Each block is one hour.
                       </p>
                     )}
                   </section>
@@ -1816,8 +1802,8 @@ export function CourtBooking({
                     priceLabel={cart.length > 0 ? formatPeso(cartTotal) : "—"}
                     priceNote={
                       cart.length > 0
-                        ? "One reference and one GCash total cover every court time in this reservation."
-                        : "Tap a time to add it, then tap an adjacent hour to extend it. Use Add court time for another date or range."
+                        ? "One reference and one GCash total cover all court times."
+                        : "Tap a time to add it. Use Add court time for another date or range."
                     }
                   >
                     {cart.length > 0 ? (
@@ -1886,20 +1872,20 @@ export function CourtBooking({
                       aria-live="polite"
                     >
                       {cart.length > 0
-                        ? "No slot is held until you submit the review."
-                        : "Tap a time to add it. Use Add court time for another date or range."}
+                        ? "No slot is held until you submit."
+                        : "Tap a time to add it."}
                     </p>
                   </BookingSummary>
 
                   {embedded ? null : (
                     <PolicyNotice
                       items={[
-                        "Open daily 7:00 AM – 12:00 AM. Holiday and maintenance closures are not yet published.",
-                        "Cancellation cutoff: 24 hours before court time. Self-service changes are not available.",
-                        "After you confirm, the slot is held for 15 minutes while payment is arranged.",
-                        "One unpaid court hold at a time. Submit proof for the current booking, or wait for its 15-minute hold to expire, before reserving another court.",
+                        "Open daily, 7:00 AM – 12:00 AM.",
+                        "Cancel at least 24 hours before court time. Contact the club for changes.",
+                        "Your slot is held for 15 minutes after you submit.",
+                        "Only one unpaid hold is allowed at a time.",
                       ]}
-                      note="A test GCash QR is shown after booking. The club's official QR and receiving account name are still pending; payment is verified by staff."
+                      note="The GCash QR is shown after booking. Staff verify the actual transfer."
                     />
                   )}
                 </aside>
@@ -1999,8 +1985,8 @@ export function CourtBooking({
                             ))}
                           </div>
                           <p className="mt-3 text-caption text-muted">
-                            All court times are held together for 15 minutes and
-                            share one reference and one GCash total.
+                            One reference and one GCash total cover all court
+                            times.
                           </p>
                         </section>
 
@@ -2025,9 +2011,8 @@ export function CourtBooking({
                             </span>
                           </div>
                           <p className="mt-2 text-sm leading-relaxed text-muted">
-                            No account is needed. This name and mobile number
-                            identify the booking and let you check its status
-                            later.
+                            No account needed. We use this to identify your
+                            booking.
                           </p>
 
                           <div className="mt-5 grid gap-4 sm:grid-cols-2">
@@ -2082,7 +2067,7 @@ export function CourtBooking({
                               label="Mobile number"
                               required
                               className="sm:col-span-2"
-                              hint="Required. Your reference plus this number is how you check the booking and upload payment proof."
+                              hint="Used with your reference to check the booking."
                               error={bookingState.errors.phone}
                             >
                               <Input
@@ -2104,19 +2089,15 @@ export function CourtBooking({
                             </Field>
                           </div>
 
-                          <p className="mt-4 rounded-xl border border-line bg-page/60 px-4 py-3 text-caption leading-relaxed text-muted">
-                            Keep the mobile number handy. It is part of the
-                            booking pass and the only way to look the booking up
-                            without signing in.
-                          </p>
+
                         </section>
 
                         <PolicyNotice
                           items={[
-                            "Cancel at least 24 hours before court time for a full GCash refund or one free move to another slot.",
-                            "Inside 24 hours the court fee is not refunded. No-shows and late arrivals are not refunded.",
+                            "Cancel at least 24 hours before court time for a refund or one free move.",
+                            "Inside 24 hours, court fees are not refunded.",
                           ]}
-                          note="Self-service changes are not available; contact the club. Payment proof is due within the 15-minute hold. The full booking policy is linked below."
+                          note="Contact the club for changes. Upload payment proof within the 15-minute hold."
                         />
 
                         <div>
@@ -2166,8 +2147,7 @@ export function CourtBooking({
                               >
                                 payment
                               </Link>{" "}
-                              terms, and I understand that the slot is only held
-                              for 15 minutes.
+                              terms. The slot is held for 15 minutes.
                             </span>
                           </label>
                           {bookingState.errors.terms ? (
@@ -2233,7 +2213,7 @@ export function CourtBooking({
                     }
                     duration={`${cart.reduce((total, item) => total + item.durationMinutes, 0) / 60} hours total`}
                     priceLabel={formatPeso(cartTotal)}
-                    priceNote="The amount is recalculated by the club's rate table when the reservation is created."
+                    priceNote="The final total is checked when the booking is created."
                   >
                     <Button
                       type="submit"
