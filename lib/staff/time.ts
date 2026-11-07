@@ -60,6 +60,38 @@ export function manilaLocalToIso(dateId: string, time: string, nextDay = false) 
   return date.toISOString();
 }
 
+/**
+ * Resolves a staff-entered start and end time on one Manila date into real
+ * instants plus a whole-minute duration. An end earlier than the start is
+ * treated as the next morning, so an 8:00 PM session can end at midnight.
+ * Returns null when either time is invalid or both times are identical.
+ */
+export function manilaTimeRange(
+  dateId: string,
+  startTime: string,
+  endTime: string,
+) {
+  const startsAt = manilaLocalToIso(dateId, startTime);
+  const sameDayEnd = manilaLocalToIso(dateId, endTime);
+
+  if (!startsAt || !sameDayEnd) return null;
+
+  const startsAtMs = new Date(startsAt).getTime();
+  const rawMinutes = Math.round(
+    (new Date(sameDayEnd).getTime() - startsAtMs) / 60000,
+  );
+
+  if (rawMinutes === 0) return null;
+
+  const minutes = rawMinutes > 0 ? rawMinutes : rawMinutes + 24 * 60;
+
+  return {
+    startsAt,
+    minutes,
+    endsAt: new Date(startsAtMs + minutes * 60000).toISOString(),
+  };
+}
+
 export function formatStaffDate(
   value: string | Date,
   options: Intl.DateTimeFormatOptions = {},

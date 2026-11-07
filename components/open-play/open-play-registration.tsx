@@ -35,6 +35,7 @@ import { PAYMENT_DETAILS } from "@/lib/payment";
 type Viewer = {
   email: string;
   fullName: string;
+  role: "player" | "staff";
   verified: boolean;
 };
 
@@ -473,7 +474,29 @@ export function OpenPlayRegistration({
         </Alert>
       ) : null}
 
-      {viewer?.verified ? (
+      {viewer?.role === "staff" ? (
+        <Alert
+          variant="info"
+          className="mt-4"
+          eyebrow="Staff account"
+          title="Staff accounts can't reserve a place"
+        >
+          <p>
+            Open-play places belong to player accounts. Use the desk to reserve
+            for a player, or sign in with a player account to play.
+          </p>
+          <p className="mt-2">
+            <Link
+              href="/staff/open-play"
+              className="font-semibold text-accent-ink underline-offset-4 hover:underline"
+            >
+              Back to the open-play desk
+            </Link>
+          </p>
+        </Alert>
+      ) : null}
+
+      {viewer?.verified && viewer.role !== "staff" ? (
         <form onSubmit={handleSubmit} noValidate className="mt-4 space-y-4">
           <p className="rounded-lg border border-line bg-page/50 px-3.5 py-2.5 text-caption leading-relaxed text-muted">
             Reserving as{" "}

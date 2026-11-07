@@ -14,8 +14,11 @@ import { Field, Input } from "@/components/ui/field";
 import { createClient } from "@/lib/supabase/client";
 
 const MAX_SOURCE_BYTES = 5 * 1024 * 1024;
-const MAX_UPLOAD_BYTES = 2 * 1024 * 1024;
-const MAX_IMAGE_EDGE = 2000;
+// Storage is the tighter free-plan quota (1 GB). Uploads measured ~108 kB at
+// the previous settings, so the ceiling and edges are trimmed slightly; a GCash
+// screenshot stays readable for the amount, reference, and recipient.
+const MAX_UPLOAD_BYTES = 1536 * 1024;
+const MAX_IMAGE_EDGE = 1600;
 const MIN_IMAGE_EDGE = 720;
 
 const MIME_EXTENSIONS: Record<string, string> = {
@@ -101,7 +104,7 @@ async function compressProofImage(file: File): Promise<PreparedProof | null> {
           Math.min(1, MAX_IMAGE_EDGE / Math.max(bitmap.width, bitmap.height)),
       ),
     );
-    let quality = 0.88;
+    let quality = 0.82;
 
     for (let attempt = 0; attempt < 5; attempt += 1) {
       const canvas = document.createElement("canvas");
@@ -137,7 +140,7 @@ async function compressProofImage(file: File): Promise<PreparedProof | null> {
 
       width = nextWidth;
       height = nextHeight;
-      quality = Math.max(0.6, quality - 0.06);
+      quality = Math.max(0.55, quality - 0.06);
     }
 
     return null;

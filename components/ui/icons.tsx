@@ -286,6 +286,15 @@ export function LogOutIcon(props: IconProps) {
   );
 }
 
+export function BellIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M6 9.5a6 6 0 0 1 12 0c0 3.8 1.4 5.3 1.4 5.3H4.6S6 13.3 6 9.5Z" />
+      <path d="M10 18.4a2.2 2.2 0 0 0 4 0" />
+    </Icon>
+  );
+}
+
 export function MoreIcon(props: IconProps) {
   return (
     <Icon {...props}>

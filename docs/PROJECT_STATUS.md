@@ -9,27 +9,68 @@
 **Phase 5:** The public site now covers the homepage, both courts, the visit/location page, club information, rules, FAQ, and the booking, payment, privacy, and terms policies. The public copy was approved on 5 November 2026, and `Asia/Manila`/PHP were confirmed. At Phase 5 close, open play had no schedule, price, capacity, or levels, so it was omitted; Phase 7 now supplies the owner defaults. Public booking actions lead to `/book`; the Phase 3 preview remains an internal reference route only.
 **Phase 6:** Account profile editing is limited to full name and mobile; booking history and detail read the real `bookings` and `court_reservations` tables, with empty, error, and session-expiry states. Self-service cancel/reschedule remains unavailable per `D-13`. No staff tools or sample reservations were added. Phase 7 now supplies real bookings to this history.
 
-## Storage budget (7 November 2026)
+## Storage budget and data hygiene (7 November 2026)
 
 Supabase's Free plan measures database size and file storage separately: **500 MB
 of Postgres database per project** and **1 GB of Storage**, plus 5 GB of egress.
 Public assets in `public/` and the QR image are served by the web host, not from
 Supabase Storage.
 
-The only files this application writes to Supabase Storage are private GCash
-payment proofs. Proof uploads are now resized to a maximum 2,000 px edge and
-converted to WebP (or JPEG when WebP encoding is unavailable) in the browser
-before upload. The form accepts a source image up to 5 MB, but the resulting
-object is capped at 2 MB and normally lands far below that. The bucket limit is
-reduced from 5 MB to 2 MB by
-`supabase/migrations/20261107000100_payment_proof_storage_limit.sql` and applied
-to the production project on 7 November 2026.
+### Measured usage
 
-No image, base64 payload, or file blob is stored in Postgres. Booking, payment,
-audit, and open-play rows remain small text/numeric records, so the immediate
-free-plan risk is Storage egress and proof volume rather than database size.
-Existing proof objects larger than 2 MB are left untouched; the new ceiling
-applies to new uploads only.
+Production on 7 November 2026: database **14 MB** (`pg_database_size`), Storage
+**1.8 MB** across 17 payment proofs (average 108 kB). The largest tables were
+`audit_logs` (480 kB, 395 rows), `auth.users` (232 kB), and `email_outbox`
+(152 kB, 66 rows). No image, base64 payload, or file blob is stored in Postgres;
+booking, payment, audit, and open-play rows are small text/numeric records.
+
+### What keeps it small
+
+- **Proof compression before upload.** The browser resizes to a 1,600 px maximum
+  edge, re-encodes to WebP (JPEG fallback) at quality 0.82, and caps the object
+  at 1.5 MB, retrying smaller if needed. The bucket ceiling stays at 2 MB as a
+  hard stop (`20261107000100_payment_proof_storage_limit.sql`). A proof only has
+  to stay readable for the amount, reference, and recipient.
+- **Failed uploads are discarded.** The screenshot uploads before the server
+  action records it, so both proof actions delete the object when the database
+  refuses it (expired hold, duplicate proof, wrong account).
+- **Scheduled hygiene.** `public.run_data_hygiene()`, created by
+  `20261107000700_phase9_data_hygiene.sql` and scheduled daily at 03:15
+  Asia/Manila with `pg_cron`, trims: `email_outbox` terminal rows after 30 days,
+  read `notifications` after 90 days (any notification after 1 year), and
+  `audit_logs` after 1 year. Bookings, payments, booking groups, and payment
+  proofs are never deleted by the job. The windows live in the function body and
+  can be changed there. If `pg_cron` cannot be enabled, the migration raises a
+  warning and the same function can be run manually or scheduled from the
+  Supabase dashboard.
+- **No automatic proof deletion.** The published policy keeps proof only while
+  it is needed to verify payment and handle a dispute or accounting requirement,
+  so deleting screenshots stays a client policy decision rather than a job.
+  Volume can be audited from the Supabase SQL editor with
+  `select sum((metadata->>'size')::bigint) from storage.objects where bucket_id = 'payment-proofs';`.
+
+### Free-plan project pausing
+
+Supabase pauses a Free Plan project after roughly a week of low user database
+activity (a few API queries a day normally prevent it). Internal `pg_cron` work
+is not user API activity, so the hygiene job alone is not relied on for this.
+`.github/workflows/keep-supabase-awake.yml` queries one public `courts` row four
+times a day with the public anon key and fails loudly if the project stops
+answering. It needs the `SUPABASE_URL` and `SUPABASE_ANON_KEY` repository
+secrets. GitHub disables scheduled workflows on public repositories after 60
+days without repository activity, so an external uptime monitor pointed at
+`/rest/v1/courts?select=id&limit=1` with an `apikey` header is the fallback. Only
+a paid plan guarantees no pausing; a paused project keeps its data and can be
+restored from the dashboard for up to one year.
+
+### Free-plan headroom
+
+At ~108 kB per proof, 1 GB holds roughly 9,000 uploads; the tighter compression
+adds headroom on top of that. Database growth is dominated by audit rows
+(~1.2 kB each) and the email outbox, and the hygiene job removes both once they
+stop being useful, keeping the database in the low tens of megabytes at normal
+club volume. Existing proof objects above the old ceiling are left untouched;
+new uploads follow the current settings.
 
 ## Phase 10 — QA, security, and pre-launch review (7 November 2026)
 
@@ -255,6 +296,71 @@ promotion, coaching, and DUPR are not included.
 6. The official GCash QR/account name is still pending, so payment messages use
    the existing test-payment wording and link to the booking page rather than
    embedding a QR image.
+
+### Phase 9 extension — in-app realtime notifications (7 November 2026)
+
+Authorized 7 November 2026. Scope is in-app notifications for players and staff
+only. Email remains the off-app channel; SMS, browser push, and marketing
+automation are not included.
+
+#### Implemented
+
+- **Durable inbox:** `public.notifications` stores one row per recipient, with
+  an event, title, short body, target link, optional booking/group/session
+  reference, and a per-recipient dedupe key. RLS lets a user read and mark only
+their own rows; clients cannot insert or delete.
+- **Realtime transport:** an `after insert` trigger calls
+  `realtime.send(..., private => true)` on the topic
+  `notifications:<recipient id>`. A `realtime.messages` policy authorizes the
+  topic from `auth.uid()`. Broadcast failures are caught so a Realtime outage
+  cannot break the booking or payment transaction.
+- **Event fan-out:** `queue_notifications()` reuses the Phase 9 email dedupe
+  keys and the existing `enqueue_booking_email_event()` seam, so booking
+  received, open-play reserved, proof received, approved, rejected, cancelled,
+  and session-changed events reach both channels. Staff alerts exclude the staff
+  member who performed the action. Staff-driven confirmed/completed/no-show and
+  open-play attendance changes are recorded through `notify_booking_update()`.
+  The open-play capacity trigger now also writes a staff notification.
+- **Client:** a single root `NotificationsProvider` subscribes to the private
+  per-user channel, shows a toast, refreshes server-rendered pages, and reloads
+  the inbox on subscribe, reconnect, focus, and a 60-second fallback poll, so
+  missed socket messages are recovered from the table.
+- **UI:** a bell with unread count and popover in the public header, account
+  header, and staff rail/mobile header, plus `/notifications` history with
+  mark-all-read.
+
+#### Files
+
+- `supabase/migrations/20261107000500_phase9_realtime_notifications.sql`
+- `lib/notifications/types.ts`, `events.ts`, `format.ts`
+- `components/notifications/notifications-provider.tsx`,
+  `notification-bell.tsx`, `mark-all-read-button.tsx`
+- `app/notifications/page.tsx`, `app/layout.tsx`, `app/staff/actions.ts`,
+  `components/site/site-header.tsx`, `components/auth/auth-top-bar.tsx`,
+  `components/staff/staff-nav.tsx`, `components/ui/icons.tsx`
+
+#### Checks
+
+| Check | Result |
+| --- | --- |
+| `npx tsc --noEmit` | Passed, no output |
+| Scoped `npx eslint` on the notification modules and wiring | Passed, no output |
+| `npm run build` | Passed; 48 routes, `/notifications` dynamic |
+| Migration applied to production | **Not applied** — requires `npx supabase db push` |
+| Live Realtime delivery | **Not run** — needs the migration applied and the project's private-channel setting verified |
+
+#### Required setup and limitations
+
+1. Apply the migration. It is additive (new table, policies, functions, and
+   triggers) and does not change booking, payment, or email behavior.
+2. Confirm Realtime is enabled for the project and private channels are
+   permitted. No client key or environment variable is added.
+3. The bell and toast only cover an open site tab. Off-site alerts remain email;
+   browser push is deferred.
+4. Staff in-app recipients come from `profiles.role = 'staff'`, not the
+   `STAFF_NOTIFICATION_EMAILS` list. Keep both in sync when staff change.
+5. Notification history is capped at 30 in the bell and 50 on the history page;
+   older rows remain in the table.
 
 ## Phase 8 — Staff operations desk (6 November 2026)
 

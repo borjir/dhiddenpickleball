@@ -49,6 +49,18 @@ const steps = [
   },
 ];
 
+/** Hero photography cycles continuously. Append another club photo to extend it. */
+const heroSlides = [
+  {
+    src: "/courts/pickleball2.jpg",
+    alt: "Doubles play on a pickleball court with hills and sea in the background",
+  },
+  {
+    src: "/courts/pickleball1.jpg",
+    alt: "Players rallying on a blue pickleball court behind the net",
+  },
+];
+
 const promises = [
   {
     icon: ShieldIcon,
@@ -81,11 +93,7 @@ export function HomePage() {
         {/* Hero */}
         <section className="relative isolate flex min-h-[82svh] items-end overflow-hidden bg-brand-navy-deep pb-10 pt-32 sm:pb-14 lg:min-h-[88svh]">
           <div className="absolute inset-0 -z-20">
-            <HeroMedia
-              src="/courts/pickleball2.jpg"
-              alt="Doubles play on an outdoor club pickleball court"
-              priority
-            />
+            <HeroMedia slides={heroSlides} />
           </div>
           <div
             aria-hidden="true"

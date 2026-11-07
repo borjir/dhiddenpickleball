@@ -91,6 +91,7 @@ async function SessionPanel({ params }: PageProps) {
   let viewer: {
     email: string;
     fullName: string;
+    role: "player" | "staff";
     verified: boolean;
   } | null = null;
   let existingReference: string | null = null;
@@ -98,13 +99,14 @@ async function SessionPanel({ params }: PageProps) {
   if (user) {
     const { data: profile } = await supabase
       .from("profiles")
-      .select("full_name")
+      .select("full_name, role")
       .eq("id", user.id)
       .maybeSingle();
 
     viewer = {
       email: user.email ?? "",
       fullName: profile?.full_name?.trim() ?? "",
+      role: profile?.role === "staff" ? "staff" : "player",
       verified: Boolean(user.email_confirmed_at),
     };
 

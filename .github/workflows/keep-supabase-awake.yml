@@ -1,0 +1,56 @@
+# Supabase pauses Free Plan projects after a week of low user database
+# activity. A few real queries a day are typically enough to avoid it, so this
+# job reads one public row four times a day. It uses the public anon key, the
+# same one the website ships to browsers, and never the service-role key.
+#
+# One-time setup: add these repository secrets (Settings > Secrets and
+# variables > Actions):
+#   SUPABASE_URL       https://<project-ref>.supabase.co
+#   SUPABASE_ANON_KEY  the NEXT_PUBLIC_SUPABASE_ANON_KEY from .env.local
+#
+# Note: GitHub disables scheduled workflows on public repositories after 60
+# days without any repository activity. An external uptime monitor pointed at
+# the same REST endpoint is a drop-in replacement if that happens.
+
+name: Keep Supabase awake
+
+on:
+  schedule:
+    # 02:17, 08:17, 14:17, 20:17 UTC (10:17, 16:17, 22:17, 04:17 Manila).
+    - cron: "17 2,8,14,20 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Query one public row
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${SUPABASE_URL}" ] || [ -z "${SUPABASE_ANON_KEY}" ]; then
+            echo "::error::Add SUPABASE_URL and SUPABASE_ANON_KEY repository secrets first."
+            exit 1
+          fi
+
+          status=$(curl --silent --show-error --output /tmp/supabase-ping.json \
+            --write-out '%{http_code}' \
+            --header "apikey: ${SUPABASE_ANON_KEY}" \
+            --header "Authorization: Bearer ${SUPABASE_ANON_KEY}" \
+            "${SUPABASE_URL}/rest/v1/courts?select=id&limit=1")
+
+          cat /tmp/supabase-ping.json
+
+          if [ "${status}" -ge 400 ]; then
+            echo "::error::Supabase answered with HTTP ${status}."
+            exit 1
+          fi
+
+          echo "Supabase responded with HTTP ${status}."

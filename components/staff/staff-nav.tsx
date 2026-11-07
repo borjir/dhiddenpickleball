@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Logo } from "@/components/brand/logo";
 import { SignOutButton } from "@/components/auth/sign-out-button";
+import { NotificationBell } from "@/components/notifications/notification-bell";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import {
   ArrowLeftIcon,
@@ -149,6 +150,7 @@ export function StaffNav({
 
         <div className="mt-auto border-t border-white/10 pt-4">
           <div className="flex items-center gap-1 px-1">
+            <NotificationBell tone="inverse" placement="up" align="left" />
             <ThemeToggle tone="inverse" className="size-10" />
             <Link
               href="/"
@@ -174,6 +176,7 @@ export function StaffNav({
             </span>
           </Link>
           <div className="flex items-center gap-1.5">
+            <NotificationBell tone="inverse" />
             {reviewCount > 0 ? (
               <Link
                 href="/staff/payments"

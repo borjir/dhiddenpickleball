@@ -6,7 +6,7 @@ import {
   updateBookingStatusAction,
 } from "@/app/staff/actions";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { SubmitButton } from "@/components/ui/submit-button";
 import { Field, Input, Select, Textarea } from "@/components/ui/field";
 import { ArrowLeftIcon, ShieldIcon } from "@/components/ui/icons";
 import { ConfirmSubmitButton } from "@/components/staff/confirm-submit-button";
@@ -381,9 +381,13 @@ async function BookingDetail({ params, searchParams }: PageProps) {
                   <input type="hidden" name="targetType" value={targetType} />
                   <input type="hidden" name="targetId" value={targetId} />
                   <input type="hidden" name="status" value="confirmed" />
-                  <Button type="submit" variant="secondary" className="w-full">
+                  <SubmitButton
+                    variant="secondary"
+                    className="w-full"
+                    pendingLabel="Confirming booking…"
+                  >
                     Confirm booking
-                  </Button>
+                  </SubmitButton>
                 </form>
               ) : null}
 
@@ -394,9 +398,13 @@ async function BookingDetail({ params, searchParams }: PageProps) {
                     <input type="hidden" name="targetType" value={targetType} />
                     <input type="hidden" name="targetId" value={targetId} />
                     <input type="hidden" name="status" value="completed" />
-                    <Button type="submit" variant="secondary" className="w-full">
+                    <SubmitButton
+                      variant="secondary"
+                      className="w-full"
+                      pendingLabel="Completing booking…"
+                    >
                       Mark completed
-                    </Button>
+                    </SubmitButton>
                   </form>
                   <form action={updateBookingStatusAction}>
                     <input type="hidden" name="returnPath" value={returnPath} />

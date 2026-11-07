@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { createWalkInAction } from "@/app/staff/actions";
 import { Alert } from "@/components/ui/alert";
-import { Button } from "@/components/ui/button";
+import { SubmitButton } from "@/components/ui/submit-button";
 import { Field, Input, Select, Textarea } from "@/components/ui/field";
 import { ArrowLeftIcon, CalendarIcon } from "@/components/ui/icons";
 import {
@@ -161,7 +161,7 @@ async function WalkInForm({ searchParams }: { searchParams: SearchParams }) {
                 The database checks operating hours, closures, and overlapping reservations.
                 The amount is calculated server-side.
               </p>
-              <Button type="submit">Create booking</Button>
+              <SubmitButton pendingLabel="Creating booking…">Create booking</SubmitButton>
             </div>
           </form>
         </StaffPanel>

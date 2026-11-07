@@ -4,8 +4,9 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { enqueueBookingEmail } from "@/lib/email/events";
+import { notifyBookingUpdate } from "@/lib/notifications/events";
 import { requireStaff } from "@/lib/staff/auth";
-import { manilaLocalToIso } from "@/lib/staff/time";
+import { manilaLocalToIso, manilaTimeRange } from "@/lib/staff/time";
 
 const uuid = z.string().uuid();
 const optionalText = (max: number) =>
@@ -209,13 +210,22 @@ export async function updateBookingStatusAction(formData: FormData) {
     fail(returnPath, rpcMessage(error, "The booking status could not be changed."));
   }
 
+  const target =
+    parsed.data.targetType === "group"
+      ? { groupId: parsed.data.targetId }
+      : { bookingId: parsed.data.targetId };
+
   if (parsed.data.status === "cancelled") {
-    await enqueueBookingEmail(
+    await enqueueBookingEmail(supabase, "booking_cancelled", target);
+  } else {
+    await notifyBookingUpdate(
       supabase,
-      "booking_cancelled",
-      parsed.data.targetType === "group"
-        ? { groupId: parsed.data.targetId }
-        : { bookingId: parsed.data.targetId },
+      parsed.data.status === "confirmed"
+        ? "booking_confirmed"
+        : parsed.data.status === "completed"
+          ? "booking_completed"
+          : "booking_no_show",
+      target,
     );
   }
 
@@ -323,24 +333,33 @@ export async function createOpenPlaySessionAction(formData: FormData) {
   const returnPath = "/staff/open-play";
   const date = value(formData, "date");
   const time = value(formData, "time");
-  const duration = value(formData, "duration");
+  const endTime = value(formData, "endTime");
   const level = value(formData, "level");
   const capacity = value(formData, "capacity");
   const amount = value(formData, "amount");
-  const startsAt = manilaLocalToIso(date, time);
+  const range = manilaTimeRange(date, time, endTime);
 
   const parsed = z
     .object({
       startsAt: z.string().datetime(),
-      duration: z.coerce.number().int().refine((n) => [60, 90, 120].includes(n)),
+      duration: z.number().int().min(15).max(1440),
       level: z.enum(["beginner", "intermediate", "advanced"]),
       capacity: z.coerce.number().int().min(1).max(100),
       amount: z.coerce.number().min(0).max(100000),
     })
-    .safeParse({ startsAt, duration, level, capacity, amount });
+    .safeParse({
+      startsAt: range?.startsAt,
+      duration: range?.minutes,
+      level,
+      capacity,
+      amount,
+    });
 
-  if (!parsed.success || !startsAt) {
-    fail(returnPath, "Check the session date, time, capacity, and price.");
+  if (!parsed.success) {
+    fail(
+      returnPath,
+      "Check the session date, start and end times, capacity, and price.",
+    );
   }
 
   const { error } = await supabase.from("open_play_sessions").insert({
@@ -371,19 +390,19 @@ export async function updateOpenPlaySessionAction(formData: FormData) {
   const returnPath = `/staff/open-play/${sessionId}`;
   const date = value(formData, "date");
   const time = value(formData, "time");
-  const duration = value(formData, "duration");
+  const endTime = value(formData, "endTime");
   const level = value(formData, "level");
   const capacity = value(formData, "capacity");
   const amount = value(formData, "amount");
   const status = value(formData, "status");
   const reason = value(formData, "reason");
-  const startsAt = manilaLocalToIso(date, time);
+  const range = manilaTimeRange(date, time, endTime);
 
   const parsed = z
     .object({
       sessionId: uuid,
       startsAt: z.string().datetime(),
-      duration: z.coerce.number().int().refine((n) => [60, 90, 120].includes(n)),
+      duration: z.number().int().min(15).max(1440),
       level: z.enum(["beginner", "intermediate", "advanced"]),
       capacity: z.coerce.number().int().min(1).max(100),
       amount: z.coerce.number().min(0).max(100000),
@@ -392,8 +411,8 @@ export async function updateOpenPlaySessionAction(formData: FormData) {
     })
     .safeParse({
       sessionId,
-      startsAt,
-      duration,
+      startsAt: range?.startsAt,
+      duration: range?.minutes,
       level,
       capacity,
       amount,
@@ -401,7 +420,7 @@ export async function updateOpenPlaySessionAction(formData: FormData) {
       reason: reason || undefined,
     });
 
-  if (!parsed.success || !startsAt) {
+  if (!parsed.success) {
     fail(returnPath, "Check the session details and try again.");
   }
 
@@ -529,6 +548,18 @@ export async function updateOpenPlayRegistrationAction(formData: FormData) {
     await enqueueBookingEmail(supabase, "booking_cancelled", {
       bookingId: registrationTarget.booking_id,
     });
+  } else if (
+    (parsed.data.status === "attended" ||
+      parsed.data.status === "no_show") &&
+    registrationTarget?.booking_id
+  ) {
+    await notifyBookingUpdate(
+      supabase,
+      parsed.data.status === "attended"
+        ? "attendance_confirmed"
+        : "attendance_no_show",
+      { bookingId: registrationTarget.booking_id },
+    );
   }
 
   revalidatePath("/staff", "layout");

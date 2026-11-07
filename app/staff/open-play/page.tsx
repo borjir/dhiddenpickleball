@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { createOpenPlaySessionAction } from "@/app/staff/actions";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { SubmitButton } from "@/components/ui/submit-button";
 import { Field, Input, Select } from "@/components/ui/field";
 import { BallIcon, PlusIcon } from "@/components/ui/icons";
 import {
@@ -152,12 +152,8 @@ async function OpenPlayDesk({ searchParams }: { searchParams: SearchParams }) {
               <Field id="new-session-time" label="Start" required>
                 <Input id="new-session-time" name="time" type="time" defaultValue="08:00" required />
               </Field>
-              <Field id="new-session-duration" label="Duration" required>
-                <Select id="new-session-duration" name="duration" defaultValue="120">
-                  <option value="60">60 min</option>
-                  <option value="90">90 min</option>
-                  <option value="120">120 min</option>
-                </Select>
+              <Field id="new-session-end-time" label="End" required>
+                <Input id="new-session-end-time" name="endTime" type="time" defaultValue="10:00" required />
               </Field>
             </div>
             <Field id="new-session-level" label="Level" required>
@@ -175,10 +171,10 @@ async function OpenPlayDesk({ searchParams }: { searchParams: SearchParams }) {
                 <Input id="new-session-amount" name="amount" type="number" min={0} step="0.01" defaultValue={75} required />
               </Field>
             </div>
-            <Button type="submit" className="w-full">
+            <SubmitButton className="w-full" pendingLabel="Creating session…">
               <PlusIcon className="size-4" />
               Create session
-            </Button>
+            </SubmitButton>
           </form>
         </StaffPanel>
       </div>

@@ -6,6 +6,7 @@ import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { Logo } from "@/components/brand/logo";
 import { AuthLink } from "@/components/auth/auth-link";
 import { useBookingModal } from "@/components/booking/booking-modal-provider";
+import { NotificationBell } from "@/components/notifications/notification-bell";
 import { buttonClasses } from "@/components/ui/button";
 import { CloseIcon, MenuIcon, ArrowRightIcon } from "@/components/ui/icons";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
@@ -118,6 +119,7 @@ export function SiteHeader({ startSolid = false }: { startSolid?: boolean }) {
         </nav>
 
         <div className="flex items-center gap-2">
+          <NotificationBell tone={solid ? "auto" : "inverse"} />
           <ThemeToggle tone={solid ? "auto" : "inverse"} className="hidden sm:grid" />
           <span className="hidden md:inline-flex">
             <AuthLink solid={solid} />

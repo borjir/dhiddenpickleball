@@ -21,6 +21,17 @@ const groupProofSubmissionSchema = z.object({
   proofConfirmed: z.boolean().optional().default(false),
 });
 
+type ProofClient = Awaited<ReturnType<typeof createClient>>;
+
+/**
+ * The browser uploads the screenshot before this action runs. When the database
+ * refuses it (expired hold, duplicate proof, wrong account), delete the file so
+ * failed attempts do not accumulate in Storage.
+ */
+async function discardUnclaimedProof(supabase: ProofClient, proofPath: string) {
+  await supabase.storage.from("payment-proofs").remove([proofPath]);
+}
+
 export type PaymentProofResult =
   | { status: "success"; message: string }
   | {
@@ -89,6 +100,8 @@ export async function registerPaymentProof(input: {
     .maybeSingle();
 
   if (bookingError || !booking) {
+    await discardUnclaimedProof(supabase, parsed.data.proofPath);
+
     return {
       status: "error",
       code: "invalid",
@@ -103,6 +116,8 @@ export async function registerPaymentProof(input: {
   });
 
   if (proofError) {
+    await discardUnclaimedProof(supabase, parsed.data.proofPath);
+
     if (proofError.code === "42501") {
       return {
         status: "error",
@@ -202,6 +217,8 @@ export async function registerGroupPaymentProof(input: {
     .maybeSingle();
 
   if (groupError || !group) {
+    await discardUnclaimedProof(supabase, parsed.data.proofPath);
+
     return {
       status: "error",
       code: "invalid",
@@ -219,6 +236,8 @@ export async function registerGroupPaymentProof(input: {
   );
 
   if (proofError) {
+    await discardUnclaimedProof(supabase, parsed.data.proofPath);
+
     if (proofError.code === "42501") {
       return {
         status: "error",

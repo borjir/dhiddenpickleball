@@ -6,7 +6,7 @@ import {
   updateOpenPlaySessionAction,
 } from "@/app/staff/actions";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { SubmitButton } from "@/components/ui/submit-button";
 import { Field, Input, Select, Textarea } from "@/components/ui/field";
 import { ArrowLeftIcon, BallIcon, UsersIcon } from "@/components/ui/icons";
 import { ConfirmSubmitButton } from "@/components/staff/confirm-submit-button";
@@ -106,6 +106,9 @@ async function SessionDetail({ params, searchParams }: PageProps) {
   const meta = openPlaySessionStatusMeta(session.status);
   const full = active.length >= session.capacity;
   const returnPath = `/staff/open-play/${session.id}`;
+  const endsAt = new Date(
+    new Date(session.starts_at).getTime() + session.duration_minutes * 60000,
+  ).toISOString();
 
   return (
     <>
@@ -121,7 +124,7 @@ async function SessionDetail({ params, searchParams }: PageProps) {
         <StaffPageHeader
           eyebrow="Open-play session"
           title={`${openPlayLevelLabel(session.skill_level)} · ${formatStaffDate(session.starts_at)}`}
-          description={`${formatStaffTimeRange(session.starts_at, new Date(new Date(session.starts_at).getTime() + session.duration_minutes * 60000).toISOString())} · ${formatPeso(Number(session.amount_php))} per player`}
+          description={`${formatStaffTimeRange(session.starts_at, endsAt)} · ${formatPeso(Number(session.amount_php))} per player`}
           actions={
             <div className="flex items-center gap-2">
               <Badge variant={meta.variant} dot>{meta.label}</Badge>
@@ -199,9 +202,14 @@ async function SessionDetail({ params, searchParams }: PageProps) {
                           <option value="no_show">No-show</option>
                           <option value="cancelled">Cancelled</option>
                         </select>
-                        <Button type="submit" variant="secondary" size="sm" className="h-8 px-2.5 text-xs">
+                        <SubmitButton
+                          variant="secondary"
+                          size="sm"
+                          className="h-8 px-2.5 text-xs"
+                          pendingLabel="Saving…"
+                        >
                           Save
-                        </Button>
+                        </SubmitButton>
                       </form>
                     </div>
                   </div>
@@ -223,12 +231,14 @@ async function SessionDetail({ params, searchParams }: PageProps) {
                 <Field id="session-time" label="Start time" required>
                   <Input id="session-time" name="time" type="time" defaultValue={manilaTimeValue(session.starts_at)} required />
                 </Field>
-                <Field id="session-duration" label="Duration" required>
-                  <Select id="session-duration" name="duration" defaultValue={String(session.duration_minutes)}>
-                    <option value="60">60 min</option>
-                    <option value="90">90 min</option>
-                    <option value="120">120 min</option>
-                  </Select>
+                <Field id="session-end-time" label="End time" required>
+                  <Input
+                    id="session-end-time"
+                    name="endTime"
+                    type="time"
+                    defaultValue={manilaTimeValue(endsAt)}
+                    required
+                  />
                 </Field>
                 <Field id="session-level" label="Level" required>
                   <Select id="session-level" name="level" defaultValue={session.skill_level}>
@@ -303,7 +313,7 @@ async function SessionDetail({ params, searchParams }: PageProps) {
                 <input type="hidden" name="sessionId" value={session.id} />
                 <input type="hidden" name="date" value={manilaDateValue(session.starts_at)} />
                 <input type="hidden" name="time" value={manilaTimeValue(session.starts_at)} />
-                <input type="hidden" name="duration" value={session.duration_minutes} />
+                <input type="hidden" name="endTime" value={manilaTimeValue(endsAt)} />
                 <input type="hidden" name="level" value={session.skill_level} />
                 <input type="hidden" name="capacity" value={session.capacity} />
                 <input type="hidden" name="amount" value={Number(session.amount_php)} />

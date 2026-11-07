@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { reviewPaymentAction } from "@/app/staff/actions";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { SubmitButton } from "@/components/ui/submit-button";
 import { Input } from "@/components/ui/field";
 import { ArrowRightIcon, WalletIcon } from "@/components/ui/icons";
 import { ConfirmSubmitButton } from "@/components/staff/confirm-submit-button";
@@ -108,14 +108,14 @@ export function PaymentReviewCard({
               aria-label="Reason for rejection"
               className="h-9 min-w-0 flex-1 text-xs"
             />
-            <Button
-              type="submit"
+            <SubmitButton
               variant="secondary"
               size="sm"
               className="shrink-0 text-danger hover:border-danger/40 hover:bg-danger-soft"
+              pendingLabel="Rejecting…"
             >
               Reject
-            </Button>
+            </SubmitButton>
           </form>
         </div>
       ) : null}

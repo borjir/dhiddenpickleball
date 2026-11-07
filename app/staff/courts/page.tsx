@@ -4,7 +4,7 @@ import {
   deleteCourtClosureAction,
 } from "@/app/staff/actions";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { SubmitButton } from "@/components/ui/submit-button";
 import { Field, Input, Select, Textarea } from "@/components/ui/field";
 import { CalendarIcon, CourtIcon, PlusIcon } from "@/components/ui/icons";
 import { ConfirmSubmitButton } from "@/components/staff/confirm-submit-button";
@@ -164,10 +164,10 @@ async function Courts({ searchParams }: { searchParams: SearchParams }) {
                 required
               />
             </Field>
-            <Button type="submit" className="w-full">
+            <SubmitButton className="w-full" pendingLabel="Saving block…">
               <PlusIcon className="size-4" />
               Save block
-            </Button>
+            </SubmitButton>
           </form>
         </StaffPanel>
       </div>
