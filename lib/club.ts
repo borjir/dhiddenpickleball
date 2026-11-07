@@ -4,9 +4,9 @@
  * Every surface that shows the location or a contact channel reads from here.
  */
 export const CLUB = {
-  addressLine: "Bung-aw, Pondol, Balamban, Cebu",
+  addressLine: "Bung-aw, Pondol, Balamban, Cebu 6041",
   addressShort: "Pondol, Balamban, Cebu",
-  addressFull: "Bung-aw, Pondol, Balamban, Cebu, Philippines",
+  addressFull: "Bung-aw, Pondol, Balamban, Cebu 6041, Philippines",
   coordinates: "10°30'05.5\"N 123°42'58.2\"E",
   latitude: 10.5015278,
   longitude: 123.7161667,

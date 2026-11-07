@@ -24,6 +24,7 @@ const LOCATION_PARTS = [
   { label: "Barangay", value: "Pondol" },
   { label: "Municipality", value: "Balamban" },
   { label: "Province", value: "Cebu" },
+  { label: "ZIP code", value: "6041" },
 ] as const;
 
 /**
