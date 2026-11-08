@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import Link from "next/link";
 import {
   registerForOpenPlay,
@@ -15,11 +15,7 @@ import { Button, buttonClasses } from "@/components/ui/button";
 import { Field, Input } from "@/components/ui/field";
 import { PaymentInstructions } from "@/components/ui/payment-instructions";
 import { Stepper } from "@/components/ui/stepper";
-import {
-  ArrowRightIcon,
-  ClockIcon,
-  WalletIcon,
-} from "@/components/ui/icons";
+import { ArrowRightIcon } from "@/components/ui/icons";
 import {
   formatBookingDate,
   formatBookingTimeRange,
@@ -34,6 +30,7 @@ import {
   type OpenPlaySession,
 } from "@/lib/open-play";
 import { PAYMENT_DETAILS } from "@/lib/payment";
+import { revealTarget } from "@/lib/scroll";
 
 type RegistrationState =
   | { status: "idle" }
@@ -69,6 +66,29 @@ export function OpenPlayRegistration({
   const [registration, setRegistration] = useState<Registration | null>(null);
   const [paymentStatus, setPaymentStatus] = useState<PaymentStatus | null>(null);
   const [paymentSeconds, setPaymentSeconds] = useState<number | null>(null);
+  const formRef = useRef<HTMLFormElement>(null);
+
+  // The reserve button sits below the fields, so a rejected submit would
+  // otherwise leave its message off-screen on a phone.
+  useEffect(() => {
+    if (state.status !== "error") return;
+
+    const firstInvalid = formRef.current?.querySelector<HTMLElement>(
+      '[aria-invalid="true"]',
+    );
+
+    revealTarget(firstInvalid ?? document.getElementById("open-play-error"));
+  }, [state]);
+
+  // A reserved place replaces the form, so start the guest at the details.
+  useEffect(() => {
+    if (!registration) return;
+
+    revealTarget(document.getElementById("reserve"), {
+      focus: false,
+      block: "start",
+    });
+  }, [registration]);
 
   useEffect(() => {
     if (!registration || paymentStatus !== "unpaid") return;
@@ -338,49 +358,25 @@ export function OpenPlayRegistration({
       className="rounded-2xl border border-line bg-surface p-5 shadow-card sm:p-6"
     >
       <Stepper steps={registerSteps} current={1} className="mb-5" />
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <p className="text-eyebrow font-bold uppercase text-accent-ink">
-            Reserve a place
-          </p>
-          <h2 className="mt-1 font-display text-xl font-bold text-heading">
-            {openPlayLevelLabel(session.skillLevel)} open play
-          </h2>
-        </div>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 className="font-display text-xl font-bold text-heading">
+          Reserve your place
+        </h2>
         <Badge variant="success" dot>
           {remaining} left
         </Badge>
       </div>
 
-      <p className="mt-2 text-sm leading-relaxed text-muted">
+      <p className="mt-1 text-sm leading-relaxed text-muted">
         No account needed. One place per player. Pay by GCash after reserving.
       </p>
 
-      <dl className="mt-4 divide-y divide-line text-sm">
-        <div className="flex items-baseline justify-between gap-4 py-2.5 first:pt-0">
-          <dt className="flex items-center gap-2 text-muted">
-            <ClockIcon className="size-4 text-brand-lime" />
-            Session
-          </dt>
-          <dd className="text-right font-semibold text-heading">
-            {formatBookingTimeRange(session.startsAt, session.endsAt)}
-          </dd>
-        </div>
-        <div className="flex items-baseline justify-between gap-4 py-2.5">
-          <dt className="flex items-center gap-2 text-muted">
-            <WalletIcon className="size-4 text-brand-lime" />
-            Price
-          </dt>
-          <dd className="text-right font-semibold text-heading">
-            {formatPeso(session.amountPhp)} per player
-          </dd>
-        </div>
-      </dl>
-
       {state.status === "error" ? (
         <Alert
+          id="open-play-error"
+          tabIndex={-1}
           variant="error"
-          className="mt-4"
+          className="mt-4 focus:outline-none"
           role="alert"
           eyebrow="Not reserved"
           title="We could not reserve your place"
@@ -411,7 +407,12 @@ export function OpenPlayRegistration({
         </Alert>
       ) : null}
 
-      <form onSubmit={handleSubmit} noValidate className="mt-4 space-y-4">
+      <form
+        ref={formRef}
+        onSubmit={handleSubmit}
+        noValidate
+        className="mt-4 space-y-4"
+      >
         <Field
           id="open-play-name"
           label="Full name"
@@ -493,6 +494,9 @@ export function OpenPlayRegistration({
           <input
             type="checkbox"
             checked={termsAccepted}
+            aria-invalid={
+              (state.status === "error" && !termsAccepted) || undefined
+            }
             onChange={(event) => setTermsAccepted(event.target.checked)}
             className="mt-0.5 size-4 shrink-0 rounded border-line text-brand-blue focus:ring-brand-blue/20"
           />
@@ -518,7 +522,7 @@ export function OpenPlayRegistration({
         <Button
           type="submit"
           loading={pending}
-          disabled={pending || !termsAccepted}
+          disabled={pending}
           className="w-full"
         >
           {pending ? "Reserving place" : "Reserve my place"}

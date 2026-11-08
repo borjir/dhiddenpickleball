@@ -35,6 +35,7 @@ import {
   normalizeMobile,
   parseGuestQrPayload,
 } from "@/lib/guest";
+import { revealTarget } from "@/lib/scroll";
 
 const MAX_QR_BYTES = 8 * 1024 * 1024;
 const MAX_DECODE_EDGE = 1200;
@@ -80,7 +81,10 @@ export function LookupPanel({ initialReference = "" }: { initialReference?: stri
   const [result, setResult] = useState<LookupResult | null>(null);
   const [pending, setPending] = useState(false);
   const [scanning, setScanning] = useState(false);
+  const [resetCount, setResetCount] = useState(0);
   const qrInputRef = useRef<HTMLInputElement>(null);
+  const resultRef = useRef<HTMLElement>(null);
+  const revealedReference = useRef<string | null>(null);
   const didAutoLookup = useRef(false);
   const record = result?.status === "ok" ? result.record : null;
 
@@ -129,6 +133,33 @@ export function LookupPanel({ initialReference = "" }: { initialReference?: stri
     return () => window.clearTimeout(timer);
   }, [initialReference, runLookup]);
 
+  // The status renders below the form, so bring it into view the first time a
+  // reference opens. Later polls and proof uploads keep the reader in place.
+  useEffect(() => {
+    if (!record || revealedReference.current === record.reference) return;
+
+    revealedReference.current = record.reference;
+    revealTarget(resultRef.current, { block: "start" });
+  }, [record]);
+
+  // A failed lookup reports below the form too; never leave it off-screen.
+  useEffect(() => {
+    if (result?.status !== "error") return;
+
+    revealTarget(document.getElementById("lookup-error"));
+  }, [result]);
+
+  // "Check another booking" reopens the form and returns to its first field.
+  useEffect(() => {
+    if (resetCount === 0) return;
+
+    revealTarget(document.getElementById("lookup-form"), {
+      focus: false,
+      block: "start",
+    });
+    document.getElementById("lookup-reference")?.focus({ preventScroll: true });
+  }, [resetCount]);
+
   // Keep an open status page current when staff verify or update a booking.
   useEffect(() => {
     if (!record) return;
@@ -154,6 +185,14 @@ export function LookupPanel({ initialReference = "" }: { initialReference?: stri
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     await runLookup(reference, mobile);
+  }
+
+  function checkAnotherBooking() {
+    setResult(null);
+    setReference("");
+    setMobile("");
+    revealedReference.current = null;
+    setResetCount((count) => count + 1);
   }
 
   async function handleQrUpload(event: ChangeEvent<HTMLInputElement>) {
@@ -209,93 +248,114 @@ export function LookupPanel({ initialReference = "" }: { initialReference?: stri
 
   return (
     <div className="space-y-6">
-      <section className="rounded-2xl border border-line bg-surface p-6 shadow-card sm:p-7">
-        <h2 className="font-display text-2xl font-bold text-heading">
-          Check booking status
-        </h2>
-        <p className="mt-2 text-sm leading-relaxed text-muted">
-          Upload your booking QR code, or enter the reference and mobile number
-          you booked with. Court bookings and open-play places use the same
-          lookup.
-        </p>
-
-        <div className="mt-5 rounded-xl border border-dashed border-line-strong bg-page/50 p-4">
-          <Field
-            id="lookup-qr"
-            label="Upload your QR code"
-            hint="A screenshot or photo of the QR from your confirmation is fine."
-          >
-            <input
-              ref={qrInputRef}
-              id="lookup-qr"
-              type="file"
-              accept="image/*"
-              onChange={handleQrUpload}
-              className="block w-full cursor-pointer rounded-lg border border-line bg-surface px-3 py-2.5 text-sm text-ink file:mr-3 file:rounded-md file:border-0 file:bg-brand-blue-soft file:px-3 file:py-2 file:text-sm file:font-semibold file:text-heading hover:border-line-strong focus:border-brand-blue focus:outline-none focus:ring-4 focus:ring-brand-blue/15"
-            />
-          </Field>
-          {scanning ? (
-            <p className="mt-2 text-caption text-muted" role="status">
-              Reading QR code…
+      {record ? (
+        <section
+          ref={resultRef}
+          id="lookup-result"
+          tabIndex={-1}
+          className="flex scroll-mt-24 flex-wrap items-center justify-between gap-3 rounded-2xl border border-line bg-surface px-4 py-3 shadow-card focus:outline-none sm:px-5"
+        >
+          <div className="min-w-0">
+            <p className="text-caption text-muted">Showing booking</p>
+            <p className="truncate font-mono text-sm font-bold tracking-[0.06em] text-heading">
+              {record.reference}
             </p>
-          ) : null}
-        </div>
-
-        <div className="my-5 flex items-center gap-3 text-caption text-muted">
-          <span className="h-px flex-1 bg-line" />
-          or enter the details
-          <span className="h-px flex-1 bg-line" />
-        </div>
-
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Field id="lookup-reference" label="Booking reference" required>
-              <Input
-                id="lookup-reference"
-                name="reference"
-                autoComplete="off"
-                autoCapitalize="characters"
-                maxLength={40}
-                placeholder="HP-XXXXXX"
-                value={reference}
-                onChange={(event) => setReference(event.target.value)}
-                required
-              />
-            </Field>
-
+          </div>
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            onClick={checkAnotherBooking}
+          >
+            Check another booking
+          </Button>
+        </section>
+      ) : (
+        <section
+          id="lookup-form"
+          className="scroll-mt-24 rounded-2xl border border-line bg-surface p-5 shadow-card sm:p-7"
+        >
+          <div className="rounded-xl border border-dashed border-line-strong bg-page/50 p-4">
             <Field
-              id="lookup-mobile"
-              label="Mobile number"
-              required
-              hint="The number used when the booking was made."
+              id="lookup-qr"
+              label="Upload your QR code"
+              hint="A screenshot or photo of the QR from your confirmation is fine."
             >
-              <Input
-                id="lookup-mobile"
-                name="mobile"
-                type="tel"
-                inputMode="tel"
-                autoComplete="tel"
-                maxLength={30}
-                placeholder="0917 123 4567"
-                value={mobile}
-                onChange={(event) => setMobile(event.target.value)}
-                required
+              <input
+                ref={qrInputRef}
+                id="lookup-qr"
+                type="file"
+                accept="image/*"
+                onChange={handleQrUpload}
+                className="block w-full cursor-pointer rounded-lg border border-line bg-surface px-3 py-2.5 text-sm text-ink file:mr-3 file:rounded-md file:border-0 file:bg-brand-blue-soft file:px-3 file:py-2 file:text-sm file:font-semibold file:text-heading hover:border-line-strong focus:border-brand-blue focus:outline-none focus:ring-4 focus:ring-brand-blue/15"
               />
             </Field>
+            {scanning ? (
+              <p className="mt-2 text-caption text-muted" role="status">
+                Reading QR code…
+              </p>
+            ) : null}
           </div>
 
-          <Button type="submit" loading={pending} disabled={pending}>
-            {pending ? "Checking booking" : "Check booking status"}
-          </Button>
-        </form>
-      </section>
+          <div className="my-5 flex items-center gap-3 text-caption text-muted">
+            <span className="h-px flex-1 bg-line" />
+            or enter the details
+            <span className="h-px flex-1 bg-line" />
+          </div>
+
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field id="lookup-reference" label="Booking reference" required>
+                <Input
+                  id="lookup-reference"
+                  name="reference"
+                  autoComplete="off"
+                  autoCapitalize="characters"
+                  maxLength={40}
+                  placeholder="HP-XXXXXX"
+                  value={reference}
+                  onChange={(event) => setReference(event.target.value)}
+                  required
+                />
+              </Field>
+
+              <Field
+                id="lookup-mobile"
+                label="Mobile number"
+                required
+                hint="The number used when the booking was made."
+              >
+                <Input
+                  id="lookup-mobile"
+                  name="mobile"
+                  type="tel"
+                  inputMode="tel"
+                  autoComplete="tel"
+                  maxLength={30}
+                  placeholder="0917 123 4567"
+                  value={mobile}
+                  onChange={(event) => setMobile(event.target.value)}
+                  required
+                />
+              </Field>
+            </div>
+
+            <Button type="submit" loading={pending} disabled={pending}>
+              {pending ? "Checking booking" : "Check booking status"}
+            </Button>
+          </form>
+        </section>
+      )}
 
       {result?.status === "error" ? (
         <Alert
+          id="lookup-error"
+          tabIndex={-1}
           variant="error"
           role="alert"
           eyebrow="Booking not found"
           title="We could not open that booking"
+          className="focus:outline-none"
         >
           <p>{result.message}</p>
         </Alert>

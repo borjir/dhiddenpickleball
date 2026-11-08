@@ -87,7 +87,7 @@ async function SessionPanel({ params }: PageProps) {
   return (
     <>
       <section className="border-b border-line bg-surface">
-        <div className="mx-auto w-full max-w-7xl px-5 py-7 sm:px-7 sm:py-9">
+        <div className="mx-auto w-full max-w-7xl px-5 py-5 sm:px-7 sm:py-9">
           <Link
             href="/open-play"
             className="inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-accent-ink transition-colors hover:text-heading"
@@ -96,7 +96,7 @@ async function SessionPanel({ params }: PageProps) {
             All open-play sessions
           </Link>
 
-          <div className="mt-5 flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+          <div className="mt-4 flex flex-col gap-4 sm:mt-5 sm:gap-6 lg:flex-row lg:items-end lg:justify-between">
             <div className="max-w-3xl">
               <div className="flex flex-wrap items-center gap-2">
                 <Badge variant={level.variant} dot>
@@ -106,7 +106,7 @@ async function SessionPanel({ params }: PageProps) {
                   {full ? "Full" : status.label}
                 </Badge>
               </div>
-              <h1 className="mt-4 font-display text-4xl font-extrabold tracking-[-0.03em] text-heading sm:text-5xl">
+              <h1 className="mt-3 font-display text-3xl font-extrabold tracking-[-0.03em] text-heading sm:mt-4 sm:text-5xl">
                 {level.label} open play
               </h1>
               <p className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-base text-muted">
@@ -120,7 +120,7 @@ async function SessionPanel({ params }: PageProps) {
                   {session.durationMinutes} min
                 </span>
               </p>
-              <p className="mt-3 max-w-2xl text-sm leading-relaxed text-muted">
+              <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted sm:mt-3">
                 {level.description}
               </p>
             </div>

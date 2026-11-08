@@ -41,6 +41,7 @@ import {
   formatPeso,
   type AvailabilitySlot,
 } from "@/lib/bookings";
+import { revealTarget } from "@/lib/scroll";
 
 const steps = [
   { label: "Choose time" },
@@ -451,6 +452,7 @@ export function CourtBooking({
   const [pending, setPending] = useState(false);
 
   const headingRef = useRef<HTMLHeadingElement>(null);
+  const formRef = useRef<HTMLFormElement>(null);
   const restoredSelection = useRef(false);
   const hasMounted = useRef(false);
 
@@ -529,6 +531,19 @@ export function CourtBooking({
     const timer = window.setTimeout(() => headingRef.current?.focus(), 360);
     return () => window.clearTimeout(timer);
   }, [step]);
+
+  // A failed submit is reported above the form, which is off-screen when the
+  // guest taps the button at the bottom. Bring the first field to fix into
+  // view, or the error card when no single field is at fault.
+  useEffect(() => {
+    if (bookingState.status !== "error") return;
+
+    const firstInvalid = formRef.current?.querySelector<HTMLElement>(
+      '[aria-invalid="true"]',
+    );
+
+    revealTarget(firstInvalid ?? document.getElementById("booking-error"));
+  }, [bookingState]);
 
   useEffect(() => {
     const tick = () => setNowMinute(manilaMinuteNow());
@@ -1259,15 +1274,15 @@ export function CourtBooking({
         )}
 
         {embedded ? null : (
-        <div className="mt-8 flex flex-wrap items-start justify-between gap-5">
+        <div className="mt-6 flex flex-wrap items-start justify-between gap-5 sm:mt-8">
           <div className="max-w-2xl">
-            <p className="text-eyebrow font-bold uppercase text-accent-ink">
+            <p className="hidden text-eyebrow font-bold uppercase text-accent-ink sm:block">
               Court reservation
             </p>
-            <h1 className="mt-2 text-title font-bold text-heading">
+            <h1 className="text-title font-bold text-heading sm:mt-2">
               Reserve a court
             </h1>
-            <p className="mt-3 max-w-xl text-base leading-relaxed text-muted">
+            <p className="mt-3 hidden max-w-xl text-base leading-relaxed text-muted sm:block">
               Choose a time, check the total, then pay by GCash. No account
               needed.
             </p>
@@ -1287,7 +1302,7 @@ export function CourtBooking({
         <Stepper
           steps={steps}
           current={step}
-          className={embedded ? "mt-2" : "mt-8"}
+          className={embedded ? "mt-2" : "mt-5 sm:mt-8"}
         />
 
         {notice && !embedded ? (
@@ -1307,11 +1322,11 @@ export function CourtBooking({
             animate={reduce ? undefined : { opacity: 1, y: 0 }}
             exit={reduce ? undefined : { opacity: 0, y: -8 }}
             transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
-            className="mt-8"
+            className="mt-5 sm:mt-8"
           >
             {embedded && step === 0 ? null : (
-              <div className="mb-6 max-w-2xl">
-                <p className="text-eyebrow font-bold uppercase text-accent-ink">
+              <div className="mb-4 max-w-2xl sm:mb-6">
+                <p className="hidden text-eyebrow font-bold uppercase text-accent-ink sm:block">
                   {activeContent.eyebrow}
                 </p>
                 <h2
@@ -1321,19 +1336,19 @@ export function CourtBooking({
                 >
                   {activeContent.title}
                 </h2>
-                <p className="mt-2 text-sm leading-relaxed text-muted">
+                <p className="mt-2 hidden text-sm leading-relaxed text-muted sm:block">
                   {activeContent.description}
                 </p>
               </div>
             )}
 
             {step === 0 ? (
-              <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_18rem] lg:items-start xl:grid-cols-[minmax(0,1fr)_19rem]">
+              <div className="grid gap-4 sm:gap-6 lg:grid-cols-[minmax(0,1fr)_18rem] lg:items-start xl:grid-cols-[minmax(0,1fr)_19rem]">
                 <div
                   className={
                     embedded
                       ? "grid min-w-0 grid-cols-1 gap-5 lg:grid-cols-[20rem_minmax(0,1fr)] lg:items-start xl:grid-cols-[22rem_minmax(0,1fr)]"
-                      : "min-w-0 space-y-6"
+                      : "min-w-0 space-y-4 sm:space-y-6"
                   }
                 >
                   <section
@@ -1530,7 +1545,7 @@ export function CourtBooking({
                     ) : null}
 
                     {embedded ? null : (
-                    <div className="mt-4 flex flex-wrap gap-x-5 gap-y-2 rounded-xl border border-line bg-page/60 px-4 py-3 text-caption text-muted">
+                    <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 rounded-xl border border-line bg-page/60 px-3.5 py-2.5 text-caption text-muted">
                         <span>
                           <span className="font-semibold text-ink">Hours</span> 7:00
                           AM – 12:00 AM daily
@@ -1898,10 +1913,13 @@ export function CourtBooking({
                       {bookingState.status === "error" &&
                       bookingState.message ? (
                         <Alert
+                          id="booking-error"
+                          tabIndex={-1}
                           variant="error"
                           eyebrow="Booking not created"
                           title={bookingState.message}
                           role="alert"
+                          className="focus:outline-none"
                         >
                           {bookingState.code === "slot-taken" ? (
                             <Button
@@ -1934,6 +1952,7 @@ export function CourtBooking({
                       ) : null}
 
                       <form
+                        ref={formRef}
                         id="booking-form"
                         onSubmit={handleSubmit}
                         noValidate
