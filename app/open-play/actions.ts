@@ -1,11 +1,13 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { headers } from "next/headers";
 import { z } from "zod";
 import { enqueueGuestBookingEmail } from "@/lib/email/events";
 import { normalizeMobile } from "@/lib/guest";
 import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
+import { turnstileClientIp, verifyTurnstile } from "@/lib/turnstile";
 import {
   formatBookingDate,
   manilaDateId,
@@ -194,6 +196,7 @@ export async function registerForOpenPlay(input: {
   phone: string;
   email: string;
   termsAccepted: boolean;
+  turnstileToken: string;
 }): Promise<OpenPlayRegistrationResult> {
   if (!isSupabaseConfigured()) {
     return {
@@ -221,6 +224,20 @@ export async function registerForOpenPlay(input: {
         parsed.error.issues[0]?.message ??
         "Choose a session and accept the booking terms.",
       errors,
+    };
+  }
+
+  const gate = await verifyTurnstile({
+    token: input.turnstileToken,
+    action: "open_play",
+    remoteIp: turnstileClientIp(await headers()),
+  });
+
+  if (!gate.ok) {
+    return {
+      status: "error",
+      code: "invalid",
+      message: gate.message,
     };
   }
 

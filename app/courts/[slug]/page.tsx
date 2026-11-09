@@ -239,12 +239,13 @@ export default async function CourtPage({ params }: CourtPageProps) {
                 <Alert
                   variant="info"
                   eyebrow="Payment note"
-                  title="The official GCash QR is still pending"
+                  title="Pay by GCash after booking"
                   className="mt-6"
                 >
                   <p>
-                    Use the test QR shown after booking. Staff verify every
-                    transfer before payment is marked paid.
+                    The confirmation shows the club&apos;s GCash QR, account
+                    name, and number. Staff verify every transfer before payment
+                    is marked paid.
                   </p>
                 </Alert>
               </div>

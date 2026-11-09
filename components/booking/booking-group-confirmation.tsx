@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { GuestQrCode } from "@/components/guest/guest-qr";
 import { PaymentProofForm } from "@/components/payment/payment-proof-form";
 import { Alert } from "@/components/ui/alert";
@@ -21,6 +21,7 @@ import {
   type BookingGroupConfirmation,
 } from "@/lib/bookings";
 import { PAYMENT_DETAILS } from "@/lib/payment";
+import { revealTarget } from "@/lib/scroll";
 
 function formatHoldRemaining(totalSeconds: number) {
   const minutes = Math.floor(totalSeconds / 60);
@@ -37,6 +38,36 @@ export function BookingGroupConfirmation({
 }) {
   const [copied, setCopied] = useState(false);
   const [holdSeconds, setHoldSeconds] = useState<number | null>(null);
+  const previousPaymentStatus = useRef(group.paymentStatus);
+
+  // The confirmation replaces a long form, so start the guest at the payment
+  // instructions rather than at the page hero or the bottom of the old form.
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      revealTarget(document.getElementById("booking-payment"), {
+        focus: false,
+        block: "start",
+      });
+    }, 420);
+
+    return () => window.clearTimeout(timer);
+  }, []);
+
+  // After the proof upload succeeds, the confirmation banner above changes.
+  // Bring that result back into view instead of leaving the guest at the form.
+  useEffect(() => {
+    if (previousPaymentStatus.current === group.paymentStatus) return;
+    previousPaymentStatus.current = group.paymentStatus;
+
+    const timer = window.setTimeout(() => {
+      revealTarget(document.getElementById("booking-confirmation"), {
+        focus: false,
+        block: "start",
+      });
+    }, 120);
+
+    return () => window.clearTimeout(timer);
+  }, [group.paymentStatus]);
 
   useEffect(() => {
     if (
@@ -90,7 +121,7 @@ export function BookingGroupConfirmation({
   }
 
   return (
-    <div className="space-y-6">
+    <div id="booking-confirmation" className="scroll-mt-24 space-y-6">
       <Alert
         variant={holdExpired ? "error" : proofClosed ? "success" : "success"}
         eyebrow={
@@ -249,29 +280,24 @@ export function BookingGroupConfirmation({
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-start">
         <div className="min-w-0 space-y-6">
-          <PaymentInstructions
-            amountLabel={formatPeso(group.amountPhp)}
-            reference={group.reference}
-            methodLabel={PAYMENT_DETAILS.methodLabel}
-            title="Pay with GCash"
-            badgeLabel={PAYMENT_DETAILS.isTest ? "Test" : "GCash"}
-            badgeVariant={PAYMENT_DETAILS.isTest ? "warning" : "success"}
-            qrSrc={PAYMENT_DETAILS.qrSrc}
-            qrAlt={PAYMENT_DETAILS.qrAlt}
-            qrWidth={PAYMENT_DETAILS.qrWidth}
-            qrHeight={PAYMENT_DETAILS.qrHeight}
-            qrCaption={
-              PAYMENT_DETAILS.isTest
-                ? "Project owner test account. The club's official GCash QR is still pending."
-                : undefined
-            }
-            qrDownloadName={PAYMENT_DETAILS.qrDownloadName}
-            note={
-              PAYMENT_DETAILS.isTest
-                ? PAYMENT_DETAILS.testNote
-                : "Pay the exact total, keep the group reference with the transfer, and upload one GCash screenshot before the hold ends."
-            }
-          />
+          <div id="booking-payment" className="scroll-mt-24">
+            <PaymentInstructions
+              amountLabel={formatPeso(group.amountPhp)}
+              reference={group.reference}
+              methodLabel={PAYMENT_DETAILS.methodLabel}
+              accountName={PAYMENT_DETAILS.accountName}
+              accountNumber={PAYMENT_DETAILS.accountNumber}
+              title="Pay with GCash"
+              badgeLabel="GCash"
+              badgeVariant="success"
+              qrSrc={PAYMENT_DETAILS.qrSrc}
+              qrAlt={PAYMENT_DETAILS.qrAlt}
+              qrWidth={PAYMENT_DETAILS.qrWidth}
+              qrHeight={PAYMENT_DETAILS.qrHeight}
+              qrDownloadName={PAYMENT_DETAILS.qrDownloadName}
+              note="Pay the exact total, keep the group reference with the transfer, and upload one GCash screenshot before the hold ends."
+            />
+          </div>
 
           {canSubmitProof ? (
             <PaymentProofForm

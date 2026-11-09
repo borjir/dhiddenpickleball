@@ -46,9 +46,9 @@ function PaymentHistoryCard({ payment }: { payment: StaffPayment }) {
   const meta = paymentStatusMeta(payment.status);
 
   return (
-    <article className="rounded-lg border border-line bg-surface p-4">
+    <article className="rounded-xl border border-line bg-surface p-4 shadow-card transition-colors hover:border-line-strong sm:p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
+        <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             <Badge variant={meta.variant} dot>
               {meta.label}
@@ -66,7 +66,7 @@ function PaymentHistoryCard({ payment }: { payment: StaffPayment }) {
               : `Grouped reservation · ${formatStaffDateTime(group?.created_at)}`}
           </p>
         </div>
-        <p className="font-display text-xl font-extrabold tracking-[-0.03em] text-heading">
+        <p className="font-display text-xl font-extrabold tracking-[-0.03em] text-heading tabular-nums sm:text-2xl">
           {formatPeso(Number(payment.amount_php))}
         </p>
       </div>
@@ -157,22 +157,30 @@ async function Payments({ searchParams }: { searchParams: SearchParams }) {
         <StaffFlash notice={text(params.notice) || null} error={text(params.error) || null} />
       </div>
 
-      <div className="flex flex-wrap items-center gap-1.5 border-b border-line">
+      <div className="mt-5 flex items-center gap-1 overflow-x-auto rounded-xl border border-line bg-surface p-1 shadow-card">
         {TABS.map((tab) => {
           const active = tab.value === status;
           return (
             <Link
               key={tab.value}
               href={`/staff/payments?status=${tab.value}`}
+              aria-current={active ? "page" : undefined}
               className={cn(
-                "relative inline-flex min-h-10 items-center gap-2 rounded-t-lg px-3 text-sm font-semibold transition-colors",
+                "relative inline-flex min-h-10 flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-lg px-3 text-sm font-semibold transition-colors",
                 active
-                  ? "bg-surface text-heading after:absolute after:inset-x-0 after:bottom-[-1px] after:h-0.5 after:bg-brand-blue"
+                  ? "bg-brand-navy text-white shadow-sm"
                   : "text-muted hover:bg-brand-blue-soft/50 hover:text-heading",
               )}
             >
               {tab.label}
-              <span className="rounded-full bg-page px-1.5 py-0.5 text-[0.625rem] font-bold text-muted ring-1 ring-line">
+              <span
+                className={cn(
+                  "rounded-full px-1.5 py-0.5 text-[0.625rem] font-bold tabular-nums",
+                  active
+                    ? "bg-white/15 text-white"
+                    : "bg-page text-muted ring-1 ring-line",
+                )}
+              >
                 {counts[tab.value]}
               </span>
             </Link>

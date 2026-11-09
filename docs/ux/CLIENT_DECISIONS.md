@@ -1,7 +1,7 @@
 # Phase 2 — Client Decision Register
 
 **Version:** 2.4
-**Date:** 6 November 2026
+**Date:** 9 November 2026
 **Status:** Partly answered. Response 2 is authoritative. On 4 November 2026
 the project owner answered the three flow blockers (D-01, D-06, D-08), the
 location, contact, and name questions (D-18, D-19), and the Phase 4 role and
@@ -53,9 +53,9 @@ unpaid bookings are automatically cancelled). Both were resolved on 4 November
 | D-04 | Court inventory and facilities | P0 | Partly answered — 2 courts settled, facilities open |
 | D-05 | Operating hours and closures | P0 | Partly answered — hours settled, closures open |
 | D-06 | Cancellation, reschedule, no-show, refund | P0 | Resolved by owner 4 Nov — outcomes set |
-| D-07 | Payment methods and receiving details | P0 | Partly answered — GCash only; owner test QR published; client QR coming soon; account name on hold |
+| D-07 | Payment methods and receiving details | P0 | Answered 9 Nov — official GCash QR, masked account name, and number installed |
 | D-08 | Payment deadline and unpaid consequence | P0 | Resolved by owner 4 Nov — deadline equals the 15-minute hold |
-| D-09 | Open-play payment method | P0 | Answered 6 Nov — GCash QR only; client QR soon |
+| D-09 | Open-play payment method | P0 | Answered 6 Nov — GCash QR only; official QR installed 9 Nov |
 | D-10 | Open-play schedule, capacity, levels | P0 | **Answered for implementation** — owner supplied ₱75, Saturdays, three levels, 12 places; staff-editable |
 | D-11 | Required player fields | P0 | Partly answered — max players open |
 | D-12 | Multiple bookings per checkout | P1 | Resolved for implementation 6 Nov — one grouped reservation, up to 8 ranges across dates |
@@ -285,9 +285,15 @@ client's official QR and account name open. This is a temporary test
 destination, not the club's receiving account, and it does not add payment-proof
 upload or staff verification.
 
-**Still open:** the club's receiving account name and the official GCash QR
-image. The owner said on 6 November that the client's QR is coming soon; Maya
-is not part of the current flow.
+**9 November 2026:** the client supplied the official GCash QR. It is published
+unchanged at `public/qr/client-official-gcash-qr.jpg`, and the booking and open-play
+confirmations show it with the receiving account name `MA*Y GR**E M.` exactly
+as printed on the QR and the copyable number **0956 167 0905**. The test QR is
+no longer shown in the guest flow. GCash masks the name on the QR itself, so the
+full unmasked name is not available from this asset.
+
+**Still open:** the full unmasked receiving-account name (GCash prints only the
+masked form). Maya is not part of the current flow.
 
 **Blocks:** Phase 12, booking confirmation, staff verification.
 
@@ -323,8 +329,10 @@ staff verification is still required.
 **Client answer (30 Oct):** "GCash/Maya proof before the session."
 
 **Owner direction (6 Nov 2026):** use **GCash QR only**. Maya is not part of the
-current flow. The client's official GCash QR is still to be supplied; the test
-QR remains labelled until then. The QR-proof model applies to open play.
+current flow. The QR-proof model applies to open play.
+
+**9 November 2026:** the open-play confirmation now shows the client's official
+GCash QR, the masked account name, and the copyable number.
 
 **Blocks:** open-play confirmation, staff roster, Phase 12.
 
@@ -669,8 +677,8 @@ These are not open:
 | Official logo | Received 3 Nov 2026 (WebP, 1254×1254, transparent) | `public/logo/hidden-pickleball.webp` |
 | Favicon / app icon | Derived from the logo, no recolour | `app/icon.png`, `app/apple-icon.png` |
 | Court photography | Received 3 Nov 2026; treated as club photography by owner instruction | `public/courts/pickleball1.jpg`, `public/courts/pickleball2.jpg` |
-| Payment QR | **On hold — personal stand-in, test/sample only** | `public/qr/gcash-sample.jpg` |
-| Receiving account name | Not supplied — on hold | — |
+| Payment QR | **Received 9 Nov 2026 (JPEG, 828×1608)** | `public/qr/client-official-gcash-qr.jpg` |
+| Receiving account name | Masked on the QR as `MA*Y GR**E M.`; full name not supplied | `lib/payment.ts` |
 | Address, map pin, phone, email | Supplied 4 Nov 2026 | `lib/club.ts` |
 | Social links | None supplied; publish phone and email only | — |
 | SVG logo master | Not supplied; current mark is raster | — |
@@ -681,7 +689,7 @@ These are not open:
 D-03: weekend rate ___ ; buffer ___ ; booking window ___ days ; rounding ___
 D-04: publishable facilities ___
 D-05: closures/holidays ___
-D-07: receiving account name ___ ; GCash QR file ___ ; Maya for courts? ___
+D-07: full receiving account name ___ ; Maya for courts? ___
 D-10: sessions ___
 D-22: waitlist rules ___
 ```

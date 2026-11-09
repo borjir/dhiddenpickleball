@@ -227,7 +227,7 @@ async function BookingDetail({ params, searchParams }: PageProps) {
     <>
       <Link
         href="/staff/bookings"
-        className="inline-flex min-h-9 items-center gap-1.5 text-sm font-semibold text-accent-ink"
+        className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-line bg-surface px-3 text-sm font-semibold text-heading shadow-card transition-colors hover:border-line-strong hover:bg-brand-blue-soft/40"
       >
         <ArrowLeftIcon className="size-4" />
         Back to bookings
@@ -462,7 +462,7 @@ async function BookingDetail({ params, searchParams }: PageProps) {
           </StaffPanel>
         </div>
 
-        <div className="space-y-5">
+        <div className="space-y-5 xl:sticky xl:top-8">
           <StaffPanel title="Player">
             <p className="text-base font-bold text-heading">{personLabel(person)}</p>
             <p className="mt-1 break-all text-caption text-muted">{person?.email ?? "No email on file"}</p>

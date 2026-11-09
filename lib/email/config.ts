@@ -48,25 +48,29 @@ function positiveLimit(value: string | undefined, fallback: number) {
 }
 
 /**
- * Resend's free plan allows 100 sends per day. Keep the cap explicit so a
- * retry loop or a burst of bookings cannot exhaust the account unexpectedly.
- * Raise this only on a paid plan with a higher limit.
+ * Mailjet's free plan allows 200 sends per calendar day. Keep the cap explicit
+ * so a retry loop or a burst of bookings cannot exhaust the account
+ * unexpectedly. Raise this only on a paid plan with a higher limit.
  */
 export function emailDailyLimit() {
-  return positiveLimit(process.env.EMAIL_DAILY_LIMIT, 100);
+  return positiveLimit(process.env.EMAIL_DAILY_LIMIT, 200);
 }
 
 /**
- * Resend's free plan allows 3,000 sends per month. This is a separate guard
+ * Mailjet's free plan allows 6,000 sends per month. This is a separate guard
  * from the daily cap because a few busy days can use the monthly allowance
  * before the month ends.
  */
 export function emailMonthlyLimit() {
-  return positiveLimit(process.env.EMAIL_MONTHLY_LIMIT, 3_000);
+  return positiveLimit(process.env.EMAIL_MONTHLY_LIMIT, 6_000);
 }
 
 export function isEmailConfigured() {
-  return Boolean(process.env.RESEND_API_KEY?.trim() && emailFrom());
+  return Boolean(
+    process.env.MAILJET_API_KEY?.trim() &&
+      process.env.MAILJET_SECRET_KEY?.trim() &&
+      emailFrom(),
+  );
 }
 
 /**

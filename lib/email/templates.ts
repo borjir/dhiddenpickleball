@@ -135,7 +135,7 @@ function detailsTable(rows: Array<{ label: string; value: string }>) {
 }
 
 function emailShell(input: ShellInput) {
-  const logoUrl = `${siteUrl()}/icon.png`;
+  const logoUrl = `${siteUrl()}/email-logo.png`;
   const website = siteUrl();
 
   return `<!doctype html>

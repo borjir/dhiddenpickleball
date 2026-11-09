@@ -8,7 +8,7 @@ import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { BookingSummary } from "@/components/ui/booking-summary";
 import { Button } from "@/components/ui/button";
-import { Field, Input } from "@/components/ui/field";
+import { Field, Input, PhoneInput } from "@/components/ui/field";
 import { PaymentInstructions } from "@/components/ui/payment-instructions";
 import { PolicyNotice } from "@/components/ui/policy-notice";
 import { StatusPair } from "@/components/ui/status-pair";
@@ -1265,13 +1265,13 @@ export function BookingPreview() {
                         hint="Used for day-of contact. Verification messages are sent in a later phase."
                         error={showError("mobile") ? errors.mobile : undefined}
                       >
-                        <Input
+                        <PhoneInput
                           ref={mobileRef}
                           id="preview-mobile"
                           name="preview-mobile"
                           type="tel"
                           autoComplete="tel"
-                          placeholder="+63 9XX XXX XXXX"
+                          placeholder="917 XXX XXXX"
                           value={form.mobile}
                           onChange={(event) =>
                             setForm((value) => ({

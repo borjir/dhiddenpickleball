@@ -114,7 +114,7 @@ async function SessionDetail({ params, searchParams }: PageProps) {
     <>
       <Link
         href="/staff/open-play"
-        className="inline-flex min-h-9 items-center gap-1.5 text-sm font-semibold text-accent-ink"
+        className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-line bg-surface px-3 text-sm font-semibold text-heading shadow-card transition-colors hover:border-line-strong hover:bg-brand-blue-soft/40"
       >
         <ArrowLeftIcon className="size-4" />
         Back to open play
@@ -285,7 +285,7 @@ async function SessionDetail({ params, searchParams }: PageProps) {
           </StaffPanel>
         </div>
 
-        <div className="space-y-5">
+        <div className="space-y-5 xl:sticky xl:top-8">
           <StaffPanel title="Session facts">
             <dl className="divide-y divide-line">
               <div className="flex justify-between gap-3 py-2.5 first:pt-0">

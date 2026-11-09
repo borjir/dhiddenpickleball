@@ -1,10 +1,10 @@
 # Cloudflare Workers deployment
 
-**Last updated:** 8 November 2026
+**Last updated:** 9 November 2026
 **Blueprint:** `docs/PRODUCT_BLUEPRINT.md` (v2.5), Phase 11 — Production Launch and Handover
 **Status:** The live Worker is at **https://bookings.dhiddenpickleball.workers.dev**. Runtime
 secret names are configured on the Worker. Guest email delivery is still inactive until a custom
-sending domain is verified in Resend; launch checklist items remain open.
+sending domain is verified in Mailjet; launch checklist items remain open.
 
 **Always deploy with `npm run deploy`, not a bare `wrangler deploy`.** The bare command reuses the
 last `.open-next` build, so any change to `NEXT_PUBLIC_*` values — which are inlined at build time —
@@ -48,27 +48,41 @@ Worker secrets has no effect on the browser bundle.
 - `NEXT_PUBLIC_SUPABASE_URL`
 - `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
 - `NEXT_PUBLIC_SITE_URL` — the real HTTPS origin; email links and images depend on it
+- `NEXT_PUBLIC_TURNSTILE_SITE_KEY` — the public Turnstile site key (falls back to the
+  production widget in code if omitted)
 
 **Runtime (Worker secrets).** Set once each, from `.env.example`:
 
 ```bash
-npx wrangler secret put RESEND_API_KEY
+npx wrangler secret put MAILJET_API_KEY
+npx wrangler secret put MAILJET_SECRET_KEY
 npx wrangler secret put SUPABASE_SERVICE_ROLE_KEY
 npx wrangler secret put EMAIL_CRON_SECRET
 npx wrangler secret put EMAIL_FROM
 npx wrangler secret put EMAIL_REPLY_TO
 npx wrangler secret put EMAIL_DAILY_LIMIT
 npx wrangler secret put EMAIL_MONTHLY_LIMIT
+npx wrangler secret put TURNSTILE_SECRET
 ```
+
+`TURNSTILE_HOSTNAMES` is a plain Worker variable in `wrangler.jsonc`, not a secret. It must list
+the exact frontend hostnames that siteverify may return. Public booking, open-play registration,
+booking lookup, and payment-proof upload all require a valid Turnstile token with the matching
+action and hostname. The status-page refresh action deliberately does not use a token because
+tokens are single-use; it still requires the booking reference and mobile number and has its own
+throttle.
 
 `wrangler dev` reads `.env.local` locally; deployed Workers do not. A missing runtime secret makes
 `/api/cron/email` return 503 rather than failing silently, which is the intended behavior.
 
-`EMAIL_FROM` is a verified Resend **email address**, not the deployed URL. Use a verified custom
-domain, for example `D-Hidden Pickleball <bookings@dhiddenpickleball.com>`. Resend's
-`onboarding@resend.dev` sandbox only delivers to the Resend account owner and cannot reach guests.
+`MAILJET_API_KEY` and `MAILJET_SECRET_KEY` are the two halves of a Mailjet API key (Account →
+API Key Management). Both are server-only; neither may use a `NEXT_PUBLIC_` prefix.
 
-`EMAIL_DAILY_LIMIT` and `EMAIL_MONTHLY_LIMIT` default to **100** and **3,000**, matching the Resend
+`EMAIL_FROM` is a verified Mailjet **email address**, not the deployed URL. Validate the sender
+address or its domain in Mailjet, then use it here, for example
+`D-Hidden Pickleball <bookings@dhiddenpickleball.com>`. An unvalidated sender is rejected by the API.
+
+`EMAIL_DAILY_LIMIT` and `EMAIL_MONTHLY_LIMIT` default to **200** and **6,000**, matching the Mailjet
 free plan. Set them only if you move to a paid plan or intentionally want a lower cap.
 
 Staff email alerts are disabled in the current email policy (`lib/email/config.ts`) to conserve the
@@ -86,7 +100,9 @@ You cannot remove the Worker-name label while staying on `workers.dev`; the Work
 the first label. The Worker is named `bookings` in `wrangler.jsonc`.
 
 For a client-facing address, attach a custom domain such as `book.dhiddenpickleball.com` to the
-Worker and set `NEXT_PUBLIC_SITE_URL` to that origin. The same domain can be verified in Resend for
+Worker and set `NEXT_PUBLIC_SITE_URL` to that origin. Add the same hostname to the Turnstile
+widget under **Turnstile → Settings → Hostname Management** and to `TURNSTILE_HOSTNAMES` in
+`wrangler.jsonc`, then redeploy. Validate the same domain in Mailjet for
 `bookings@dhiddenpickleball.com`, so one domain solves both the public URL and sender identity.
 
 Changing the Worker name in `wrangler.jsonc` creates a different Worker; re-set its secrets and any
@@ -163,15 +179,37 @@ Measured against the Free plan:
 
 | Limit | Free plan | This app |
 | --- | --- | --- |
-| Requests | 100,000/day | ~1,100/day at 200 members (~1%) |
-| Static assets | unlimited, free | ~3.1 MB of images and the QR |
-| Worker size | 3 MiB gzip (3,072 KiB) | 2,856.70 KiB gzip (93%, ~215 KiB free) — the tightest constraint |
+| Requests | 100,000/day | ~2,500/day during testing (<3%); ~150/day at 200 members (<1%) |
+| Static assets | unlimited, free | ~3.1 MB of images and the QR, served by the asset layer |
+| Worker size | 3 MiB gzip (3,072 KiB) | 2,917.92 KiB gzip (95%, ~154 KiB free) — the tightest constraint |
 | CPU per request | 10 ms | **unmeasured** |
+| Workers Logs | 200,000 events/day | Worker invocations only; static assets do not log |
+| Turnstile siteverify | unlimited on Free (20 widgets, 10 hostnames) | one call per protected form submission |
 | Cron triggers | 5 | 0 configured |
 | Builds | 3,000 min/month | one per deploy |
 
-The bundle size is the real risk: one more server-side dependency can cross 3 MiB. The Paid plan
-($5/month) raises the limit to 10 MiB and CPU to 30 s, which also removes the CPU uncertainty.
+`assets.run_worker_first` in `wrangler.jsonc` lists `/*` with negative rules for
+`/_next/static/*`, the two court photos, the logo files, the two QR images, the MapLibre worker, and the
+root icons, so those requests are answered by the asset layer instead of the Worker. Static-asset
+requests are free and unlimited, cost no CPU, and emit no log event; a single page load references about
+37 of them, which used to spend 37 requests plus a share of the 10 ms CPU budget each. Every page, RSC,
+server-action and API path still matches `/*`, so `proxy.ts` gating and the `next.config.ts` headers run
+exactly as before.
+
+**Negative rules must name files, not directories.** An earlier draft used `!/courts/*`, which also
+excluded the `/courts/court-1` and `/courts/court-2` app routes. Those pages are rendered by the Worker
+and are not files in `.open-next/assets`, so the asset layer answered them with a bare 404. Add a new
+public file here as an exact path, and check that the path does not collide with an app route.
+
+`next.config.ts` sets `images.unoptimized`, so `<Image>` emits the original `/courts/...`, `/logo/...`
+and `/qr/...` URLs. Without that, every image went through `/_next/image` — a Worker request that, with
+no `IMAGES` binding, only returned the original bytes. The files are already sized for their slots, so
+this removes Worker traffic without changing what the browser downloads. Trade-off: files served by the
+asset layer do not carry the app's security headers (they are JS, CSS, fonts and images, not documents).
+
+The bundle size is the real risk: one more server-side dependency can cross 3 MiB. The current build
+leaves only ~154 KiB gzip of headroom. The Paid plan ($5/month) raises the limit to 10 MiB and CPU to
+30 s, which also removes the CPU uncertainty.
 Supabase Free remains the limit with a multi-year clock (500 MB database, 1 GB storage), and it
 pauses after about a week of inactivity — the existing `keep-supabase-awake.yml` workflow guards
 that.
@@ -184,8 +222,9 @@ that.
    were removed from `app/staff/layout.tsx` and `app/notifications/page.tsx` — once a fixed adapter
    release ships. The app uses no `use cache`/`cacheLife`/`cacheTag` directives, so the practical
    loss is partial prerendering shells; pages are now static, SSG, or dynamic.
-2. **`next/image` optimization is off.** Without an `IMAGES` binding the adapter serves the original
-   file. The club's photos are pre-sized in `public/`, so this is acceptable on the free plan.
+2. **`next/image` optimization is off.** `next.config.ts` sets `images.unoptimized` deliberately.
+   Without an `IMAGES` binding the adapter serves the original file anyway, and the club's photos are
+   pre-sized in `public/`. Enable the binding only on a plan that includes Cloudflare Images.
 3. **Node.js middleware is experimental** on the adapter. `proxy.ts` gates `/staff` and `/account`;
    the build warns about this. It was exercised in the smoke test and redirected correctly.
 4. **CPU per request is unmeasured.** Only a deployed preview plus `wrangler tail` can show whether
@@ -199,11 +238,13 @@ that.
 
 | Route | Result |
 | --- | --- |
-| `/`, `/courts`, `/club`, `/sign-in`, `/account`, `/book`, `/open-play` | 200 |
-| `/staff` | 307 → `/sign-in?next=%2Fstaff&notice=session-expired` |
-| `/notifications` | 307 → sign-in |
+| `/`, `/courts`, `/courts/court-1`, `/courts/court-2`, `/club`, `/visit`, `/book`, `/open-play`, `/lookup` | 200 |
+| `/policies/booking`, `/policies/payments`, `/policies/privacy`, `/policies/terms` | 200 |
+| `/sign-in`, `/account` | 307 → `/lookup` |
+| `/staff` | 307 → `/staff-access?notice=session-expired` |
+| `/notifications` | 307 → staff sign-in |
 | `/api/cron/email` (no credential) | 401 |
-| `/qr/gcash-test-qr.png` | 200 |
+| `/qr/client-official-gcash-qr.jpg` | 200 |
 
 `npx tsc --noEmit`, `npx eslint . --max-warnings=0`, and `npm run build` also pass. The full
 application — bookings, payments, staff actions, email delivery — was not exercised on the Worker;
@@ -217,14 +258,16 @@ Workers origin, secrets mechanism documented, and monitoring enabled (`observabi
 
 Still open, and not resolvable by code alone:
 
-1. Set the Worker runtime secrets (`wrangler secret put` for Resend, service role, cron secret,
-   sender, reply-to, daily limit, and monthly limit) so email delivery and the cron endpoint activate.
+1. Set the Worker runtime secrets (`wrangler secret put` for Mailjet API key/secret, service role,
+   cron secret, sender, reply-to, daily limit, and monthly limit) so email delivery and the cron
+   endpoint activate.
 2. Attach the club's custom domain, update `NEXT_PUBLIC_SITE_URL` to it, and update the Supabase
    Site URL/redirect allow-list at the same time.
-3. Verify the Resend sender/domain so guests receive real email, then set `EMAIL_FROM` to that verified address.
+3. Validate the Mailjet sender/domain so guests receive real email, then set `EMAIL_FROM` to that verified address.
 4. Configure the reminder scheduler (above).
 5. Decide on the Google consent-screen branding fix (see the Google sign-in section above).
-6. Install the official GCash QR (`lib/payment.ts`) — still the test asset.
+6. Confirm the full unmasked receiving-account name with the client. The installed
+   official QR prints only the GCash-masked `MA*Y GR**E M.`, which is what payers see.
 7. Decide whether the QA accounts and test bookings in production Supabase stay as demo data.
 8. Confirm backups, restore, and uptime monitoring; obtain client acceptance and train staff.
 9. Remove `.next/design-preview` sample data if the preview route must not ship.

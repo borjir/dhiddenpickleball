@@ -1,5 +1,7 @@
+"use client";
+
 import Image from "next/image";
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { Badge, type BadgeVariant } from "@/components/ui/badge";
 import { cn } from "@/lib/cn";
 
@@ -7,6 +9,10 @@ export interface PaymentInstructionsProps {
   amountLabel: string;
   reference: string;
   methodLabel: string;
+  /** Receiving account name shown to payers. */
+  accountName?: string;
+  /** Receiving number, shown as text with a copy button so no QR is needed. */
+  accountNumber?: string;
   title?: string;
   badgeLabel?: string;
   badgeVariant?: BadgeVariant;
@@ -31,12 +37,15 @@ export interface PaymentInstructionsProps {
 
 /**
  * Payment instruction shell. When no QR artwork is supplied the block falls
- * back to an explicit placeholder. No real wallet identifier is bundled.
+ * back to an explicit placeholder. Payment identifiers are passed in, never
+ * bundled here.
  */
 export function PaymentInstructions({
   amountLabel,
   reference,
   methodLabel,
+  accountName,
+  accountNumber,
   title = "Complete the request",
   badgeLabel = "Sample",
   badgeVariant = "yellow",
@@ -51,6 +60,20 @@ export function PaymentInstructions({
   className,
   children,
 }: PaymentInstructionsProps) {
+  const [copied, setCopied] = useState(false);
+
+  async function copyAccountNumber(value: string) {
+    try {
+      // The number is displayed with spacing for readability but pastes
+      // cleanly into a payment app without it.
+      await navigator.clipboard.writeText(value.replace(/\s+/g, ""));
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 2000);
+    } catch {
+      setCopied(false);
+    }
+  }
+
   return (
     <section
       aria-label="Payment instructions"
@@ -71,7 +94,7 @@ export function PaymentInstructions({
         <Badge variant={badgeVariant}>{badgeLabel}</Badge>
       </div>
 
-      <div className="grid gap-5 p-5 sm:grid-cols-[11rem_1fr]">
+      <div className="grid gap-5 p-5 sm:grid-cols-[14rem_1fr]">
         {qrSrc ? (
           <figure className="m-0">
             <div className="relative overflow-hidden rounded-md border border-line bg-surface">
@@ -80,7 +103,7 @@ export function PaymentInstructions({
                 alt={qrAlt ?? "Payment QR code"}
                 width={qrWidth}
                 height={qrHeight}
-                sizes="11rem"
+                sizes="14rem"
                 className="h-auto w-full"
               />
               {qrSample ? (
@@ -94,7 +117,10 @@ export function PaymentInstructions({
             <figcaption className="mt-1.5 text-[0.6875rem] leading-snug text-muted">
               {qrSample
                 ? "Stand-in image. The club's real GCash code has not been supplied."
-                : (qrCaption ?? "Scan with the GCash app.")}
+                : (qrCaption ??
+                  (accountNumber
+                    ? "Scan with the GCash app, or send to the number shown."
+                    : "Scan with the GCash app."))}
             </figcaption>
             {qrDownloadName ? (
               <a
@@ -151,6 +177,30 @@ export function PaymentInstructions({
                 {methodLabel}
               </dd>
             </div>
+            {accountName ? (
+              <div className="flex items-baseline justify-between gap-4 py-2.5">
+                <dt className="text-sm text-muted">Account name</dt>
+                <dd className="text-right text-sm font-semibold text-ink">
+                  {accountName}
+                </dd>
+              </div>
+            ) : null}
+            {accountNumber ? (
+              <div className="flex items-center justify-between gap-3 py-2.5">
+                <dt className="text-sm text-muted">GCash number</dt>
+                <dd className="flex items-center gap-1 text-right text-sm font-semibold text-ink">
+                  <span className="select-all font-mono">{accountNumber}</span>
+                  <button
+                    type="button"
+                    onClick={() => copyAccountNumber(accountNumber)}
+                    aria-label="Copy GCash number"
+                    className="rounded-md px-2 py-1 text-caption font-semibold text-accent-ink hover:bg-brand-blue-soft"
+                  >
+                    {copied ? "Copied" : "Copy"}
+                  </button>
+                </dd>
+              </div>
+            ) : null}
             <div className="flex items-baseline justify-between gap-4 py-2.5">
               <dt className="text-sm text-muted">Reference</dt>
               <dd className="text-right font-mono text-xs font-semibold text-heading">

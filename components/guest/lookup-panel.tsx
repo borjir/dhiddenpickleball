@@ -12,14 +12,16 @@ import Link from "next/link";
 import jsQR from "jsqr";
 import {
   lookupGuestRecord,
+  refreshGuestRecord,
   type LookupResult,
 } from "@/app/lookup/actions";
 import { GuestQrCode } from "@/components/guest/guest-qr";
 import { PaymentProofForm } from "@/components/payment/payment-proof-form";
+import { TurnstileWidget } from "@/components/security/turnstile-widget";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Field, Input } from "@/components/ui/field";
+import { Field, Input, PhoneInput } from "@/components/ui/field";
 import { StatusPair } from "@/components/ui/status-pair";
 import {
   BOOKING_STATUS,
@@ -82,35 +84,46 @@ export function LookupPanel({ initialReference = "" }: { initialReference?: stri
   const [pending, setPending] = useState(false);
   const [scanning, setScanning] = useState(false);
   const [resetCount, setResetCount] = useState(0);
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const [turnstileReset, setTurnstileReset] = useState(0);
   const qrInputRef = useRef<HTMLInputElement>(null);
   const resultRef = useRef<HTMLElement>(null);
   const revealedReference = useRef<string | null>(null);
   const didAutoLookup = useRef(false);
   const record = result?.status === "ok" ? result.record : null;
 
-  const runLookup = useCallback(async (nextReference: string, nextMobile: string) => {
-    setMobile(formatMobileDisplay(nextMobile));
-    setPending(true);
-    setResult(null);
+  const runLookup = useCallback(
+    async (nextReference: string, nextMobile: string, token: string) => {
+      setMobile(formatMobileDisplay(nextMobile));
+      setPending(true);
+      setResult(null);
 
-    try {
-      const response = await lookupGuestRecord({
-        reference: nextReference,
-        mobile: nextMobile,
-      });
-      setResult(response);
-    } catch {
-      setResult({
-        status: "error",
-        message: "The lookup could not be completed. Try again in a moment.",
-      });
-    } finally {
-      setPending(false);
-    }
-  }, []);
+      try {
+        const response = await lookupGuestRecord({
+          reference: nextReference,
+          mobile: nextMobile,
+          turnstileToken: token,
+        });
+        setResult(response);
+      } catch {
+        setResult({
+          status: "error",
+          message: "The lookup could not be completed. Try again in a moment.",
+        });
+      } finally {
+        // A Turnstile token is redeemed even when the lookup finds nothing.
+        setTurnstileToken(null);
+        setTurnstileReset((count) => count + 1);
+        setPending(false);
+      }
+    },
+    [],
+  );
 
   // Confirmation links include the mobile in the URL fragment, which never
-  // reaches the server. Opening one checks the booking immediately.
+  // reaches the server. Fill both fields, then let the guest pass the security
+  // check once and press the button; auto-submitting would eat a one-use token
+  // before the widget is ready.
   useEffect(() => {
     if (didAutoLookup.current || !initialReference) return;
 
@@ -125,13 +138,12 @@ export function LookupPanel({ initialReference = "" }: { initialReference?: stri
       "",
       `${window.location.pathname}${window.location.search}`,
     );
-
     const timer = window.setTimeout(() => {
-      void runLookup(initialReference.toUpperCase(), mobileFromLink);
+      setMobile(formatMobileDisplay(mobileFromLink));
     }, 0);
 
     return () => window.clearTimeout(timer);
-  }, [initialReference, runLookup]);
+  }, [initialReference]);
 
   // The status renders below the form, so bring it into view the first time a
   // reference opens. Later polls and proof uploads keep the reader in place.
@@ -167,7 +179,7 @@ export function LookupPanel({ initialReference = "" }: { initialReference?: stri
     const timer = window.setInterval(() => {
       if (document.visibilityState !== "visible") return;
 
-      void lookupGuestRecord({
+      void refreshGuestRecord({
         reference: record.reference,
         mobile: record.mobile,
       })
@@ -184,7 +196,17 @@ export function LookupPanel({ initialReference = "" }: { initialReference?: stri
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    await runLookup(reference, mobile);
+
+    if (!turnstileToken) {
+      setResult({
+        status: "error",
+        message: "Complete the security check, then try the lookup again.",
+      });
+      revealTarget(document.getElementById("lookup-turnstile"));
+      return;
+    }
+
+    await runLookup(reference, mobile, turnstileToken);
   }
 
   function checkAnotherBooking() {
@@ -234,7 +256,12 @@ export function LookupPanel({ initialReference = "" }: { initialReference?: stri
       }
 
       setReference(payload.reference);
-      await runLookup(payload.reference, payload.mobile);
+
+      if (turnstileToken) {
+        await runLookup(payload.reference, payload.mobile, turnstileToken);
+      } else {
+        setMobile(formatMobileDisplay(payload.mobile));
+      }
     } finally {
       setScanning(false);
     }
@@ -325,19 +352,33 @@ export function LookupPanel({ initialReference = "" }: { initialReference?: stri
                 required
                 hint="The number used when the booking was made."
               >
-                <Input
+                <PhoneInput
                   id="lookup-mobile"
                   name="mobile"
                   type="tel"
                   inputMode="tel"
                   autoComplete="tel"
                   maxLength={30}
-                  placeholder="0917 123 4567"
+                  placeholder="917 123 4567"
                   value={mobile}
                   onChange={(event) => setMobile(event.target.value)}
                   required
                 />
               </Field>
+            </div>
+
+            <div
+              id="lookup-turnstile"
+              className="scroll-mt-24 rounded-xl border border-line bg-page/40 p-3"
+            >
+              <p className="mb-2 text-caption font-semibold text-muted">
+                Quick security check — keeps booking details private.
+              </p>
+              <TurnstileWidget
+                action="lookup"
+                onToken={setTurnstileToken}
+                resetSignal={turnstileReset}
+              />
             </div>
 
             <Button type="submit" loading={pending} disabled={pending}>
@@ -453,7 +494,14 @@ export function LookupPanel({ initialReference = "" }: { initialReference?: stri
                   ? "before the session starts"
                   : "before the hold ends"
               }
-              onSubmitted={() => void runLookup(record.reference, record.mobile)}
+              onSubmitted={() => {
+                void refreshGuestRecord({
+                  reference: record.reference,
+                  mobile: record.mobile,
+                }).then((response) => {
+                  if (response.status === "ok") setResult(response);
+                });
+              }}
             />
           ) : null}
 

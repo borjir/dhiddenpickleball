@@ -448,7 +448,7 @@ async function sentSince(admin: SupabaseClient, since: string) {
  * this; it is safe to run concurrently because claim_email_outbox uses
  * FOR UPDATE SKIP LOCKED.
  *
- * Both caps protect the Resend free plan. Rows left over stay queued for the
+ * Both caps protect the Mailjet free plan. Rows left over stay queued for the
  * next day, subject to the age cutoff above.
  */
 export async function processEmailOutbox(

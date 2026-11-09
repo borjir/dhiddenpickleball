@@ -1,11 +1,19 @@
 "use client";
 
-import { useRef, useState, type ChangeEvent, type FormEvent } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type ChangeEvent,
+  type FormEvent,
+} from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { TurnstileWidget } from "@/components/security/turnstile-widget";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Field, Input } from "@/components/ui/field";
+import { revealTarget } from "@/lib/scroll";
 
 const MAX_SOURCE_BYTES = 5 * 1024 * 1024;
 // Storage is the tighter free-plan quota (1 GB). Uploads measured ~108 kB at
@@ -110,12 +118,27 @@ export function PaymentProofForm({
   onSubmitted?: () => void;
 }) {
   const router = useRouter();
+  const sectionRef = useRef<HTMLElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
   const [transactionReference, setTransactionReference] = useState("");
   const [proofConfirmed, setProofConfirmed] = useState(false);
   const [state, setState] = useState<FormState>({ status: "idle" });
   const [pending, setPending] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const [turnstileReset, setTurnstileReset] = useState(0);
+
+  // The submit button is at the bottom of a long form. When the proof is
+  // rejected, bring the error at the top of the card back into view.
+  useEffect(() => {
+    if (state.status !== "error") return;
+
+    const timer = window.setTimeout(() => {
+      revealTarget(sectionRef.current, { focus: false, block: "start" });
+    }, 80);
+
+    return () => window.clearTimeout(timer);
+  }, [state.status]);
 
   function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
     setFile(event.target.files?.[0] ?? null);
@@ -158,6 +181,15 @@ export function PaymentProofForm({
       return;
     }
 
+    if (!turnstileToken) {
+      setState({
+        status: "error",
+        message:
+          "Complete the security check above the submit button, then try again.",
+      });
+      return;
+    }
+
     setPending(true);
     setState({ status: "idle" });
 
@@ -184,6 +216,7 @@ export function PaymentProofForm({
     body.set("reference", reference);
     body.set("mobile", mobile);
     body.set("transactionReference", transactionReference);
+    body.set("turnstileToken", turnstileToken);
 
     let result: { status?: string; message?: string };
 
@@ -195,6 +228,8 @@ export function PaymentProofForm({
       result = (await response.json()) as { status?: string; message?: string };
     } catch {
       setPending(false);
+      setTurnstileToken(null);
+      setTurnstileReset((count) => count + 1);
       setState({
         status: "error",
         message:
@@ -206,6 +241,9 @@ export function PaymentProofForm({
     setPending(false);
 
     if (result.status !== "success") {
+      // The failed request consumed the token, so refresh the challenge.
+      setTurnstileToken(null);
+      setTurnstileReset((count) => count + 1);
       setState({
         status: "error",
         message:
@@ -231,8 +269,9 @@ export function PaymentProofForm({
 
   return (
     <section
+      ref={sectionRef}
       aria-labelledby="payment-proof-heading"
-      className="rounded-2xl border border-line bg-surface p-6 shadow-card sm:p-7"
+      className="scroll-mt-24 rounded-2xl border border-line bg-surface p-6 shadow-card sm:p-7"
     >
       <p className="text-eyebrow font-bold uppercase text-accent-ink">
         Payment proof
@@ -348,6 +387,17 @@ export function PaymentProofForm({
               .
             </span>
           </label>
+
+          <div className="rounded-xl border border-line bg-page/40 p-3">
+            <p className="mb-2 text-caption font-semibold text-muted">
+              Quick security check — protects your booking upload.
+            </p>
+            <TurnstileWidget
+              action="payment_proof"
+              onToken={setTurnstileToken}
+              resetSignal={turnstileReset}
+            />
+          </div>
 
           <div className="flex flex-col gap-3 border-t border-line pt-4 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-caption leading-relaxed text-muted">

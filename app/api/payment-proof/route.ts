@@ -3,6 +3,7 @@ import { enqueueGuestBookingEmail } from "@/lib/email/events";
 import { normalizeMobile, type GuestRecord } from "@/lib/guest";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
+import { turnstileClientIp, verifyTurnstile } from "@/lib/turnstile";
 
 const MAX_BYTES = 5 * 1024 * 1024;
 const MIME_EXT: Record<string, string> = {
@@ -37,6 +38,7 @@ export async function POST(request: Request) {
   const transactionReference = String(
     form.get("transactionReference") ?? "",
   ).trim();
+  const turnstileToken = String(form.get("turnstileToken") ?? "");
 
   if (!(file instanceof File)) {
     return fail("Choose a screenshot or PDF of your payment.");
@@ -58,6 +60,16 @@ export async function POST(request: Request) {
 
   if (transactionReference.length > 100) {
     return fail("Keep the GCash reference under 100 characters.");
+  }
+
+  const gate = await verifyTurnstile({
+    token: turnstileToken,
+    action: "payment_proof",
+    remoteIp: turnstileClientIp(request.headers),
+  });
+
+  if (!gate.ok) {
+    return fail(gate.message, gate.unavailable ? 503 : 400);
   }
 
   const supabase = await createClient();

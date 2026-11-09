@@ -1,4 +1,5 @@
 import { CLUB } from "@/lib/club";
+import { PAYMENT_DETAILS } from "@/lib/payment";
 
 /**
  * Public policy copy. Booking, payment, and cancellation statements come from
@@ -108,7 +109,7 @@ export const POLICIES: readonly Policy[] = [
         id: "how-payment-is-verified",
         heading: "How payment is verified",
         paragraphs: [
-          "Scan the QR shown on the booking confirmation or booking page, pay the exact amount shown, and keep the transaction reference and screenshot. The QR can be downloaded if you are paying from another device.",
+          "Scan the QR shown on the booking confirmation or booking page, or send to the GCash number shown, pay the exact amount shown, and keep the transaction reference and screenshot. The QR can be downloaded if you are paying from another device.",
           "Upload the GCash screenshot from the confirmation or booking page. For a court booking, send it before the 15-minute hold ends. For open play, send it before the session starts. The payment status becomes awaiting verification; it does not become paid automatically. Staff check the actual incoming transfer in the receiving account, and only a staff member can mark the payment as paid.",
         ],
       },
@@ -147,10 +148,10 @@ export const POLICIES: readonly Policy[] = [
         ],
       },
       {
-        id: "still-being-confirmed",
-        heading: "Test QR",
+        id: "receiving-account",
+        heading: "Receiving account",
         paragraphs: [
-          "The official GCash QR and account name are still pending. Until then, the confirmation shows the project owner's test QR. Staff verify each transfer manually.",
+          `The receiving account is the club's official GCash account. The confirmation shows the GCash QR, the account name ${PAYMENT_DETAILS.accountName}, and the number ${CLUB.phoneDisplay}. Staff verify each transfer manually.`,
         ],
       },
       {

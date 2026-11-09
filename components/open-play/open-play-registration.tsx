@@ -9,10 +9,11 @@ import {
 } from "@/app/open-play/actions";
 import { GuestQrCode } from "@/components/guest/guest-qr";
 import { PaymentProofForm } from "@/components/payment/payment-proof-form";
+import { TurnstileWidget } from "@/components/security/turnstile-widget";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonClasses } from "@/components/ui/button";
-import { Field, Input } from "@/components/ui/field";
+import { Field, Input, PhoneInput } from "@/components/ui/field";
 import { PaymentInstructions } from "@/components/ui/payment-instructions";
 import { Stepper } from "@/components/ui/stepper";
 import { ArrowRightIcon } from "@/components/ui/icons";
@@ -62,6 +63,8 @@ export function OpenPlayRegistration({
   });
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [pending, setPending] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const [turnstileReset, setTurnstileReset] = useState(0);
   const [state, setState] = useState<RegistrationState>({ status: "idle" });
   const [registration, setRegistration] = useState<Registration | null>(null);
   const [paymentStatus, setPaymentStatus] = useState<PaymentStatus | null>(null);
@@ -122,6 +125,16 @@ export function OpenPlayRegistration({
       return;
     }
 
+    if (!turnstileToken) {
+      setState({
+        status: "error",
+        code: "invalid",
+        message: "Complete the security check below the terms, then try again.",
+      });
+      revealTarget(document.getElementById("open-play-turnstile"));
+      return;
+    }
+
     setPending(true);
     setState({ status: "idle" });
 
@@ -131,6 +144,7 @@ export function OpenPlayRegistration({
       phone: values.phone,
       email: values.email,
       termsAccepted,
+      turnstileToken,
     });
 
     setPending(false);
@@ -142,6 +156,9 @@ export function OpenPlayRegistration({
       return;
     }
 
+    // The token is single-use; refresh it before the guest retries.
+    setTurnstileToken(null);
+    setTurnstileReset((count) => count + 1);
     setState(result);
   }
 
@@ -272,24 +289,17 @@ export function OpenPlayRegistration({
               amountLabel={formatPeso(registration.amountPhp)}
               reference={registration.reference}
               methodLabel={PAYMENT_DETAILS.methodLabel}
+              accountName={PAYMENT_DETAILS.accountName}
+              accountNumber={PAYMENT_DETAILS.accountNumber}
               title="Pay with GCash"
-              badgeLabel={PAYMENT_DETAILS.isTest ? "Test" : "GCash"}
-              badgeVariant={PAYMENT_DETAILS.isTest ? "warning" : "success"}
+              badgeLabel="GCash"
+              badgeVariant="success"
               qrSrc={PAYMENT_DETAILS.qrSrc}
               qrAlt={PAYMENT_DETAILS.qrAlt}
               qrWidth={PAYMENT_DETAILS.qrWidth}
               qrHeight={PAYMENT_DETAILS.qrHeight}
-              qrCaption={
-                PAYMENT_DETAILS.isTest
-                  ? "Project owner test account. The club's official GCash QR is still pending."
-                  : undefined
-              }
               qrDownloadName={PAYMENT_DETAILS.qrDownloadName}
-              note={
-                PAYMENT_DETAILS.isTest
-                  ? PAYMENT_DETAILS.testNote
-                  : "Pay the exact amount, keep the reference, and upload your screenshot before the session starts."
-              }
+              note="Pay the exact amount, keep the reference, and upload your screenshot before the session starts."
             />
 
             <PaymentProofForm
@@ -445,7 +455,7 @@ export function OpenPlayRegistration({
           hint="Used with your reference to check your place."
           error={state.status === "error" ? state.errors?.phone : undefined}
         >
-          <Input
+          <PhoneInput
             id="open-play-phone"
             name="phone"
             type="tel"
@@ -453,7 +463,7 @@ export function OpenPlayRegistration({
             autoComplete="tel"
             required
             maxLength={30}
-            placeholder="0917 123 4567"
+            placeholder="917 123 4567"
             value={values.phone}
             onChange={(event) =>
               setValues((current) => ({
@@ -518,6 +528,20 @@ export function OpenPlayRegistration({
             .
           </span>
         </label>
+
+        <div
+          id="open-play-turnstile"
+          className="scroll-mt-24 rounded-xl border border-line bg-page/40 p-3"
+        >
+          <p className="mb-2 text-caption font-semibold text-muted">
+            Quick security check — keeps fake registrations out.
+          </p>
+          <TurnstileWidget
+            action="open_play"
+            onToken={setTurnstileToken}
+            resetSignal={turnstileReset}
+          />
+        </div>
 
         <Button
           type="submit"

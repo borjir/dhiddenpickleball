@@ -1,5 +1,277 @@
 # Project Status
 
+## Official QR asset deployment fix (10 November 2026)
+
+**Problem:** the deployed site returned `404` for the official QR image, while the
+GCash number in code was already correct.
+
+### Root cause
+
+- `npm run deploy` reported success, but Cloudflare's incremental asset upload
+  treated the QR's content hash as already uploaded and skipped the file. A
+  direct request to `/qr/client-official-qr.jpg` returned the Next.js 404 page
+  even after a second deploy said "No updated asset files to upload".
+  `gcash-sample.jpg` and `gcash-test-qr.png` served `200`, so the Worker, routes,
+  and `run_worker_first` asset rules were working; only this file was missing.
+- Renaming the file did not help because Wrangler deduplicates uploads by content
+  hash, not path.
+
+### Fix
+
+- Republished the same artwork as `public/qr/client-official-gcash-qr.jpg` with a
+  standard JPEG comment segment added before the end marker. The comment changes
+  the upload hash; it does not touch the compressed scan data. Pillow confirmed
+  the decoded 828×1608 image is pixel-identical to the original.
+- Updated `lib/payment.ts` and the exact-path asset rule in `wrangler.jsonc` to
+  the new filename, and updated the asset references in the docs.
+
+### Checks
+
+- `npm run deploy` — passed and uploaded `/qr/client-official-gcash-qr.jpg`
+  (Worker version `bd130f6d-8c3b-4d3e-b2f1-81191fe4f1c7`).
+- Live `/qr/client-official-gcash-qr.jpg` — `200`, `Content-Type: image/jpeg`;
+  downloaded MD5 matches the local file.
+- Pillow decoded-pixel comparison against the pre-comment original — identical.
+
+### Note on the receiving number
+
+The confirmation's GCash number was not stale: `PAYMENT_DETAILS.accountNumber`
+reads `CLUB.phoneDisplay`, which is **0956 167 0905**, matching the masked
+`0956 167•••` on the official QR. The previously deployed page used the old test
+QR and had no account-number row, so a stale tab or old confirmation would show
+both as old. A fresh confirmation after this deploy uses the new artwork and the
+number row above.
+
+## Mobile number inputs show the +63 prefix (9 November 2026)
+
+**Scope completed:** make the Philippine-only requirement visible inside every
+mobile number field. No booking, validation, or storage rule changed.
+
+### Implemented
+
+- **Shared `PhoneInput`:** `components/ui/field.tsx` now exports a phone input
+  with a fixed, non-editable `+63` indicator inside the control. The submitted
+  value is still the local number (for example `917 123 4567`), and the existing
+  `normalizeMobile` handles both local and `+63` input on the server.
+- **All five mobile fields use it:** the court booking review form, the design
+  preview form, the `/lookup` reference form, the open-play registration form,
+  and the staff walk-in form. Placeholders now read `917 123 4567` so they do
+  not repeat the prefix.
+
+### Checks
+
+- `npx tsc --noEmit` — passed, no output.
+- Scoped `npx eslint` on the six changed files — passed, no output.
+- `npm run deploy` — passed; Worker version `99c6a51f-454d-492a-acf7-08d28684e533`
+  is live at `https://bookings.dhiddenpickleball.workers.dev`.
+- Live `/open-play` HTML contains the `+63` prefix; `/book` returns `200`.
+
+### Not verified
+
+- No browser screenshot pass was run. The prefix padding and alignment were
+  reviewed from the implementation only; check the five fields at phone and
+  desktop widths before client review.
+
+## Official GCash QR and receiving details (9 November 2026)
+
+**Scope completed:** replace the project owner's test QR with the client's official
+GCash QR, and make the receiving details usable by a player who does not want to
+scan a code.
+
+### Implemented
+
+- **Official QR:** `public/qr/client-official-gcash-qr.jpg` (828×1608 JPEG) is
+  published unchanged and served through `lib/payment.ts`. The booking and open-play
+  confirmations show the whole artwork, including the GCash header, so the payer
+  can see the receiving account on the image itself. Nothing crops, resizes, or
+  recompresses the file.
+- **Account details:** the confirmation shows the account name `MA*Y GR**E M.`
+  exactly as GCash prints it on the QR, plus the GCash number **0956 167 0905**,
+  which is the club's published contact number.
+- **Copyable number:** the payment-instruction block has new account-name and
+  GCash-number rows. The number is selectable text with a **Copy** button and a
+  caption that offers the number as an alternative to scanning.
+- **Public copy:** the courts page, FAQ, rules page, payment policy, and footer no
+  longer say the official QR is pending or that a test QR is shown.
+- **Cloudflare:** `/qr/client-official-gcash-qr.jpg` is listed with the other
+  exact public-file asset rules in `wrangler.jsonc`.
+
+### Checks
+
+- `npx tsc --noEmit` — passed, no output.
+- `npx eslint app components lib` — passed, no output.
+- `npm run build` — passed.
+
+### Limitations
+
+- GCash masks the account name on the QR (`MA*Y GR**E M.`); the full unmasked
+  receiving name was not supplied, so the masked form is what payers see.
+- Maya and bank transfer remain out of the current flow per the 6 November
+  direction. Only the GCash method is offered.
+- The official QR is committed as a public asset. The blueprint's Phase 12 setup
+  list says real QR images should not be committed; the file is already shown to
+  every payer at payment time, but the repository decision should be confirmed
+  with the client before launch. The old sample and test files were left in
+  place, unreferenced by the guest flow.
+- No browser screenshot pass or live scan-to-pay test was run; the confirmation
+  layout was reviewed from the implementation.
+- The deployed Worker still serves the previous build until `npm run deploy`.
+
+## Staff operations UI pass (9 November 2026)
+
+**Scope completed:** make the authenticated staff area feel like a designed operations
+tool rather than a generic admin template, and improve phone-to-desktop behaviour
+without changing any staff workflow, data access, or business rules.
+
+### Implemented
+
+- **Staff shell and navigation:** richer navy sidebar with the court-grid texture,
+  lime/blue accent rail, grouped sections, an active-item treatment, and a payment
+  review callout. On phones and tablets the staff area now has a sticky context
+  header, a thumb-reachable bottom tab bar (Today, Bookings, Payments, Open play,
+  More), and a full overlay menu sheet with Escape/backdrop close and a scroll lock.
+  Content reserves space above the fixed tab bar, including safe-area inset.
+- **Shared staff components:** the page header now has a brand accent rule and a
+  stronger display scale; stat cards use tinted icon tiles, an accent rail, larger
+  tabular figures, and clearer hover affordance; panels have a consistent accent
+  and header treatment; empty states use a subtle court-grid texture.
+- **Dashboard:** added an on-court/next-up brief for today, a two-up stat grid on
+  phones, and clearer quick-action tiles.
+- **Bookings and payments:** responsive filter toolbar, pill-style day navigation,
+  status rail on mobile booking rows, and a segmented payment tab bar. Payment
+  review cards have a stronger hierarchy and accent.
+- **Courts, open play, reports:** creation forms move first on narrow screens so
+  staff do not scroll past long lists, session rows show a capacity bar, and the
+  report filter wraps cleanly on phones. Detail-page side rails stay in view on
+  wide screens.
+
+### Checks
+
+- `npx tsc --noEmit` — passed, no output.
+- `npx eslint components/staff app/staff` — passed, no output.
+- `npm run build` — passed; all `/staff` routes compiled as dynamic routes.
+
+### Not verified
+
+- Browser screenshots at mobile/tablet/desktop widths were **not** taken: the staff
+  routes require an authenticated staff session, and no credentials were available
+  in this environment. The responsive layout was reviewed from the implementation
+  only. Before client review, sign in with a staff account and inspect `/staff`,
+  `/staff/bookings`, `/staff/bookings/new`, a booking detail page, `/staff/payments`,
+  `/staff/open-play`, a session detail page, `/staff/courts`, and `/staff/reports`
+  at roughly 375 px, 768 px, 1024 px, and 1440 px, including the mobile bottom bar,
+  menu sheet, light/dark themes, and reduced motion.
+- No behaviour, permission, or payment-logic change was made; existing booking and
+  payment workflows are unchanged.
+
+## Broken court links + Cloudflare asset routing (9 November 2026)
+
+**Scope completed:** fix clickable links that landed on an error page, and keep static traffic off the
+Worker without breaking routes.
+
+### Root cause
+
+`wrangler.jsonc` used the negative asset rule `!/courts/*`, intended for the two court photographs.
+Cloudflare gives negative `run_worker_first` patterns asset-first precedence, so `/courts/court-1` and
+`/courts/court-2` also skipped the Worker. Those pages are rendered by Next and are not files in
+`.open-next/assets`, so the asset layer answered them with a bare **404**. Every other public route,
+policy page, and in-page anchor was crawled and returned 200/307 as expected.
+
+### Implemented
+
+- **Exact-file asset rules:** `wrangler.jsonc` now lists each public file individually instead of a
+  whole directory, so `/courts/court-1` and `/courts/court-2` reach the Worker again while the photos,
+  logo, QR images, MapLibre worker, and `_next/static` stay on the free asset layer.
+- **Worker-side image optimizer skipped:** `next.config.ts` sets `images.unoptimized`. Without an
+  `IMAGES` binding the optimizer only returned the original bytes through a Worker request; `<Image>`
+  now emits the direct `/courts/...`, `/logo/...`, and `/qr/...` URLs, which the asset layer answers.
+  A homepage view no longer makes any `/_next/image` Worker requests.
+
+### Checks
+
+- `npm run cf:build` — passed.
+- Against `wrangler dev`: `/courts/court-1` and `/courts/court-2` return 200 and render Court 1/Court 2
+  content; `/`, `/courts`, `/club`, `/club/rules`, `/club/faq`, `/visit`, `/book`, `/open-play`,
+  `/lookup`, all four policy pages, `/staff-access`, `/notifications`, and `/sign-in`/`/account`
+  redirects behave as before.
+- Crawled all 28 unique internal `href` values from the public pages: none return 404/5xx.
+- Homepage HTML contains no `/_next/image` references; image responses are served by the asset layer.
+- `npx tsc --noEmit` — passed.
+
+### Limitations
+
+- The fix is verified in the local Worker build only; it is not deployed. Run `npm run deploy` (which
+  rebuilds `.open-next`) to update the live Worker.
+- `public/courts/pickleball2.jpg` is ~923 KB. It is now free of Worker requests but still the largest
+  download on the homepage and club page; compressing or resizing it would need client approval.
+- `public/logo/hidden-pickleball.png` (~1.2 MB) is unused; the WebP is what the site loads.
+
+## Mailjet email, Turnstile production secret (9 November 2026)
+
+**Scope:** replace Resend with Mailjet for transactional email and activate the
+production Turnstile secret on the deployed Worker.
+
+### Implemented
+
+- **Mailjet adapter:** `POST https://api.mailjet.com/v3.1/send` using
+  `MAILJET_API_KEY`, `MAILJET_SECRET_KEY`, a validated `EMAIL_FROM`, and
+  `EMAIL_REPLY_TO`. The outbox dedupe key is sent as Mailjet `CustomID` for
+  tracing, truncated to Mailjet's 64-character limit. Mailjet has no
+  idempotency-key header, so a retry after a timeout can still duplicate a
+  message at the provider.
+- **RESEND_API_KEY is no longer read.** Send API v3.1 returns per-message
+  `Status` and `Errors`, so the adapter fails the outbox row when Mailjet accepts
+  the HTTP request but rejects the message.
+- **Quota defaults now match Mailjet Free:** 200/day and 6,000/month, still
+  overridable with `EMAIL_DAILY_LIMIT` and `EMAIL_MONTHLY_LIMIT`. The Worker
+  secrets were updated from the old Resend limits to `200` and `6000`.
+- **Email logo:** the header uses a 96×96 PNG at `/email-logo.png`. The earlier
+  CID inline attempt was removed because Gmail listed it as a downloadable
+  attachment when the sender was not trusted. Remote images can still be hidden
+  until the sending domain is validated.
+- **Worker secret:** `TURNSTILE_SECRET` was written to the `bookings` Worker
+  (value never printed) and validated against siteverify with a dummy token,
+  which returned `invalid-input-response` rather than `invalid-input-secret`.
+- **Docs and env template** now use `MAILJET_API_KEY` and
+  `MAILJET_SECRET_KEY`. The historical Resend notes below remain for context.
+
+### Checks
+
+- Turnstile widget rendered in a production `next start` build, including the
+  challenge iframe.
+- A headless Chrome click was rejected by Cloudflare with client error
+  `600010` (automation detected), so a real token success and replay rejection
+  still need a normal browser.
+- Mailjet Send API sandbox validation returned `HTTP 200` and `Status success`
+  for the configured sender; sandbox mode performs validation without delivery.
+- The first live outbox attempts failed with HTTP 400 because `EMAIL_FROM` was
+  still `onboarding@resend.dev`, which Mailjet has not validated. The local and
+  Worker `EMAIL_FROM` now use the account's validated sender.
+- After the sender fix, live outbox attempts exposed Mailjet's 64-character
+  `CustomID` limit (`mj-0006`). The adapter now truncates the dedupe key to 64
+  characters.
+- A direct live Mailjet send to the club address returned `HTTP 200` and
+  `Status success` after the sender change.
+- A live send with the inline logo attachment returned `HTTP 200` and
+  `Status success`, but Gmail showed it as a downloadable attachment instead of
+  rendering it inline.
+- `npx tsc --noEmit`, focused ESLint, and the production build passed after the
+  code changes.
+
+### Required setup
+
+1. Confirm the Mailjet account is on the Free plan, or raise the two limits to
+   match the paid plan.
+2. The current `EMAIL_FROM` is the account's validated Gmail sender, which is
+   enough for testing but is not ideal for deliverability. Validate the club's
+   sending domain in Mailjet, then move `EMAIL_FROM` to a mailbox on that domain.
+3. `MAILJET_API_KEY`, `MAILJET_SECRET_KEY`, and the corrected `EMAIL_FROM` are
+   now Worker secrets. Run `npm run deploy` to activate the new adapter, then
+   remove the now-unused `RESEND_API_KEY` secret.
+4. Send one real booking through to a guest inbox and confirm sender, logo,
+   links, reference, and timezone. The earlier queued booking email is scheduled
+   for a later outbox retry; a new booking tests the path immediately.
+
 ## Resend transactional email + send quotas (8 November 2026)
 
 **Scope:** the owner returned from the brief Brevo trial to Resend's free plan
@@ -156,7 +428,7 @@ places now belong to guest customer records instead of player profiles.
 
 **Last updated:** 8 November 2026
 **Blueprint:** `docs/PRODUCT_BLUEPRINT.md` (v2.5, with the 8 November guest-access scope change)
-**Current phase:** Phase 10 QA, security, and pre-launch review is complete for the available local/staging scope; see `docs/PHASE_10_QA.md`. The production build, typecheck, lint, audit, RLS boundaries, booking/capacity constraints, public pages, and authenticated staff routing passed. Public launch remains blocked by real guest email (unverified Resend sender), the reminder scheduler, the official GCash QR, client acceptance/staff training, and backup/monitoring arrangements. The Phase 11 hosting slice is deployed on Cloudflare Workers at `https://bookings.dhiddenpickleball.workers.dev`; the launch checklist remains open. See `docs/DEPLOYMENT_CLOUDFLARE.md`.
+**Current phase:** Phase 10 QA, security, and pre-launch review is complete for the available local/staging scope; see `docs/PHASE_10_QA.md`. The production build, typecheck, lint, audit, RLS boundaries, booking/capacity constraints, public pages, and authenticated staff routing passed. Public launch remains blocked by real guest email (unvalidated Mailjet sender), the reminder scheduler, client acceptance/staff training, and backup/monitoring arrangements. The official GCash QR is installed as of 9 November 2026. The Phase 11 hosting slice is deployed on Cloudflare Workers at `https://bookings.dhiddenpickleball.workers.dev`; the launch checklist remains open. See `docs/DEPLOYMENT_CLOUDFLARE.md`.
 
 **Phase 3:** Implemented as a design preview with real assets and real rates; three booking rules remain unanswered. Not production-approved.
 **Phase 4:** Core schema, RLS, auth screens, and roles are live on project `ybgcktpyntpcragegwec`. Email/password sign-up, confirmation, sign-in, and Google sign-in worked at Phase 4 close; the 8 November guest-access change removed player auth, leaving staff email/password sign-in only. Anonymous access probes match the applied migration; overlapping-booking rejection and password recovery are deferred runtime checks.
@@ -349,7 +621,7 @@ URL. Fixed:
 
 A fresh deploy build is still needed to ship the proxy redirect and the
 email-config change to the Worker. No `wrangler secret put` has been run, no
-custom domain is attached, the Resend sender is still unverified, the
+custom domain is attached, the Mailjet sender is still unvalidated, the
 reminder scheduler is not configured, and the official GCash QR is still the
 test asset. Google's consent screen still displays the Supabase project host
 because that is the OAuth callback domain; changing it requires a Supabase
@@ -511,9 +783,10 @@ promotion, coaching, and DUPR are not included.
    sender is required before real guest recipients can receive mail.
 2. The 24-hour reminder interval is an implementation choice; the client can
    change it before launch.
-3. Resend is the configured provider as of 8 November 2026, after a brief
-   Brevo trial. Changing providers again requires editing the server adapter,
-   not the booking actions or templates.
+3. At Phase 9 close, Resend was the configured provider (8 November 2026),
+   after a brief Brevo trial. It was replaced by Mailjet on 9 November 2026.
+   Changing providers again requires editing the server adapter, not the booking
+   actions or templates.
 4. Email images and links use `NEXT_PUBLIC_SITE_URL`. While it is
    `http://localhost:3000`, Gmail cannot load the logo and recipients cannot open
    the booking/staff links. A public deployment or tunnel is required for those

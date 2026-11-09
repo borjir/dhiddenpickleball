@@ -1,10 +1,12 @@
 "use server";
 
+import { headers } from "next/headers";
 import { z } from "zod";
 import { enqueueGuestBookingEmail } from "@/lib/email/events";
 import { normalizeMobile } from "@/lib/guest";
 import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
+import { turnstileClientIp, verifyTurnstile } from "@/lib/turnstile";
 import {
   manilaDateId,
   type AvailabilitySlot,
@@ -284,6 +286,21 @@ export async function createBookingGroup(
       status: "error",
       message: "Check the fields below.",
       errors,
+      values,
+    };
+  }
+
+  const gate = await verifyTurnstile({
+    token: String(formData.get("turnstileToken") ?? ""),
+    action: "booking",
+    remoteIp: turnstileClientIp(await headers()),
+  });
+
+  if (!gate.ok) {
+    return {
+      status: "error",
+      message: gate.message,
+      errors: {},
       values,
     };
   }

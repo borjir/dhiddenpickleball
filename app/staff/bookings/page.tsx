@@ -4,6 +4,8 @@ import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { buttonClasses } from "@/components/ui/button";
 import {
+  ArrowLeftIcon,
+  ArrowRightIcon,
   CalendarIcon,
   PlusIcon,
   SearchIcon,
@@ -12,7 +14,6 @@ import {
   StaffEmpty,
   StaffFlash,
   StaffPageHeader,
-  StaffPanel,
 } from "@/components/staff/staff-ui";
 import { requireStaff } from "@/lib/staff/auth";
 import {
@@ -29,6 +30,7 @@ import {
   shiftDateId,
 } from "@/lib/staff/time";
 import { personLabel, type StaffBooking } from "@/lib/staff/types";
+import { cn } from "@/lib/cn";
 
 export const metadata: Metadata = {
   title: "Bookings",
@@ -137,9 +139,9 @@ async function BookingList({ searchParams }: { searchParams: SearchParams }) {
       <form
         action="/staff/bookings"
         method="get"
-        className="mb-4 grid gap-2 rounded-xl border border-line bg-surface p-3 shadow-card sm:grid-cols-[1fr_10rem_10rem_auto]"
+        className="mb-4 grid gap-2 rounded-xl border border-line bg-surface p-3 shadow-card sm:grid-cols-2 lg:grid-cols-[minmax(0,1fr)_10rem_10rem_auto]"
       >
-        <label className="relative block">
+        <label className="relative block sm:col-span-2 lg:col-span-1">
           <span className="sr-only">Search bookings</span>
           <SearchIcon className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted" />
           <input
@@ -147,7 +149,7 @@ async function BookingList({ searchParams }: { searchParams: SearchParams }) {
             name="q"
             defaultValue={query}
             placeholder="Search reference, name, email, or phone"
-            className="h-10 w-full rounded-lg border border-line bg-page pl-9 pr-3 text-sm text-ink focus:border-brand-blue focus:outline-none focus:ring-4 focus:ring-brand-blue/15"
+            className="h-10 w-full rounded-lg border border-line bg-page pl-9 pr-3 text-sm text-ink transition-[border-color,box-shadow] focus:border-brand-blue focus:outline-none focus:ring-4 focus:ring-brand-blue/15"
           />
         </label>
         <label>
@@ -173,34 +175,47 @@ async function BookingList({ searchParams }: { searchParams: SearchParams }) {
             ))}
           </select>
         </label>
-        <button type="submit" className={buttonClasses({ size: "md" })}>
+        <button
+          type="submit"
+          className={buttonClasses({ size: "md", className: "sm:col-span-2 lg:col-span-1" })}
+        >
           Apply
         </button>
       </form>
 
-      <div className="mb-4 flex flex-wrap items-center gap-2 text-caption text-muted">
+      <div className="mb-4 flex flex-wrap items-center gap-2">
         <Link
           href={`/staff/bookings?date=${shiftDateId(dateId, -1)}&status=${status}`}
-          className="rounded-md border border-line bg-surface px-2 py-1 font-semibold text-heading"
+          aria-label={`Previous day, ${formatStaffDate(`${shiftDateId(dateId, -1)}T12:00:00+08:00`)}`}
+          className="inline-flex h-9 items-center gap-1 rounded-lg border border-line bg-surface px-2.5 text-caption font-semibold text-heading transition-colors hover:border-line-strong hover:bg-brand-blue-soft/50"
         >
-          ← {formatStaffDate(`${shiftDateId(dateId, -1)}T12:00:00+08:00`, { year: undefined })}
+          <ArrowLeftIcon className="size-3.5" />
+          {formatStaffDate(`${shiftDateId(dateId, -1)}T12:00:00+08:00`, { year: undefined })}
         </Link>
-        <span className="font-semibold text-heading">
-          {query ? `Search results for “${query}”` : formatStaffDate(`${dateId}T12:00:00+08:00`)}
+        <span className="inline-flex h-9 items-center rounded-lg bg-brand-navy px-3 text-caption font-bold text-white">
+          {query ? `Search: “${query}”` : formatStaffDate(`${dateId}T12:00:00+08:00`)}
         </span>
         <Link
           href={`/staff/bookings?date=${shiftDateId(dateId, 1)}&status=${status}`}
-          className="rounded-md border border-line bg-surface px-2 py-1 font-semibold text-heading"
+          aria-label={`Next day, ${formatStaffDate(`${shiftDateId(dateId, 1)}T12:00:00+08:00`)}`}
+          className="inline-flex h-9 items-center gap-1 rounded-lg border border-line bg-surface px-2.5 text-caption font-semibold text-heading transition-colors hover:border-line-strong hover:bg-brand-blue-soft/50"
         >
-          {formatStaffDate(`${shiftDateId(dateId, 1)}T12:00:00+08:00`, { year: undefined })} →
+          {formatStaffDate(`${shiftDateId(dateId, 1)}T12:00:00+08:00`, { year: undefined })}
+          <ArrowRightIcon className="size-3.5" />
         </Link>
         {!query && dateId !== manilaTodayId() ? (
-          <Link href={`/staff/bookings?status=${status}`} className="font-semibold text-accent-ink">
-            Today
+          <Link
+            href={`/staff/bookings?status=${status}`}
+            className="inline-flex h-9 items-center rounded-lg px-2 text-caption font-bold text-accent-ink hover:bg-brand-blue-soft/60"
+          >
+            Jump to today
           </Link>
         ) : null}
         {query ? (
-          <Link href={`/staff/bookings?date=${dateId}`} className="font-semibold text-accent-ink">
+          <Link
+            href={`/staff/bookings?date=${dateId}`}
+            className="inline-flex h-9 items-center rounded-lg px-2 text-caption font-bold text-accent-ink hover:bg-brand-blue-soft/60"
+          >
             Clear search
           </Link>
         ) : null}
@@ -213,18 +228,16 @@ async function BookingList({ searchParams }: { searchParams: SearchParams }) {
       ) : null}
 
       {!error && bookings.length === 0 ? (
-        <StaffPanel title="No matching bookings">
-          <StaffEmpty
-            icon={CalendarIcon}
-            title="Nothing to show here"
-            description="Try a different date, clear the filter, or search by a booking reference."
-            action={
-              <Link href="/staff/bookings/new" className={buttonClasses({ size: "sm" })}>
-                Create a walk-in
-              </Link>
-            }
-          />
-        </StaffPanel>
+        <StaffEmpty
+          icon={CalendarIcon}
+          title="Nothing to show here"
+          description="Try a different date, clear the filter, or search by a booking reference."
+          action={
+            <Link href="/staff/bookings/new" className={buttonClasses({ size: "sm" })}>
+              Create a walk-in
+            </Link>
+          }
+        />
       ) : null}
 
       {bookings.length > 0 ? (
@@ -297,24 +310,43 @@ async function BookingList({ searchParams }: { searchParams: SearchParams }) {
                 <Link
                   key={booking.id}
                   href={`/staff/bookings/${encodeURIComponent(booking.reference)}`}
-                  className="block p-4 transition-colors hover:bg-page/55"
+                  className="group flex gap-3 p-4 transition-colors hover:bg-page/55"
                 >
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="text-sm font-bold text-heading">
-                        {formatStaffDate(booking.starts_at, { weekday: "short" })}
-                      </p>
-                      <p className="mt-0.5 text-caption text-muted">
-                        {formatStaffTime(booking.starts_at)} · <RoomLabel booking={booking} />
-                      </p>
-                    </div>
-                    <span className="font-bold text-heading">{formatPeso(Number(booking.amount_php))}</span>
-                  </div>
-                  <div className="mt-2 flex flex-wrap items-center gap-2">
-                    <Badge variant={statusMeta.variant} dot>{statusMeta.label}</Badge>
-                    <Badge variant={paymentMeta.variant}>{paymentMeta.label}</Badge>
-                    <span className="text-caption text-muted">{personLabel(booking.player)}</span>
-                  </div>
+                  <span
+                    aria-hidden="true"
+                    className={cn(
+                      "mt-0.5 w-1 shrink-0 self-stretch rounded-full",
+                      statusMeta.variant === "success"
+                        ? "bg-brand-lime"
+                        : statusMeta.variant === "warning"
+                          ? "bg-warning"
+                          : statusMeta.variant === "danger"
+                            ? "bg-danger"
+                            : "bg-brand-blue",
+                    )}
+                  />
+                  <span className="min-w-0 flex-1">
+                    <span className="flex items-start justify-between gap-3">
+                      <span className="min-w-0">
+                        <span className="block text-sm font-bold text-heading">
+                          {formatStaffTime(booking.starts_at)} · {booking.duration_minutes} min
+                        </span>
+                        <span className="mt-0.5 block truncate text-caption text-muted">
+                          {formatStaffDate(booking.starts_at, { weekday: "short" })} · <RoomLabel booking={booking} /> · {personLabel(booking.player)}
+                        </span>
+                      </span>
+                      <span className="shrink-0 text-right">
+                        <span className="block font-bold text-heading tabular-nums">
+                          {formatPeso(Number(booking.amount_php))}
+                        </span>
+                        <ArrowRightIcon className="ml-auto mt-1 size-3.5 text-muted/50 transition-transform group-hover:translate-x-0.5 group-hover:text-accent-ink" />
+                      </span>
+                    </span>
+                    <span className="mt-2 flex flex-wrap items-center gap-2">
+                      <Badge variant={statusMeta.variant} dot>{statusMeta.label}</Badge>
+                      <Badge variant={paymentMeta.variant}>{paymentMeta.label}</Badge>
+                    </span>
+                  </span>
                 </Link>
               );
             })}

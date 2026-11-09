@@ -1,19 +1,21 @@
+import { CLUB } from "@/lib/club";
+
 /**
  * Payment details shown after a booking is created.
  *
- * The club's official GCash QR and receiving account name are still pending.
- * Until the client supplies them, the live confirmation uses the project
- * owner's test QR. Replace these values when D-07 is answered; no component
- * should hardcode a wallet image or account name.
+ * The client supplied the official GCash QR on 9 November 2026. The QR artwork
+ * is the source of truth for the receiving account: GCash masks the name as
+ * "MA*Y GR**E M." and the mobile number is the club's published contact number.
+ * Never crop, recompress, resize, or recolour the QR file; scale it visually
+ * only. Every surface that shows payment details reads from here.
  */
 export const PAYMENT_DETAILS = {
   methodLabel: "GCash QR",
-  qrSrc: "/qr/gcash-test-qr.png",
-  qrAlt: "GCash QR code for the project owner's test account",
-  qrWidth: 540,
-  qrHeight: 540,
-  qrDownloadName: "dhidden-gcash-qr.png",
-  isTest: true,
-  testNote:
-    "This is the project owner's test GCash QR, not the club's receiving account. Pay the exact amount, keep the booking reference, and upload your screenshot. Staff verify every transfer.",
+  accountName: "MA*Y GR**E M.",
+  accountNumber: CLUB.phoneDisplay,
+  qrSrc: "/qr/client-official-gcash-qr.jpg",
+  qrAlt: "Official GCash QR code for the receiving account MA*Y GR**E M.",
+  qrWidth: 828,
+  qrHeight: 1608,
+  qrDownloadName: "dhidden-gcash-qr.jpg",
 } as const;

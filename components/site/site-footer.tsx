@@ -117,8 +117,8 @@ export function SiteFooter() {
           <p className="max-w-xl leading-relaxed">
             Online court booking and open-play registration are live. A court
             request holds the slot for 15 minutes; pay by GCash and staff verify
-            the transfer. Confirmation currently shows the project owner&apos;s
-            test GCash QR; the club&apos;s official code is still pending.
+            the transfer. The confirmation shows the club&apos;s official GCash
+            QR, account name, and number.
           </p>
         </div>
       </div>

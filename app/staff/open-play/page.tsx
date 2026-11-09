@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { createOpenPlaySessionAction } from "@/app/staff/actions";
 import { Badge } from "@/components/ui/badge";
+import { buttonClasses } from "@/components/ui/button";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { Field, Input, Select } from "@/components/ui/field";
 import { BallIcon, PlusIcon } from "@/components/ui/icons";
@@ -24,6 +25,7 @@ import {
   manilaTodayId,
 } from "@/lib/staff/time";
 import { type StaffOpenPlaySession } from "@/lib/staff/types";
+import { cn } from "@/lib/cn";
 
 export const metadata: Metadata = {
   title: "Open play",
@@ -71,10 +73,7 @@ async function OpenPlayDesk({ searchParams }: { searchParams: SearchParams }) {
         title="Open-play desk"
         description="Capacity, attendance, and session changes without touching the database."
         actions={
-          <a
-            href="#new-session"
-            className="inline-flex min-h-9 items-center gap-1.5 rounded-lg bg-brand-blue px-3 text-sm font-semibold text-white"
-          >
+          <a href="#new-session" className={buttonClasses({ size: "sm" })}>
             <PlusIcon className="size-4" />
             New session
           </a>
@@ -115,17 +114,33 @@ async function OpenPlayDesk({ searchParams }: { searchParams: SearchParams }) {
                     href={`/staff/open-play/${session.id}`}
                     className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-line bg-page/50 px-3.5 py-3 transition-colors hover:border-brand-blue/35 hover:bg-surface"
                   >
-                    <div className="flex min-w-0 items-center gap-3">
-                      <span className="grid size-10 shrink-0 place-items-center rounded-lg bg-brand-blue-soft text-accent-ink">
+                    <div className="flex min-w-0 flex-1 items-center gap-3">
+                      <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-brand-blue-soft text-accent-ink ring-1 ring-brand-blue/10">
                         <BallIcon className="size-5" />
                       </span>
-                      <div className="min-w-0">
+                      <div className="min-w-0 flex-1">
                         <p className="text-sm font-bold text-heading">
                           {formatStaffTime(session.starts_at)} · {openPlayLevelLabel(session.skill_level)}
                         </p>
                         <p className="mt-0.5 text-caption text-muted">
                           {count} of {session.capacity} places · {formatPeso(Number(session.amount_php))} per player
                         </p>
+                        <span className="mt-2 flex items-center gap-2">
+                          <span className="h-1.5 w-full max-w-40 overflow-hidden rounded-full bg-line/60">
+                            <span
+                              className={cn(
+                                "block h-full rounded-full transition-[width] duration-300",
+                                full ? "bg-warning" : "bg-brand-lime",
+                              )}
+                              style={{
+                                width: `${Math.min(100, Math.round((count / Math.max(1, session.capacity)) * 100))}%`,
+                              }}
+                            />
+                          </span>
+                          <span className="shrink-0 text-[0.625rem] font-semibold tabular-nums text-muted">
+                            {Math.min(100, Math.round((count / Math.max(1, session.capacity)) * 100))}%
+                          </span>
+                        </span>
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
@@ -140,7 +155,7 @@ async function OpenPlayDesk({ searchParams }: { searchParams: SearchParams }) {
         </div>
 
         <StaffPanel
-          className="scroll-mt-24"
+          className="order-first scroll-mt-24 xl:order-none"
           title="Create a session"
           description="Times are Asia/Manila. The public list updates on save."
         >

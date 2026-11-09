@@ -17,11 +17,12 @@ import {
   type BookingFormState,
 } from "@/app/book/actions";
 import { BookingGroupConfirmation } from "@/components/booking/booking-group-confirmation";
+import { TurnstileWidget } from "@/components/security/turnstile-widget";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { BookingSummary } from "@/components/ui/booking-summary";
 import { Button } from "@/components/ui/button";
-import { Field, Input } from "@/components/ui/field";
+import { Field, Input, PhoneInput } from "@/components/ui/field";
 import { PolicyNotice } from "@/components/ui/policy-notice";
 import { Stepper } from "@/components/ui/stepper";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
@@ -450,9 +451,12 @@ export function CourtBooking({
   const [bookingState, setBookingState] =
     useState<BookingFormState>(initialBookingState);
   const [pending, setPending] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const [turnstileReset, setTurnstileReset] = useState(0);
 
   const headingRef = useRef<HTMLHeadingElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
+  const blockedNoticeRef = useRef<HTMLDivElement>(null);
   const restoredSelection = useRef(false);
   const hasMounted = useRef(false);
 
@@ -528,7 +532,10 @@ export function CourtBooking({
       return;
     }
 
-    const timer = window.setTimeout(() => headingRef.current?.focus(), 360);
+    const timer = window.setTimeout(
+      () => revealTarget(headingRef.current, { block: "start" }),
+      360,
+    );
     return () => window.clearTimeout(timer);
   }, [step]);
 
@@ -544,6 +551,18 @@ export function CourtBooking({
 
     revealTarget(firstInvalid ?? document.getElementById("booking-error"));
   }, [bookingState]);
+
+  // The out-of-range pick is only actionable through the card below the grid.
+  // Bring it into view instead of leaving the explanation off-screen.
+  useEffect(() => {
+    if (!blockedSlot) return;
+
+    const timer = window.setTimeout(() => {
+      revealTarget(blockedNoticeRef.current, { focus: false, block: "center" });
+    }, 80);
+
+    return () => window.clearTimeout(timer);
+  }, [blockedSlot]);
 
   useEffect(() => {
     const tick = () => setNowMinute(manilaMinuteNow());
@@ -1101,6 +1120,22 @@ export function CourtBooking({
     event.preventDefault();
     if (pending) return;
 
+    if (!turnstileToken) {
+      setBookingState({
+        status: "error",
+        message:
+          "Complete the security check below the booking terms, then try again.",
+        errors: {},
+        values: {
+          fullName: bookingState.values.fullName,
+          phone: bookingState.values.phone,
+          email: bookingState.values.email,
+        },
+      });
+      revealTarget(document.getElementById("booking-turnstile"));
+      return;
+    }
+
     setPending(true);
     setBookingState(initialBookingState);
 
@@ -1116,6 +1151,7 @@ export function CourtBooking({
           })),
         ),
       );
+      formData.set("turnstileToken", turnstileToken);
       const result = await createBookingGroup(initialBookingState, formData);
 
       setBookingState(result);
@@ -1125,9 +1161,14 @@ export function CourtBooking({
         setHistory([]);
         setActiveRangeKey(null);
         setStep(2);
-        window.scrollTo({ top: 0, behavior: "smooth" });
+      } else {
+        // The token was redeemed by the failed attempt; load a fresh one.
+        setTurnstileToken(null);
+        setTurnstileReset((count) => count + 1);
       }
     } catch {
+      setTurnstileToken(null);
+      setTurnstileReset((count) => count + 1);
       setBookingState({
         status: "error",
         message:
@@ -1694,7 +1735,11 @@ export function CourtBooking({
                         ) : null}
 
                         {blockedSlot ? (
-                          <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-brand-blue/40 bg-brand-blue-soft/50 px-3.5 py-3">
+                          <div
+                            ref={blockedNoticeRef}
+                            role="status"
+                            className="mt-3 scroll-mt-24 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-brand-blue/40 bg-brand-blue-soft/50 px-3.5 py-3"
+                          >
                             <p className="text-caption text-ink">
                               {formatHourRange(
                                 blockedSlot.slot.startMinute,
@@ -2089,7 +2134,7 @@ export function CourtBooking({
                               hint="Used with your reference to check the booking."
                               error={bookingState.errors.phone}
                             >
-                              <Input
+                              <PhoneInput
                                 id="booking-phone"
                                 name="phone"
                                 type="tel"
@@ -2097,6 +2142,7 @@ export function CourtBooking({
                                 autoComplete="tel"
                                 required
                                 maxLength={30}
+                                placeholder="917 123 4567"
                                 defaultValue={bookingState.values.phone}
                                 invalid={Boolean(bookingState.errors.phone)}
                                 aria-describedby={
@@ -2177,6 +2223,20 @@ export function CourtBooking({
                               {bookingState.errors.terms}
                             </p>
                           ) : null}
+                        </div>
+
+                        <div
+                          id="booking-turnstile"
+                          className="scroll-mt-24 rounded-xl border border-line bg-page/40 p-3"
+                        >
+                          <p className="mb-2 text-caption font-semibold text-muted">
+                            Quick security check — keeps fake bookings out.
+                          </p>
+                          <TurnstileWidget
+                            action="booking"
+                            onToken={setTurnstileToken}
+                            resetSignal={turnstileReset}
+                          />
                         </div>
 
                         <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line pt-5">

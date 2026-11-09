@@ -89,6 +89,33 @@ export function Input({
   );
 }
 
+/**
+ * Mobile number input with a fixed `+63` prefix, so the Philippine country
+ * requirement is visible before the guest starts typing. The value itself stays
+ * in the local format and is normalised on the server.
+ */
+export function PhoneInput({
+  className,
+  invalid,
+  ...props
+}: ComponentPropsWithRef<"input"> & { invalid?: boolean }) {
+  return (
+    <span className="relative block w-full">
+      <span
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-y-0 left-3.5 flex items-center text-sm font-medium text-muted"
+      >
+        +63
+      </span>
+      <input
+        aria-invalid={invalid || undefined}
+        className={cn(control, "h-11 pl-14", className)}
+        {...props}
+      />
+    </span>
+  );
+}
+
 export function Textarea({
   className,
   invalid,

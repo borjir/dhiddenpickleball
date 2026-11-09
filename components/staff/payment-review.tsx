@@ -35,10 +35,14 @@ export function PaymentReviewCard({
   return (
     <article
       className={cn(
-        "rounded-lg border border-line bg-surface p-4 shadow-card",
+        "relative overflow-hidden rounded-xl border border-line bg-surface p-4 shadow-card sm:p-5",
         className,
       )}
     >
+      <span
+        aria-hidden="true"
+        className="absolute inset-y-0 left-0 w-1 bg-gradient-to-b from-info via-brand-blue to-brand-lime"
+      />
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
@@ -52,7 +56,7 @@ export function PaymentReviewCard({
             {booking ? `Court booking · ${formatStaffDateTime(booking.starts_at)}` : "Grouped court reservation"}
           </p>
         </div>
-        <p className="font-display text-xl font-extrabold tracking-[-0.03em] text-heading">
+        <p className="font-display text-2xl font-extrabold tracking-[-0.03em] text-heading tabular-nums">
           {formatPeso(Number(payment.amount_php))}
         </p>
       </div>

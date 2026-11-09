@@ -31,12 +31,13 @@ export default function ClubFaqPage() {
               <Alert
                 variant="info"
                 eyebrow="Payment"
-                title="The official GCash QR is still pending"
+                title="GCash payments are verified by staff"
                 className="mt-8"
               >
                 <p>
-                  The club&apos;s final GCash QR and account name are not yet
-                  published. Staff verify each transfer manually.
+                  The booking confirmation shows the club&apos;s GCash QR,
+                  account name, and number. You can scan the code or send to the
+                  number directly. Staff verify each transfer manually.
                 </p>
               </Alert>
             </div>

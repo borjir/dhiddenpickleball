@@ -128,7 +128,11 @@ async function Courts({ searchParams }: { searchParams: SearchParams }) {
           ) : null}
         </StaffPanel>
 
-        <StaffPanel title="Add a block" description="Choose one court or the whole club.">
+        <StaffPanel
+          title="Add a block"
+          description="Choose one court or the whole club."
+          className="order-first xl:order-none"
+        >
           <form action={createCourtClosureAction} className="space-y-3">
             <Field id="block-court" label="Court" required>
               <Select id="block-court" name="courtId" defaultValue="all">
@@ -174,14 +178,21 @@ async function Courts({ searchParams }: { searchParams: SearchParams }) {
 
       <div className="mt-5 grid gap-3 sm:grid-cols-2">
         {courts.map((court) => (
-          <div key={court.id} className="flex items-center gap-3 rounded-xl border border-line bg-surface p-4 shadow-card">
-            <span className="grid size-10 place-items-center rounded-lg bg-brand-blue-soft text-accent-ink">
+          <div
+            key={court.id}
+            className="flex items-center gap-3 rounded-xl border border-line bg-surface p-4 shadow-card"
+          >
+            <span className="grid size-11 place-items-center rounded-xl bg-brand-blue-soft text-accent-ink ring-1 ring-brand-blue/10">
               <CourtIcon className="size-5" />
             </span>
-            <div>
+            <div className="min-w-0 flex-1">
               <p className="text-sm font-bold text-heading">{court.name}</p>
               <p className="mt-0.5 text-caption text-muted">Open daily 7:00 AM – 12:00 AM</p>
             </div>
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-brand-lime-soft px-2.5 py-1 text-[0.625rem] font-bold text-brand-lime-ink">
+              <span aria-hidden="true" className="size-1.5 rounded-full bg-brand-lime" />
+              Bookable
+            </span>
           </div>
         ))}
       </div>

@@ -69,7 +69,7 @@ async function Reports({ searchParams }: { searchParams: SearchParams }) {
       <form
         action="/staff/reports"
         method="get"
-        className="mt-5 flex flex-wrap items-end gap-2 rounded-xl border border-line bg-surface p-3 shadow-card"
+        className="mt-5 grid gap-2 rounded-xl border border-line bg-surface p-3 shadow-card sm:flex sm:flex-wrap sm:items-end"
       >
         <label className="flex flex-col gap-1 text-caption font-semibold text-muted">
           From
@@ -77,7 +77,7 @@ async function Reports({ searchParams }: { searchParams: SearchParams }) {
             type="date"
             name="from"
             defaultValue={report.from}
-            className="h-10 rounded-lg border border-line bg-page px-2 text-sm font-semibold text-heading"
+            className="h-10 w-full rounded-lg border border-line bg-page px-2 text-sm font-semibold text-heading sm:w-[9.75rem]"
           />
         </label>
         <label className="flex flex-col gap-1 text-caption font-semibold text-muted">
@@ -86,24 +86,24 @@ async function Reports({ searchParams }: { searchParams: SearchParams }) {
             type="date"
             name="to"
             defaultValue={report.to}
-            className="h-10 rounded-lg border border-line bg-page px-2 text-sm font-semibold text-heading"
+            className="h-10 w-full rounded-lg border border-line bg-page px-2 text-sm font-semibold text-heading sm:w-[9.75rem]"
           />
         </label>
-        <button type="submit" className={buttonClasses({ size: "md" })}>
+        <button type="submit" className={buttonClasses({ size: "md", className: "w-full sm:w-auto" })}>
           Apply range
         </button>
         <Link
           href="/staff/reports"
-          className="inline-flex min-h-10 items-center px-2 text-sm font-semibold text-accent-ink"
+          className="inline-flex min-h-10 items-center justify-center px-2 text-sm font-semibold text-accent-ink sm:justify-start"
         >
           Last 30 days
         </Link>
-        <span className="ml-auto text-caption text-muted">
+        <span className="text-caption text-muted sm:ml-auto">
           {report.days.length} day{report.days.length === 1 ? "" : "s"} · {report.from} → {report.to}
         </span>
       </form>
 
-      <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="mt-4 grid gap-3 min-[360px]:grid-cols-2 xl:grid-cols-4">
         <StaffStat
           icon={CalendarIcon}
           label="Court bookings"
@@ -139,6 +139,7 @@ async function Reports({ searchParams }: { searchParams: SearchParams }) {
           title="Daily activity"
           description="Court hours and money collected are shown per Manila date."
           bodyClassName="p-0"
+          className="min-w-0"
         >
           <div className="overflow-x-auto">
             <table className="w-full min-w-[660px] text-left text-sm">

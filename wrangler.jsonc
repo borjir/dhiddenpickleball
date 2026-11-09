@@ -7,17 +7,52 @@
   "main": ".open-next/worker.js",
   "compatibility_date": "2026-11-06",
   "compatibility_flags": ["nodejs_compat"],
-  // The app gates /staff and /account in proxy.ts, and the Phase 10 baseline
-  // security headers come from next.config.ts, so every request has to reach
-  // the Worker rather than being answered by static assets alone.
+  // Frontend hostnames that Turnstile siteverify may return. Update this list
+  // when the custom domain is connected; keep localhost out of production.
+  "vars": {
+    "TURNSTILE_HOSTNAMES": "bookings.dhiddenpickleball.workers.dev"
+  },
+  // The app gates /staff in proxy.ts and sets the Phase 10 baseline security
+  // headers in next.config.ts, so page, server-action and API requests have to
+  // reach the Worker. Built assets do not: proxy.ts already skips them, and
+  // static-asset requests are free and unlimited on the free plan, while a
+  // Worker-served asset burns a request, a 10 ms CPU budget, and a log event.
+  // A page load references ~37 of them, so the negative rules below keep them
+  // on the asset layer. Negative rules take precedence; every other path still
+  // matches "/*" and runs the Worker exactly as before.
+  //
+  // List files individually, never a whole public directory: a negative rule
+  // such as "!/courts/*" also captures the /courts/court-1 and /courts/court-2
+  // app routes, which exist only in the Worker, so those links returned 404.
+  // Add new public files here as exact paths.
   "assets": {
     "directory": ".open-next/assets",
     "binding": "ASSETS",
-    "run_worker_first": true,
+    "run_worker_first": [
+      "/*",
+      "!/_next/static/*",
+      "!/courts/pickleball1.jpg",
+      "!/courts/pickleball2.jpg",
+      "!/logo/hidden-pickleball.ico",
+      "!/logo/hidden-pickleball.png",
+      "!/logo/hidden-pickleball.webp",
+      "!/email-logo.png",
+      "!/qr/client-official-gcash-qr.jpg",
+      "!/qr/gcash-sample.jpg",
+      "!/qr/gcash-test-qr.png",
+      "!/vendor/maplibre-gl-worker.mjs",
+      "!/favicon.ico",
+      "!/file.svg",
+      "!/globe.svg",
+      "!/next.svg",
+      "!/vercel.svg",
+      "!/window.svg"
+    ],
     "html_handling": "none",
     "not_found_handling": "none"
   },
-  // Request logs and errors, for launch monitoring.
+  // Request logs and errors, for launch monitoring. Only Worker invocations are
+  // logged, so asset traffic no longer counts toward the event allowance.
   "observability": {
     "enabled": true
   }

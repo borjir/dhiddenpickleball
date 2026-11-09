@@ -61,15 +61,15 @@ function DateSwitcher({ dateId }: { dateId: string }) {
   const next = shiftDateId(dateId, 1);
 
   return (
-    <div className="flex flex-wrap items-center gap-1.5 rounded-lg border border-line bg-surface p-1 shadow-card">
+    <div className="flex items-center gap-1 rounded-xl border border-line bg-surface p-1 shadow-card">
       <Link
         href={`/staff?date=${previous}`}
         aria-label="Previous day"
-        className="grid size-9 place-items-center rounded-md text-muted transition-colors hover:bg-brand-blue-soft hover:text-heading"
+        className="grid size-9 place-items-center rounded-lg text-muted transition-colors hover:bg-brand-blue-soft hover:text-heading"
       >
         <ArrowLeftIcon className="size-4" />
       </Link>
-      <form action="/staff" method="get" className="flex items-center gap-1.5">
+      <form action="/staff" method="get" className="flex items-center gap-1">
         <label htmlFor="dashboard-date" className="sr-only">
           Dashboard date
         </label>
@@ -78,11 +78,11 @@ function DateSwitcher({ dateId }: { dateId: string }) {
           type="date"
           name="date"
           defaultValue={dateId}
-          className="h-9 rounded-md border border-line bg-page px-2 text-xs font-semibold text-heading"
+          className="h-9 w-[7.25rem] rounded-lg border border-line bg-page px-2 text-xs font-semibold text-heading"
         />
         <button
           type="submit"
-          className="h-9 rounded-md px-2 text-xs font-bold text-accent-ink hover:bg-brand-blue-soft"
+          className="h-9 rounded-lg px-2 text-xs font-bold text-accent-ink transition-colors hover:bg-brand-blue-soft"
         >
           Go
         </button>
@@ -90,14 +90,14 @@ function DateSwitcher({ dateId }: { dateId: string }) {
       <Link
         href={`/staff?date=${next}`}
         aria-label="Next day"
-        className="grid size-9 place-items-center rounded-md text-muted transition-colors hover:bg-brand-blue-soft hover:text-heading"
+        className="grid size-9 place-items-center rounded-lg text-muted transition-colors hover:bg-brand-blue-soft hover:text-heading"
       >
         <ArrowRightIcon className="size-4" />
       </Link>
       {dateId !== today ? (
         <Link
           href="/staff"
-          className="inline-flex h-9 items-center rounded-md bg-brand-blue-soft px-2.5 text-xs font-bold text-accent-ink"
+          className="inline-flex h-9 items-center rounded-lg bg-brand-navy px-2.5 text-xs font-bold text-white"
         >
           Today
         </Link>
@@ -139,7 +139,7 @@ function TimelineRow({
         </div>
         {detail ? <p className="mt-0.5 truncate text-caption text-muted">{detail}</p> : null}
       </div>
-      <span className="shrink-0 text-right text-caption font-semibold text-muted">
+      <span className="shrink-0 whitespace-nowrap text-right text-caption font-semibold tabular-nums text-muted">
         {formatStaffTimeRange(start, end)}
       </span>
     </div>
@@ -282,6 +282,11 @@ async function Dashboard({ searchParams }: { searchParams: SearchParams }) {
   ].sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime());
 
   const attentionCount = (reviewCountResult.count ?? 0) + (holdCountResult.count ?? 0);
+  const nowMs = new Date(nowIso).getTime();
+  const onCourtNow = timeline.find(
+    (item) => new Date(item.start).getTime() <= nowMs && new Date(item.end).getTime() > nowMs,
+  );
+  const nextUp = timeline.find((item) => new Date(item.start).getTime() > nowMs);
 
   return (
     <>
@@ -296,7 +301,59 @@ async function Dashboard({ searchParams }: { searchParams: SearchParams }) {
         <StaffFlash notice={text(params.notice) || null} error={text(params.error) || null} />
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      {dateId === todayId && (onCourtNow || nextUp) ? (
+        <div className="mt-5 grid gap-2 rounded-xl border border-line bg-surface p-2.5 shadow-card sm:grid-cols-2 sm:gap-3 sm:p-3">
+          <div className="flex items-center gap-3 rounded-lg bg-brand-blue-soft/60 px-3 py-2.5">
+            <span className="relative grid size-9 shrink-0 place-items-center rounded-full bg-surface text-accent-ink ring-1 ring-brand-blue/20">
+              {onCourtNow ? (
+                <span
+                  aria-hidden="true"
+                  className="absolute inset-0 animate-ping rounded-full bg-brand-blue/15 [animation-duration:2.5s]"
+                />
+              ) : null}
+              <ClockIcon className="relative size-4" />
+            </span>
+            <div className="min-w-0">
+              <p className="text-[0.625rem] font-bold uppercase tracking-[0.14em] text-accent-ink">
+                {onCourtNow ? "On court now" : "Nothing on court now"}
+              </p>
+              <p className="mt-0.5 truncate text-sm font-bold text-heading">
+                {onCourtNow
+                  ? `${onCourtNow.title} · ${onCourtNow.detail ?? "In session"}`
+                  : "The next block starts shortly"}
+              </p>
+            </div>
+            {onCourtNow ? (
+              <span className="ml-auto shrink-0 text-caption font-semibold text-muted">
+                until {formatStaffTime(onCourtNow.end)}
+              </span>
+            ) : null}
+          </div>
+
+          <div className="flex items-center gap-3 rounded-lg bg-page/70 px-3 py-2.5">
+            <span className="grid size-9 shrink-0 place-items-center rounded-full bg-surface text-brand-lime-ink ring-1 ring-brand-lime/25">
+              <ArrowRightIcon className="size-4" />
+            </span>
+            <div className="min-w-0">
+              <p className="text-[0.625rem] font-bold uppercase tracking-[0.14em] text-muted">
+                Next up
+              </p>
+              <p className="mt-0.5 truncate text-sm font-bold text-heading">
+                {nextUp
+                  ? `${nextUp.title} · ${nextUp.detail ?? (nextUp.kind === "court" ? "Court booking" : "Open play")}`
+                  : "No further sessions booked"}
+              </p>
+            </div>
+            {nextUp ? (
+              <span className="ml-auto shrink-0 text-caption font-semibold text-muted">
+                {formatStaffTime(nextUp.start)}
+              </span>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
+
+      <div className="mt-5 grid grid-cols-1 gap-3 min-[360px]:grid-cols-2 xl:grid-cols-4">
         <StaffStat
           icon={CalendarIcon}
           label="Court bookings"
@@ -472,30 +529,42 @@ async function Dashboard({ searchParams }: { searchParams: SearchParams }) {
           <StaffPanel title="Quick actions" bodyClassName="grid grid-cols-2 gap-2">
             <Link
               href="/staff/bookings/new"
-              className="flex min-h-20 flex-col justify-between rounded-lg border border-line bg-page/50 p-3 transition-colors hover:border-brand-blue/35 hover:bg-surface"
+              className="group flex min-h-20 flex-col justify-between rounded-lg border border-line bg-page/50 p-3 transition-[border-color,background-color,transform] hover:-translate-y-px hover:border-brand-blue/35 hover:bg-surface"
             >
-              <PlusIcon className="size-5 text-accent-ink" />
+              <span className="flex items-start justify-between">
+                <PlusIcon className="size-5 text-accent-ink" />
+                <ArrowRightIcon className="size-3.5 text-muted/60 transition-transform group-hover:translate-x-0.5 group-hover:text-accent-ink" />
+              </span>
               <span className="text-sm font-bold text-heading">New walk-in</span>
             </Link>
             <Link
               href="/staff/payments"
-              className="flex min-h-20 flex-col justify-between rounded-lg border border-line bg-page/50 p-3 transition-colors hover:border-brand-blue/35 hover:bg-surface"
+              className="group flex min-h-20 flex-col justify-between rounded-lg border border-line bg-page/50 p-3 transition-[border-color,background-color,transform] hover:-translate-y-px hover:border-brand-blue/35 hover:bg-surface"
             >
-              <WalletIcon className="size-5 text-accent-ink" />
+              <span className="flex items-start justify-between">
+                <WalletIcon className="size-5 text-accent-ink" />
+                <ArrowRightIcon className="size-3.5 text-muted/60 transition-transform group-hover:translate-x-0.5 group-hover:text-accent-ink" />
+              </span>
               <span className="text-sm font-bold text-heading">Review payments</span>
             </Link>
             <Link
               href="/staff/open-play"
-              className="flex min-h-20 flex-col justify-between rounded-lg border border-line bg-page/50 p-3 transition-colors hover:border-brand-blue/35 hover:bg-surface"
+              className="group flex min-h-20 flex-col justify-between rounded-lg border border-line bg-page/50 p-3 transition-[border-color,background-color,transform] hover:-translate-y-px hover:border-brand-blue/35 hover:bg-surface"
             >
-              <BallIcon className="size-5 text-accent-ink" />
+              <span className="flex items-start justify-between">
+                <BallIcon className="size-5 text-accent-ink" />
+                <ArrowRightIcon className="size-3.5 text-muted/60 transition-transform group-hover:translate-x-0.5 group-hover:text-accent-ink" />
+              </span>
               <span className="text-sm font-bold text-heading">Open-play desk</span>
             </Link>
             <Link
               href="/staff/courts"
-              className="flex min-h-20 flex-col justify-between rounded-lg border border-line bg-page/50 p-3 transition-colors hover:border-brand-blue/35 hover:bg-surface"
+              className="group flex min-h-20 flex-col justify-between rounded-lg border border-line bg-page/50 p-3 transition-[border-color,background-color,transform] hover:-translate-y-px hover:border-brand-blue/35 hover:bg-surface"
             >
-              <CalendarIcon className="size-5 text-accent-ink" />
+              <span className="flex items-start justify-between">
+                <CalendarIcon className="size-5 text-accent-ink" />
+                <ArrowRightIcon className="size-3.5 text-muted/60 transition-transform group-hover:translate-x-0.5 group-hover:text-accent-ink" />
+              </span>
               <span className="text-sm font-bold text-heading">Block a court</span>
             </Link>
           </StaffPanel>

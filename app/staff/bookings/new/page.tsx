@@ -3,7 +3,7 @@ import Link from "next/link";
 import { createWalkInAction } from "@/app/staff/actions";
 import { Alert } from "@/components/ui/alert";
 import { SubmitButton } from "@/components/ui/submit-button";
-import { Field, Input, Select, Textarea } from "@/components/ui/field";
+import { Field, Input, PhoneInput, Select, Textarea } from "@/components/ui/field";
 import { ArrowLeftIcon, CalendarIcon } from "@/components/ui/icons";
 import {
   StaffFlash,
@@ -58,7 +58,7 @@ async function WalkInForm({ searchParams }: { searchParams: SearchParams }) {
         actions={
           <Link
             href="/staff/bookings"
-            className="inline-flex min-h-9 items-center gap-1.5 text-sm font-semibold text-accent-ink"
+            className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-line bg-surface px-3 text-sm font-semibold text-heading shadow-card transition-colors hover:border-line-strong hover:bg-brand-blue-soft/40"
           >
             <ArrowLeftIcon className="size-4" />
             Back to bookings
@@ -92,14 +92,14 @@ async function WalkInForm({ searchParams }: { searchParams: SearchParams }) {
                 required
                 hint="Used with the reference for guest lookup."
               >
-                <Input
+                <PhoneInput
                   id="walkin-mobile"
                   name="mobile"
                   type="tel"
                   inputMode="tel"
                   autoComplete="tel"
                   maxLength={30}
-                  placeholder="0917 123 4567"
+                  placeholder="917 123 4567"
                   required
                 />
               </Field>
@@ -195,7 +195,7 @@ async function WalkInForm({ searchParams }: { searchParams: SearchParams }) {
           </form>
         </StaffPanel>
 
-        <div className="space-y-4">
+        <div className="space-y-4 lg:sticky lg:top-6">
           <StaffPanel title="At a glance">
             <div className="flex items-start gap-3">
               <span className="grid size-10 shrink-0 place-items-center rounded-lg bg-brand-blue-soft text-accent-ink">

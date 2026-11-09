@@ -89,7 +89,7 @@ const sections: readonly RuleSection[] = [
     id: "still-being-confirmed",
     heading: "Still being confirmed",
     paragraphs: [
-      "The club has not confirmed weekend pricing, partial-hour rounding, buffer time between bookings, how far ahead bookings open, same-day cutoffs, maximum players per court, holiday closures, the facilities list, or the official GCash QR and receiving account name. These are left open rather than stated as rules.",
+      "The club has not confirmed weekend pricing, partial-hour rounding, buffer time between bookings, how far ahead bookings open, same-day cutoffs, maximum players per court, holiday closures, or the facilities list. These are left open rather than stated as rules.",
     ],
   },
   {
