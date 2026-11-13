@@ -1,6 +1,13 @@
 import type { NextConfig } from "next";
 
+// Every build carries its own stamp. Next bakes it into the page and inlines
+// it wherever `process.env.NEXT_DEPLOYMENT_ID` is read, which lets a tab tell
+// that it is running a page older than the deployed build (see
+// components/system/version-guard.tsx).
+const deploymentId = process.env.NEXT_DEPLOYMENT_ID ?? `b${Date.now().toString(36)}`;
+
 const nextConfig: NextConfig = {
+  deploymentId,
   poweredByHeader: false,
   experimental: {
     agentFeedback: true,

@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Archivo, Source_Sans_3 } from "next/font/google";
 import { BookingModalProvider } from "@/components/booking/booking-modal-provider";
+import { VersionGuard } from "@/components/site/version-guard";
 import "./globals.css";
 
 const archivo = Archivo({
@@ -50,6 +51,8 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           scoped to the staff routes so public pages do not ship it. */}
       <body className="flex min-h-full flex-col bg-page font-sans text-ink">
         <BookingModalProvider>{children}</BookingModalProvider>
+        {/* Stamped at build time, so an open tab can spot a newer deploy. */}
+        <VersionGuard buildId={process.env.NEXT_DEPLOYMENT_ID ?? null} />
       </body>
     </html>
   );
