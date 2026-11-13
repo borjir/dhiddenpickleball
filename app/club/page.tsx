@@ -85,7 +85,7 @@ export default function ClubPage() {
             <Reveal>
               <div className="relative aspect-[4/3] overflow-hidden rounded-2xl border border-line shadow-card">
                 <Image
-                  src="/courts/pickleball2.jpg"
+                  src="/courts/pickleball2-960.webp"
                   alt="Doubles play on a club pickleball court with hills and sea behind it"
                   fill
                   sizes="(min-width: 1024px) 52vw, 100vw"

@@ -2,6 +2,15 @@ import Link from "next/link";
 import { Logo } from "@/components/brand/logo";
 import { ArrowUpRightIcon } from "@/components/ui/icons";
 import { CLUB } from "@/lib/club";
+import { OPEN_PLAY_ENABLED } from "@/lib/features";
+
+const playLinks = [
+  { href: "/book", label: "Book a court" },
+  { href: "/open-play", label: "Open play" },
+  { href: "/courts", label: "The courts" },
+  { href: "/#pricing", label: "Rates" },
+  { href: "/#how-it-works", label: "How booking works" },
+].filter((link) => OPEN_PLAY_ENABLED || link.href !== "/open-play");
 
 export function SiteFooter() {
   return (
@@ -67,13 +76,7 @@ export function SiteFooter() {
           <nav aria-label="Booking links">
             <p className="text-eyebrow font-bold uppercase text-muted">Play</p>
             <ul className="mt-4 space-y-1">
-              {[
-                { href: "/book", label: "Book a court" },
-                { href: "/open-play", label: "Open play" },
-                { href: "/courts", label: "The courts" },
-                { href: "/#pricing", label: "Rates" },
-                { href: "/#how-it-works", label: "How booking works" },
-              ].map((link) => (
+              {playLinks.map((link) => (
                 <li key={link.href}>
                   <Link
                     href={link.href}
@@ -115,10 +118,11 @@ export function SiteFooter() {
         <div className="mt-12 flex flex-col gap-4 border-t border-line pt-6 text-caption text-muted sm:flex-row sm:items-center sm:justify-between">
           <p>© 2026 D-Hidden Pickleball Court &amp; Bistro.</p>
           <p className="max-w-xl leading-relaxed">
-            Online court booking and open-play registration are live. A court
-            request holds the slot for 15 minutes; pay by GCash and staff verify
-            the transfer. The confirmation shows the club&apos;s official GCash
-            QR, account name, and number.
+            Online court booking
+            {OPEN_PLAY_ENABLED ? " and open-play registration are" : " is"} live.
+            A court request holds the slot for 15 minutes; pay by GCash and staff
+            verify the transfer. The confirmation shows the club&apos;s official
+            GCash QR, account name, and number.
           </p>
         </div>
       </div>

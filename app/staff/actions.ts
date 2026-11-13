@@ -8,7 +8,11 @@ import {
   enqueueGuestBookingEmail,
 } from "@/lib/email/events";
 import { notifyBookingUpdate } from "@/lib/notifications/events";
-import { requireStaff } from "@/lib/staff/auth";
+import { requireAccountManager, requireStaff } from "@/lib/staff/auth";
+import { purgePaymentProofs } from "@/lib/storage/purge-proofs";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient } from "@/lib/supabase/server";
+import { siteUrl } from "@/lib/email/config";
 import { manilaLocalToIso, manilaTimeRange } from "@/lib/staff/time";
 
 const uuid = z.string().uuid();
@@ -652,4 +656,301 @@ export async function deleteCourtClosureAction(formData: FormData) {
   revalidatePath("/staff/courts");
   revalidatePath("/staff", "layout");
   succeed(returnPath, "Court block removed.");
+}
+
+// Service rates and operating hours -----------------------------------------
+//
+// Availability, amount calculation, and booking creation all read
+// `service_rates` and `court_operating_hours` at call time, so editing these two
+// tables takes effect immediately without a deploy or a function change.
+
+export async function updateServiceRateAction(formData: FormData) {
+  const { supabase } = await requireStaff();
+  const returnPath = "/staff/courts";
+  const rateId = value(formData, "rateId");
+  const amount = Number(value(formData, "amount").replace(/,/g, ""));
+
+  const parsed = z
+    .object({
+      rateId: uuid,
+      amount: z.number().min(0).max(100000),
+    })
+    .safeParse({ rateId, amount });
+
+  if (!parsed.success) {
+    fail(returnPath, "Enter a rate between 0 and 100,000 pesos.");
+  }
+
+  const { error } = await supabase
+    .from("service_rates")
+    .update({ amount_php: parsed.data.amount })
+    .eq("id", parsed.data.rateId);
+
+  if (error) {
+    fail(returnPath, "The rate could not be saved.");
+  }
+
+  revalidatePath("/staff/courts");
+  revalidatePath("/book");
+  revalidatePath("/");
+  succeed(returnPath, "Rate updated. New bookings use the new price.");
+}
+
+/**
+ * Runs the same storage cleanup the cron endpoint performs. It deletes only the
+ * proofs of cancelled bookings, rejected payments and voided records; every
+ * other screenshot is kept permanently.
+ */
+export async function purgeProofsAction() {
+  await requireStaff();
+
+  const result = await purgePaymentProofs();
+
+  if (!result.ok) {
+    fail("/staff/reports", result.error);
+  }
+
+  revalidatePath("/staff/reports");
+  succeed("/staff/reports", result.message);
+}
+
+function minutesFromTime(value: string) {
+  const match = /^(\d{1,2}):(\d{2})$/.exec(value);
+  if (!match) return null;
+
+  const hours = Number(match[1]);
+  const minutes = Number(match[2]);
+  if (hours > 24 || minutes > 59) return null;
+
+  const total = hours * 60 + minutes;
+  return total >= 0 && total <= 1440 ? total : null;
+}
+
+export async function updateCourtHoursAction(formData: FormData) {
+  const { supabase } = await requireStaff();
+  const returnPath = "/staff/courts";
+  const courtId = value(formData, "courtId");
+  const dayOfWeek = Number(value(formData, "dayOfWeek"));
+  const isClosed = value(formData, "isClosed") === "on";
+  const opens = minutesFromTime(value(formData, "opensAt"));
+  const closes = minutesFromTime(value(formData, "closesAt"));
+
+  const parsed = z
+    .object({
+      courtId: uuid,
+      dayOfWeek: z.number().int().min(0).max(6),
+    })
+    .safeParse({ courtId, dayOfWeek });
+
+  if (!parsed.success) {
+    fail(returnPath, "Choose a court and a day.");
+  }
+
+  if (!isClosed && (opens === null || closes === null || opens >= closes)) {
+    fail(returnPath, "Opening time must be earlier than closing time.");
+  }
+
+  const { error } = await supabase.from("court_operating_hours").upsert(
+    {
+      court_id: parsed.data.courtId,
+      day_of_week: parsed.data.dayOfWeek,
+      opens_at_minute: isClosed ? 0 : opens!,
+      closes_at_minute: isClosed ? 0 : closes!,
+      is_closed: isClosed,
+    },
+    { onConflict: "court_id,day_of_week" },
+  );
+
+  if (error) {
+    fail(returnPath, "The operating hours could not be saved.");
+  }
+
+  revalidatePath("/staff/courts");
+  revalidatePath("/book");
+  succeed(returnPath, "Operating hours updated.");
+}
+
+// Account management ---------------------------------------------------------
+
+export async function inviteStaffAccountAction(formData: FormData) {
+  const { staff } = await requireAccountManager();
+  const returnPath = "/staff/accounts";
+  const email = value(formData, "email").toLowerCase();
+  const fullName = value(formData, "fullName");
+
+  const parsed = z
+    .object({
+      email: z.string().email(),
+      fullName: z.string().trim().min(2).max(120),
+    })
+    .safeParse({ email, fullName });
+
+  if (!parsed.success) {
+    fail(returnPath, "Enter a full name and a valid email address.");
+  }
+
+  if (parsed.data.email === staff.email.toLowerCase()) {
+    fail(returnPath, "That is your own account.");
+  }
+
+  const admin = createAdminClient();
+  if (!admin) {
+    fail(returnPath, "Account management needs SUPABASE_SERVICE_ROLE_KEY on the server.");
+  }
+
+  const { data: invited, error } = await admin.auth.admin.inviteUserByEmail(
+    parsed.data.email,
+    {
+      data: { full_name: parsed.data.fullName },
+      redirectTo: `${siteUrl()}/auth/callback?next=/staff-access/reset-password`,
+    },
+  );
+
+  if (error || !invited?.user) {
+    const message = error?.message?.toLowerCase() ?? "";
+
+    if (message.includes("already")) {
+      fail(returnPath, "That email already has an account. Reset its password instead.");
+    }
+
+    if (message.includes("rate") || message.includes("limit")) {
+      fail(
+        returnPath,
+        "The invitation email was rate-limited. Wait an hour or create the user in the Supabase dashboard.",
+      );
+    }
+
+    fail(returnPath, "The invitation could not be sent.");
+  }
+
+  const { error: promoteError } = await admin
+    .from("profiles")
+    .update({ role: "staff", full_name: parsed.data.fullName })
+    .eq("id", invited.user.id);
+
+  if (promoteError) {
+    fail(
+      returnPath,
+      "The invitation was sent, but staff access could not be granted. Set the role in SQL.",
+    );
+  }
+
+  revalidatePath("/staff/accounts");
+  succeed(
+    returnPath,
+    `Invitation sent to ${parsed.data.email}. They set their own password from the email.`,
+  );
+}
+
+export async function setStaffAccessAction(formData: FormData) {
+  const { staff } = await requireAccountManager();
+  const returnPath = "/staff/accounts";
+  const accountId = value(formData, "accountId");
+  const enabled = value(formData, "enabled") === "true";
+
+  if (!uuid.safeParse(accountId).success) {
+    fail(returnPath, "That account could not be identified.");
+  }
+
+  if (accountId === staff.id && !enabled) {
+    fail(returnPath, "You cannot disable your own account.");
+  }
+
+  const admin = createAdminClient();
+  if (!admin) {
+    fail(returnPath, "Account management needs SUPABASE_SERVICE_ROLE_KEY on the server.");
+  }
+
+  const { error } = await admin.auth.admin.updateUserById(accountId, {
+    ban_duration: enabled ? "none" : "876000h",
+  });
+
+  if (error) {
+    fail(returnPath, "The account access could not be changed.");
+  }
+
+  revalidatePath("/staff/accounts");
+  succeed(returnPath, enabled ? "Sign-in re-enabled." : "Sign-in disabled for that account.");
+}
+
+export async function sendAccountRecoveryAction(formData: FormData) {
+  await requireAccountManager();
+  const returnPath = "/staff/accounts";
+  const accountEmail = value(formData, "email");
+
+  if (!z.string().email().safeParse(accountEmail).success) {
+    fail(returnPath, "That account has no usable email address.");
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.auth.resetPasswordForEmail(accountEmail, {
+    redirectTo: `${siteUrl()}/auth/callback?next=/staff-access/reset-password`,
+  });
+
+  if (error) {
+    fail(
+      returnPath,
+      "The reset email could not be sent. Supabase rate-limits auth email; try again later.",
+    );
+  }
+
+  succeed(returnPath, `Password reset email sent to ${accountEmail}.`);
+}
+
+// Soft void ------------------------------------------------------------------
+
+export async function voidBookingAction(formData: FormData) {
+  const { supabase } = await requireStaff();
+  const returnPath = safeStaffPath(value(formData, "returnPath"), "/staff/bookings");
+  const bookingId = value(formData, "bookingId");
+  const reason = value(formData, "reason");
+
+  if (!uuid.safeParse(bookingId).success) {
+    fail(returnPath, "That booking could not be identified.");
+  }
+
+  if (!reason) {
+    fail(returnPath, "Add a reason before voiding a booking.");
+  }
+
+  const { error } = await supabase.rpc("staff_void_booking", {
+    p_booking_id: bookingId,
+    p_reason: reason,
+  });
+
+  if (error) {
+    fail(returnPath, rpcMessage(error, "The booking could not be voided."));
+  }
+
+  revalidatePath("/staff", "layout");
+  revalidatePath("/staff/bookings");
+  succeed(returnPath, "Booking voided. The record stays for the audit trail.");
+}
+
+export async function voidPaymentAction(formData: FormData) {
+  const { supabase } = await requireStaff();
+  const returnPath = safeStaffPath(value(formData, "returnPath"), "/staff/payments");
+  const paymentId = value(formData, "paymentId");
+  const reason = value(formData, "reason");
+
+  if (!uuid.safeParse(paymentId).success) {
+    fail(returnPath, "That payment could not be identified.");
+  }
+
+  if (!reason) {
+    fail(returnPath, "Add a reason before voiding a payment.");
+  }
+
+  const { error } = await supabase.rpc("staff_void_payment", {
+    p_payment_id: paymentId,
+    p_reason: reason,
+  });
+
+  if (error) {
+    fail(returnPath, rpcMessage(error, "The payment could not be voided."));
+  }
+
+  revalidatePath("/staff", "layout");
+  revalidatePath("/staff/payments");
+  succeed(returnPath, "Payment voided and excluded from the totals.");
 }

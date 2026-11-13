@@ -1,6 +1,6 @@
 # Cloudflare Workers deployment
 
-**Last updated:** 9 November 2026
+**Last updated:** 13 November 2026
 **Blueprint:** `docs/PRODUCT_BLUEPRINT.md` (v2.5), Phase 11 — Production Launch and Handover
 **Status:** The live Worker is at **https://bookings.dhiddenpickleball.workers.dev**. Runtime
 secret names are configured on the Worker. Guest email delivery is still inactive until a custom
@@ -36,6 +36,12 @@ npm run build     # ordinary Next.js build, unchanged
 ```
 
 `wrangler deploy` requires `npx wrangler login` once on the machine that deploys.
+
+`cf:build` also runs `opennextjs-cloudflare populateCache local`, which copies
+the prerendered pages into `.open-next/assets/cdn-cgi/_next_cache`. Do not skip
+it (for example with a bare `opennextjs-cloudflare build && wrangler deploy`):
+the Worker would upload without its page cache and every public page would
+render on demand again, which exceeds the Free plan's 10 ms CPU budget.
 
 ## Environment variables: two different mechanisms
 
@@ -156,10 +162,33 @@ Options, in order of reliability:
 Until one of these is done, keep the current working Google sign-in or hide the Google button;
 email/password sign-in is unaffected.
 
+## Storage cleanup
+
+`GET /api/cron/storage` deletes the proofs of cancelled bookings, rejected
+payments and voided records. Every other screenshot is kept permanently. It uses
+the same bearer secret as the email cron:
+
+```bash
+curl -H "Authorization: Bearer $EMAIL_CRON_SECRET" https://<domain>/api/cron/storage
+```
+
+This cannot move into `run_data_hygiene()`: Supabase requires object deletion
+through the Storage API, and rows deleted straight from `storage.objects` leave
+the file orphaned while still counting against the 1 GB plan limit.
+
+There are no retention settings any more — the 90-day window and 700 MB cap were
+removed on the client's instruction to keep proofs indefinitely, so the earlier
+`PROOF_RETENTION_DAYS`, `PROOF_MIN_AGE_DAYS` and `PROOF_STORAGE_CAP_MB` variables
+no longer do anything and should not be set.
+
+Until a scheduler calls the endpoint, staff can run it from the **Free-plan
+headroom** panel on `/staff/reports`.
+
 ## Reminder scheduler
 
 `/api/cron/email` must be called every 15 minutes with
 `Authorization: Bearer <EMAIL_CRON_SECRET>`. It queues 24-hour reminders and retries failed sends.
+The same scheduler should call `/api/cron/storage` once a day with the same header.
 Two options:
 
 1. **External scheduler (no code change).** Point any uptime/cron service at
@@ -181,8 +210,8 @@ Measured against the Free plan:
 | --- | --- | --- |
 | Requests | 100,000/day | ~2,500/day during testing (<3%); ~150/day at 200 members (<1%) |
 | Static assets | unlimited, free | ~3.1 MB of images and the QR, served by the asset layer |
-| Worker size | 3 MiB gzip (3,072 KiB) | 2,917.92 KiB gzip (95%, ~154 KiB free) — the tightest constraint |
-| CPU per request | 10 ms | **unmeasured** |
+| Worker size | 3 MiB gzip (3,072 KiB) | 2,714.53 KiB gzip (88.4%, ~357 KiB free) — the tightest constraint |
+| CPU per request | 10 ms (consistency-enforced) | Renders measured at 20–65 ms; prerendered pages are now served from the static-assets cache instead of rendering |
 | Workers Logs | 200,000 events/day | Worker invocations only; static assets do not log |
 | Turnstile siteverify | unlimited on Free (20 widgets, 10 hostnames) | one call per protected form submission |
 | Cron triggers | 5 | 0 configured |
@@ -208,8 +237,17 @@ this removes Worker traffic without changing what the browser downloads. Trade-o
 asset layer do not carry the app's security headers (they are JS, CSS, fonts and images, not documents).
 
 The bundle size is the real risk: one more server-side dependency can cross 3 MiB. The current build
-leaves only ~154 KiB gzip of headroom. The Paid plan ($5/month) raises the limit to 10 MiB and CPU to
+leaves ~357 KiB gzip of headroom. The Paid plan ($5/month) raises the limit to 10 MiB and CPU to
 30 s, which also removes the CPU uncertainty.
+
+**MapLibre must stay out of the server bundle.** On 13 November 2026 the `maplibre-gl` chunk (1.2 MB
+uncompressed) was found in the Worker because the map component was statically imported by
+`app/visit/page.tsx` and the home page, and server-side rendering pulled its whole module graph in.
+The Worker measured 3,072.36 KiB — 0.36 KiB *over* the limit, so `npm run deploy` failed at
+`check:worker-size`. The map is now loaded through `components/home/club-map-lazy.tsx`, a client
+component that wraps it in `next/dynamic` with `ssr: false` and renders the same `.club-map-frame`
+box as a placeholder, so layout does not shift. That took the Worker to 2,714.53 KiB. Import the map
+only through `ClubMapLazy`; a static `import { ClubMap }` from a server page puts the 1.2 MB back.
 Supabase Free remains the limit with a multi-year clock (500 MB database, 1 GB storage), and it
 pauses after about a week of inactivity — the existing `keep-supabase-awake.yml` workflow guards
 that.

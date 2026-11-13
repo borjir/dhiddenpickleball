@@ -17,9 +17,11 @@ import {
   CourtIcon,
   GridIcon,
   MenuIcon,
+  ShieldIcon,
   WalletIcon,
 } from "@/components/ui/icons";
 import { cn } from "@/lib/cn";
+import { OPEN_PLAY_ENABLED } from "@/lib/features";
 import type { StaffMember } from "@/lib/staff/auth";
 
 type NavItem = {
@@ -29,9 +31,11 @@ type NavItem = {
   exact?: boolean;
   /** Shown in the compact mobile tab bar. */
   primary?: boolean;
+  /** Only rendered for a staff member with `can_manage_accounts`. */
+  managerOnly?: boolean;
 };
 
-const groups: Array<{ label: string; items: NavItem[] }> = [
+const navGroups: Array<{ label: string; items: NavItem[] }> = [
   {
     label: "Front desk",
     items: [
@@ -87,9 +91,43 @@ const groups: Array<{ label: string; items: NavItem[] }> = [
       },
     ],
   },
+  {
+    label: "Admin",
+    items: [
+      {
+        href: "/staff/accounts",
+        label: "Accounts",
+        icon: ShieldIcon,
+        managerOnly: true,
+      },
+    ],
+  },
 ];
 
+// Open play is hidden until the client confirms the programme. The screens stay
+// in the repository; `lib/features.ts` turns them back on.
+const groups = navGroups
+  .map((group) => ({
+    ...group,
+    items: group.items.filter(
+      (item) => OPEN_PLAY_ENABLED || item.href !== "/staff/open-play",
+    ),
+  }))
+  .filter((group) => group.items.length > 0);
+
 const items = groups.flatMap((group) => group.items);
+const primaryCount = items.filter((item) => item.primary).length;
+
+function visibleGroups(canManageAccounts: boolean) {
+  return groups
+    .map((group) => ({
+      ...group,
+      items: group.items.filter(
+        (item) => !item.managerOnly || canManageAccounts,
+      ),
+    }))
+    .filter((group) => group.items.length > 0);
+}
 
 function isActive(pathname: string, href: string, exact?: boolean) {
   return exact ? pathname === href : pathname === href || pathname.startsWith(`${href}/`);
@@ -104,17 +142,19 @@ function currentItem(pathname: string) {
 function NavItems({
   pathname,
   reviewCount,
+  canManageAccounts,
   onNavigate,
   compact = false,
 }: {
   pathname: string;
   reviewCount: number;
+  canManageAccounts: boolean;
   onNavigate?: () => void;
   compact?: boolean;
 }) {
   return (
     <div className={compact ? "space-y-3" : "space-y-5"}>
-      {groups.map((group) => (
+      {visibleGroups(canManageAccounts).map((group) => (
         <div key={group.label}>
           <p className="px-3 text-[0.625rem] font-bold uppercase tracking-[0.18em] text-white/35">
             {group.label}
@@ -201,7 +241,9 @@ export function StaffNav({
   const [open, setOpen] = useState(false);
   const activeItem = currentItem(pathname);
   const moreActive =
-    pathname.startsWith("/staff/courts") || pathname.startsWith("/staff/reports");
+    pathname.startsWith("/staff/courts") ||
+    pathname.startsWith("/staff/reports") ||
+    pathname.startsWith("/staff/accounts");
 
   useEffect(() => {
     if (!open) return;
@@ -257,6 +299,7 @@ export function StaffNav({
             <NavItems
               pathname={pathname}
               reviewCount={reviewCount}
+              canManageAccounts={staff.canManageAccounts}
               onNavigate={() => setOpen(false)}
             />
           </div>
@@ -335,7 +378,10 @@ export function StaffNav({
         aria-label="Staff shortcuts"
         className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-brand-navy pb-[env(safe-area-inset-bottom)] text-white shadow-[0_-12px_32px_-16px_rgba(4,12,24,0.6)] lg:hidden"
       >
-        <ul className="grid grid-cols-5">
+        <ul
+          className="grid"
+          style={{ gridTemplateColumns: `repeat(${primaryCount + 1}, minmax(0, 1fr))` }}
+        >
           {items
             .filter((item) => item.primary)
             .map((item) => {
@@ -437,6 +483,7 @@ export function StaffNav({
               <NavItems
                 pathname={pathname}
                 reviewCount={reviewCount}
+                canManageAccounts={staff.canManageAccounts}
                 onNavigate={() => setOpen(false)}
                 compact
               />

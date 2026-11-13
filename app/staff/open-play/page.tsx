@@ -5,14 +5,22 @@ import { Badge } from "@/components/ui/badge";
 import { buttonClasses } from "@/components/ui/button";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { Field, Input, Select } from "@/components/ui/field";
-import { BallIcon, PlusIcon } from "@/components/ui/icons";
+import { BallIcon, PlusIcon, SearchIcon } from "@/components/ui/icons";
 import {
   StaffEmpty,
   StaffFlash,
   StaffPageHeader,
   StaffPanel,
 } from "@/components/staff/staff-ui";
+import {
+  StaffFilterBar,
+  StaffFilterDate,
+  StaffFilterField,
+  StaffFilterSelect,
+  StaffSearchField,
+} from "@/components/staff/staff-filters";
 import { requireStaff } from "@/lib/staff/auth";
+import { openPlaySessionSearchIds, staffSearchTerm } from "@/lib/staff/search";
 import { formatPeso } from "@/lib/bookings";
 import {
   openPlayLevelLabel,
@@ -21,6 +29,7 @@ import {
 import {
   formatStaffDate,
   formatStaffTime,
+  isValidDateId,
   manilaDateRange,
   manilaTodayId,
 } from "@/lib/staff/time";
@@ -32,9 +41,27 @@ export const metadata: Metadata = {
 };
 
 type SearchParams = Promise<{
+  q?: string | string[];
+  date?: string | string[];
+  level?: string | string[];
+  status?: string | string[];
   notice?: string | string[];
   error?: string | string[];
 }>;
+
+const LEVELS = [
+  { value: "all", label: "All levels" },
+  { value: "beginner", label: "Beginner" },
+  { value: "intermediate", label: "Intermediate" },
+  { value: "advanced", label: "Advanced" },
+] as const;
+
+const SESSION_STATUSES = [
+  { value: "all", label: "All sessions" },
+  { value: "scheduled", label: "Scheduled" },
+  { value: "completed", label: "Completed" },
+  { value: "cancelled", label: "Cancelled" },
+] as const;
 
 function text(value: string | string[] | undefined) {
   return Array.isArray(value) ? (value[0] ?? "") : (value ?? "");
@@ -49,17 +76,54 @@ function activeCount(session: StaffOpenPlaySession) {
 async function OpenPlayDesk({ searchParams }: { searchParams: SearchParams }) {
   const { supabase } = await requireStaff();
   const params = await searchParams;
-  const { start } = manilaDateRange(manilaTodayId());
-  const { data, error } = await supabase
-    .from("open_play_sessions")
-    .select(
-      "id, starts_at, duration_minutes, skill_level, capacity, amount_php, status, open_play_registrations(id, status)",
-    )
-    .gte("starts_at", start)
-    .order("starts_at", { ascending: true })
-    .limit(120);
+  const query = staffSearchTerm(text(params.q));
+  const requestedDate = text(params.date);
+  const dateId = isValidDateId(requestedDate) ? requestedDate : "";
+  const level = LEVELS.some((item) => item.value === text(params.level))
+    ? (text(params.level) as (typeof LEVELS)[number]["value"])
+    : "all";
+  const sessionStatus = SESSION_STATUSES.some(
+    (item) => item.value === text(params.status),
+  )
+    ? (text(params.status) as (typeof SESSION_STATUSES)[number]["value"])
+    : "all";
+  const todayRange = manilaDateRange(manilaTodayId());
+  const limit = query ? 150 : 120;
+  const matchingSessionIds = query
+    ? await openPlaySessionSearchIds(supabase, query)
+    : null;
 
-  const sessions = (data ?? []) as unknown as StaffOpenPlaySession[];
+  let sessions: StaffOpenPlaySession[] = [];
+  let error = false;
+
+  if (!matchingSessionIds || matchingSessionIds.length > 0) {
+    let request = supabase
+      .from("open_play_sessions")
+      .select(
+        "id, starts_at, duration_minutes, skill_level, capacity, amount_php, status, open_play_registrations(id, status)",
+      )
+      .order("starts_at", { ascending: !query })
+      .limit(limit);
+
+    if (matchingSessionIds) {
+      request = request.in("id", matchingSessionIds);
+    } else if (dateId) {
+      const { start, end } = manilaDateRange(dateId);
+      request = request.gte("starts_at", start).lt("starts_at", end);
+    } else {
+      request = request.gte("starts_at", todayRange.start);
+    }
+
+    if (level !== "all") request = request.eq("skill_level", level);
+    if (sessionStatus !== "all") request = request.eq("status", sessionStatus);
+
+    const result = await request;
+    sessions = (result.data ?? []) as unknown as StaffOpenPlaySession[];
+    error = Boolean(result.error);
+  }
+
+  const hasFilters =
+    Boolean(query || requestedDate || level !== "all" || sessionStatus !== "all");
   const grouped = new Map<string, StaffOpenPlaySession[]>();
   for (const session of sessions) {
     const date = formatStaffDate(session.starts_at);
@@ -84,8 +148,56 @@ async function OpenPlayDesk({ searchParams }: { searchParams: SearchParams }) {
         <StaffFlash notice={text(params.notice) || null} error={text(params.error) || null} />
       </div>
 
+      <StaffFilterBar
+        action="/staff/open-play"
+        active={hasFilters}
+        clearHref="/staff/open-play"
+        submitLabel="Show sessions"
+        help="Leave the date empty to see all upcoming sessions."
+        columns="sm:grid-cols-2 lg:grid-cols-[minmax(0,1.4fr)_10rem_10rem_11rem]"
+      >
+        <StaffSearchField
+          id="session-search"
+          label="Find a player"
+          placeholder="Name, mobile, email, or reference"
+          defaultValue={query}
+          hint="Checks the player roster on every date, including past sessions."
+          className="sm:col-span-2 lg:col-span-1"
+        />
+        {query ? (
+          <input type="hidden" name="date" value={requestedDate} />
+        ) : (
+          <StaffFilterField id="session-date" label="Date">
+            <StaffFilterDate id="session-date" name="date" value={dateId} />
+          </StaffFilterField>
+        )}
+        <StaffFilterField id="session-level" label="Level">
+          <StaffFilterSelect
+            id="session-level"
+            name="level"
+            value={level}
+            options={LEVELS}
+          />
+        </StaffFilterField>
+        <StaffFilterField id="session-status" label="Session status">
+          <StaffFilterSelect
+            id="session-status"
+            name="status"
+            value={sessionStatus}
+            options={SESSION_STATUSES}
+          />
+        </StaffFilterField>
+      </StaffFilterBar>
+
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_21rem] xl:items-start">
         <div className="space-y-4">
+          {query && !error && sessions.length > 0 ? (
+            <p className="text-caption font-semibold text-muted">
+              {sessions.length} session{sessions.length === 1 ? "" : "s"}{" "}
+              with “{query}” on the roster, from every date.
+            </p>
+          ) : null}
+
           {error ? (
             <StaffPanel title="Sessions could not be loaded">
               <p className="text-sm text-muted">Refresh the page and try again.</p>
@@ -93,11 +205,33 @@ async function OpenPlayDesk({ searchParams }: { searchParams: SearchParams }) {
           ) : null}
 
           {!error && sessions.length === 0 ? (
-            <StaffPanel title="Upcoming sessions">
+            <StaffPanel title={query ? "Search results" : "Upcoming sessions"}>
               <StaffEmpty
-                icon={BallIcon}
-                title="No sessions scheduled"
-                description="Create the next open-play session on the right. It will appear on the public schedule immediately."
+                icon={query ? SearchIcon : BallIcon}
+                title={
+                  query
+                    ? `No session found for “${query}”`
+                    : hasFilters
+                      ? "No sessions match these filters"
+                      : "No sessions scheduled"
+                }
+                description={
+                  query
+                    ? "Check the spelling, or try the player's mobile number or the booking reference printed on the receipt."
+                    : hasFilters
+                      ? "Try a different date, level, or session status. Choose “All levels” and “All sessions” to see everything."
+                      : "Create the next open-play session on the right. It will appear on the public schedule immediately."
+                }
+                action={
+                  query ? (
+                    <Link
+                      href={`/staff/open-play?date=${dateId}&level=${level}&status=${sessionStatus}`}
+                      className={buttonClasses({ size: "sm" })}
+                    >
+                      Clear search
+                    </Link>
+                  ) : undefined
+                }
               />
             </StaffPanel>
           ) : null}

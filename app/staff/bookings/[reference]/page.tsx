@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import {
   recordPaymentAction,
   updateBookingStatusAction,
+  voidBookingAction,
 } from "@/app/staff/actions";
 import { Badge } from "@/components/ui/badge";
 import { SubmitButton } from "@/components/ui/submit-button";
@@ -118,7 +119,7 @@ async function BookingDetail({ params, searchParams }: PageProps) {
       .from("bookings")
       .select(
         `id, reference, starts_at, ends_at, duration_minutes, status, payment_status,
-         amount_php, hold_expires_at, group_id, source, notes,
+         amount_php, hold_expires_at, group_id, source, notes, voided_at, voided_reason,
          player:customers!bookings_customer_id_fkey(full_name, email, phone:mobile),
          service:services(name, code),
          court_reservations(court:courts(name))`,
@@ -150,7 +151,7 @@ async function BookingDetail({ params, searchParams }: PageProps) {
       .from("bookings")
       .select(
         `id, reference, starts_at, ends_at, duration_minutes, status, payment_status,
-         amount_php, hold_expires_at, group_id, source, notes,
+         amount_php, hold_expires_at, group_id, source, notes, voided_at, voided_reason,
          player:customers!bookings_customer_id_fkey(full_name, email, phone:mobile),
          service:services(name, code),
          court_reservations(court:courts(name))`,
@@ -459,6 +460,42 @@ async function BookingDetail({ params, searchParams }: PageProps) {
                   : "."}
               </div>
             )}
+
+            {primary.voided_at ? (
+              <div className="mt-4 rounded-lg border border-danger/20 bg-danger-soft p-3 text-caption text-danger">
+                Voided {formatStaffDateTime(primary.voided_at)}
+                {primary.voided_reason ? ` — ${primary.voided_reason}` : "."} It
+                stays in the audit trail and is hidden from the totals.
+              </div>
+            ) : targetType === "booking" &&
+              status !== "pending" &&
+              paymentStatus !== "paid" ? (
+              <form action={voidBookingAction} className="mt-4 border-t border-line pt-4">
+                <input type="hidden" name="returnPath" value={returnPath} />
+                <input type="hidden" name="bookingId" value={primary.id} />
+                <Field
+                  id="void-reason"
+                  label="Void a mistaken booking"
+                  hint="Not a cancel: the row is kept for the audit trail and removed from the reports."
+                >
+                  <Textarea
+                    id="void-reason"
+                    name="reason"
+                    rows={2}
+                    maxLength={500}
+                    placeholder="Example: duplicate entry created at the desk"
+                    required
+                  />
+                </Field>
+                <ConfirmSubmitButton
+                  message="Void this booking? It stays in the audit trail but leaves the reports."
+                  variant="secondary"
+                  className="mt-2 w-full text-danger hover:border-danger/40 hover:bg-danger-soft sm:w-auto"
+                >
+                  Void booking
+                </ConfirmSubmitButton>
+              </form>
+            ) : null}
           </StaffPanel>
         </div>
 

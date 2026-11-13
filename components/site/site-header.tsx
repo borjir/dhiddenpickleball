@@ -11,6 +11,7 @@ import { CloseIcon, MenuIcon, ArrowRightIcon } from "@/components/ui/icons";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { cn } from "@/lib/cn";
 import { CLUB } from "@/lib/club";
+import { OPEN_PLAY_ENABLED } from "@/lib/features";
 
 const links = [
   { href: "/courts", label: "The courts" },
@@ -18,13 +19,13 @@ const links = [
   { href: "/#pricing", label: "Rates" },
   { href: "/visit", label: "Visit" },
   { href: "/club", label: "The club" },
-];
+].filter((link) => OPEN_PLAY_ENABLED || link.href !== "/open-play");
 
 export function SiteHeader({ startSolid = false }: { startSolid?: boolean }) {
   const [scrolled, setScrolled] = useState(false);
   const [open, setOpen] = useState(false);
   const reduce = useReducedMotion();
-  const { openCourt, openOpenPlayList } = useBookingModal();
+  const { openCourt, openOpenPlayList, prewarmCourt } = useBookingModal();
 
   useEffect(() => {
     function onScroll() {
@@ -126,6 +127,8 @@ export function SiteHeader({ startSolid = false }: { startSolid?: boolean }) {
             type="button"
             aria-haspopup="dialog"
             onClick={() => void openCourt()}
+            onPointerEnter={prewarmCourt}
+            onFocus={prewarmCourt}
             className={buttonClasses({
               size: "md",
               className: cn("inline-flex", !solid && "shadow-glow"),

@@ -11,11 +11,9 @@ import {
   type MouseEvent as ReactMouseEvent,
   type ReactNode,
 } from "react";
+import dynamic from "next/dynamic";
 import { Badge } from "@/components/ui/badge";
 import { CloseIcon } from "@/components/ui/icons";
-import { CourtBooking } from "@/components/booking/court-booking";
-import { OpenPlayRegistration } from "@/components/open-play/open-play-registration";
-import { OpenPlayBrowser } from "@/components/open-play/open-play-browser";
 import {
   getBookingModalData,
   type BookingModalData,
@@ -33,10 +31,38 @@ import {
   openPlaySpotsRemaining,
 } from "@/lib/open-play";
 
+// The provider is mounted in the root layout, so a static import here would put
+// the whole court and open-play flow in every public page's client bundle. Each
+// body is fetched when its dialog actually opens instead.
+const courtBookingModule = () => import("@/components/booking/court-booking");
+
+const CourtBooking = dynamic(
+  () => courtBookingModule().then((m) => m.CourtBooking),
+  { ssr: false, loading: () => <ModalSkeleton /> },
+);
+
+const OpenPlayRegistration = dynamic(
+  () =>
+    import("@/components/open-play/open-play-registration").then(
+      (m) => m.OpenPlayRegistration,
+    ),
+  { ssr: false, loading: () => <ModalSkeleton /> },
+);
+
+const OpenPlayBrowser = dynamic(
+  () =>
+    import("@/components/open-play/open-play-browser").then(
+      (m) => m.OpenPlayBrowser,
+    ),
+  { ssr: false, loading: () => <ModalSkeleton /> },
+);
+
 type BookingModalContextValue = {
   openCourt: () => Promise<void>;
   openOpenPlay: (sessionId: string) => Promise<void>;
   openOpenPlayList: () => Promise<void>;
+  /** Starts downloading the court flow on hover/focus so the click is instant. */
+  prewarmCourt: () => void;
 };
 
 const BookingModalContext = createContext<BookingModalContextValue | null>(null);
@@ -68,6 +94,12 @@ export function BookingModalProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
+
+  const prewarmCourt = useCallback(() => {
+    // The browser and the bundler both dedupe this with the real render, so a
+    // hover costs nothing when the visitor does nothing.
+    void courtBookingModule();
+  }, []);
 
   const openCourt = useCallback(async () => {
     setDialog({ kind: "court" });
@@ -200,7 +232,7 @@ export function BookingModalProvider({ children }: { children: ReactNode }) {
 
   return (
     <BookingModalContext.Provider
-      value={{ openCourt, openOpenPlay, openOpenPlayList }}
+      value={{ openCourt, openOpenPlay, openOpenPlayList, prewarmCourt }}
     >
       {children}
 

@@ -11,13 +11,16 @@ export function BookingTrigger({
   children: ReactNode;
   className?: string;
 }) {
-  const { openCourt } = useBookingModal();
+  const { openCourt, prewarmCourt } = useBookingModal();
 
   return (
     <button
       type="button"
       aria-haspopup="dialog"
       onClick={() => void openCourt()}
+      onPointerEnter={prewarmCourt}
+      onFocus={prewarmCourt}
+      onTouchStart={prewarmCourt}
       className={className}
     >
       {children}

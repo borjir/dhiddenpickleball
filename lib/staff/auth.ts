@@ -8,6 +8,8 @@ export type StaffMember = {
   id: string;
   email: string;
   fullName: string;
+  /** Set in SQL for the owners who may invite, disable, and reset accounts. */
+  canManageAccounts: boolean;
 };
 
 function signInPath() {
@@ -35,7 +37,7 @@ export async function requireStaff() {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("full_name, email, role")
+    .select("full_name, email, role, can_manage_accounts")
     .eq("id", user.id)
     .maybeSingle();
 
@@ -49,6 +51,21 @@ export async function requireStaff() {
       id: user.id,
       email: profile.email?.trim() || user.email || "Staff account",
       fullName: profile.full_name?.trim() || "Staff",
+      canManageAccounts: Boolean(profile.can_manage_accounts),
     } satisfies StaffMember,
   };
+}
+
+/**
+ * Account management is a narrower permission than staff access. The flag is
+ * set in SQL only; the app can never grant it to itself.
+ */
+export async function requireAccountManager() {
+  const session = await requireStaff();
+
+  if (!session.staff.canManageAccounts) {
+    redirect("/staff?error=Only+an+account+manager+can+open+accounts.");
+  }
+
+  return session;
 }

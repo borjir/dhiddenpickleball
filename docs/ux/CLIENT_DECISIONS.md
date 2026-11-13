@@ -594,6 +594,33 @@ A waitlist without promotion and payment rules is not buildable.
 
 ---
 
+### D-29 — Account management and record retention
+
+**Client answer (13 Nov 2026):**
+
+- One or two owners need to manage accounts; everyone else stays `player` or
+  `staff`. Account management is therefore a **flag on a staff profile**
+  (`profiles.can_manage_accounts`), not a new role. This keeps D-14 (player and
+  staff only) intact and is set in SQL, never from the app.
+- Staff may change prices and operating hours themselves.
+- Staff may delete wrong bookings and payments. **Implemented as a soft void**:
+  the row is kept for the audit trail and excluded from every total, because a
+  hard delete would remove the accounting and dispute record.
+- The main goal is keeping the Supabase Free plan from filling up.
+- Lapsed unpaid court holds and unaccepted open-play registrations should be
+  removed as soon as they stop being useful rather than kept forever.
+
+**Implementation:** `supabase/migrations/20261113000100_phase11_staff_admin.sql`
+and the `/staff/accounts`, `/staff/courts`, `/staff/payments`,
+`/staff/bookings/[reference]`, and `/staff/reports` screens.
+
+**Still open:** how long payment-proof screenshots are kept. They are the only
+row type that grows with volume (about 108 kB each, 1 GB plan ceiling), so the
+reports page now shows the usage and the retention window stays a client
+decision.
+
+---
+
 ## D. Minor or confirmations
 
 ### D-24 — Booking reference format

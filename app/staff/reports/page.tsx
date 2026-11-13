@@ -11,13 +11,21 @@ import {
   WalletIcon,
 } from "@/components/ui/icons";
 import {
+  StaffFlash,
   StaffPageHeader,
   StaffPanel,
   StaffStat,
 } from "@/components/staff/staff-ui";
+import {
+  StaffFilterBar,
+  StaffFilterDate,
+  StaffFilterField,
+} from "@/components/staff/staff-filters";
 import { requireStaff } from "@/lib/staff/auth";
+import { purgeProofsAction } from "@/app/staff/actions";
 import { formatPeso } from "@/lib/bookings";
 import { getStaffReport } from "@/lib/staff/reports";
+import { cn } from "@/lib/cn";
 import {
   isValidDateId,
   manilaTodayId,
@@ -31,6 +39,8 @@ export const metadata: Metadata = {
 type SearchParams = Promise<{
   from?: string | string[];
   to?: string | string[];
+  notice?: string | string[];
+  error?: string | string[];
 }>;
 
 function text(value: string | string[] | undefined) {
@@ -46,8 +56,25 @@ async function Reports({ searchParams }: { searchParams: SearchParams }) {
     : shiftDateId(today, -29);
   const to = isValidDateId(text(params.to)) ? text(params.to) : today;
   const report = await getStaffReport(supabase, from, to);
+  const { data: quotaData } = await supabase.rpc("staff_quota_usage");
+  const quota = quotaData as
+    | {
+        database_bytes: number;
+        storage_bytes: number;
+        proof_count: number;
+        booking_count: number;
+        payment_count: number;
+        audit_count: number;
+      }
+    | null;
   const maxHours = Math.max(...report.days.map((day) => day.courtHours), 1);
   const maxCollected = Math.max(...report.days.map((day) => day.collected), 1);
+  const presets = [
+    { label: "Today", from: today, to: today },
+    { label: "Last 7 days", from: shiftDateId(today, -6), to: today },
+    { label: "Last 30 days", from: shiftDateId(today, -29), to: today },
+    { label: "This month", from: `${today.slice(0, 7)}-01`, to: today },
+  ];
 
   return (
     <>
@@ -61,47 +88,63 @@ async function Reports({ searchParams }: { searchParams: SearchParams }) {
             className={buttonClasses({ variant: "secondary", size: "sm" })}
           >
             <DownloadIcon className="size-4" />
-            Export CSV
+            Export Excel
           </Link>
         }
       />
 
-      <form
-        action="/staff/reports"
-        method="get"
-        className="mt-5 grid gap-2 rounded-xl border border-line bg-surface p-3 shadow-card sm:flex sm:flex-wrap sm:items-end"
-      >
-        <label className="flex flex-col gap-1 text-caption font-semibold text-muted">
-          From
-          <input
-            type="date"
-            name="from"
-            defaultValue={report.from}
-            className="h-10 w-full rounded-lg border border-line bg-page px-2 text-sm font-semibold text-heading sm:w-[9.75rem]"
+      {text(params.notice) || text(params.error) ? (
+        <div className="mt-5">
+          <StaffFlash
+            notice={text(params.notice) || null}
+            error={text(params.error) || null}
           />
-        </label>
-        <label className="flex flex-col gap-1 text-caption font-semibold text-muted">
-          To
-          <input
-            type="date"
-            name="to"
-            defaultValue={report.to}
-            className="h-10 w-full rounded-lg border border-line bg-page px-2 text-sm font-semibold text-heading sm:w-[9.75rem]"
-          />
-        </label>
-        <button type="submit" className={buttonClasses({ size: "md", className: "w-full sm:w-auto" })}>
-          Apply range
-        </button>
-        <Link
-          href="/staff/reports"
-          className="inline-flex min-h-10 items-center justify-center px-2 text-sm font-semibold text-accent-ink sm:justify-start"
+        </div>
+      ) : null}
+
+      <div className="mt-5">
+        <StaffFilterBar
+          action="/staff/reports"
+          active={Boolean(text(params.from) || text(params.to))}
+          clearHref="/staff/reports"
+          submitLabel="Show report"
+          help="Pick the first and last day you want to include."
+          columns="sm:grid-cols-2 lg:grid-cols-[11rem_11rem]"
         >
-          Last 30 days
-        </Link>
+          <StaffFilterField id="report-from" label="From date">
+            <StaffFilterDate id="report-from" name="from" value={report.from} />
+          </StaffFilterField>
+          <StaffFilterField id="report-to" label="To date">
+            <StaffFilterDate id="report-to" name="to" value={report.to} />
+          </StaffFilterField>
+        </StaffFilterBar>
+      </div>
+
+      <div className="-mt-1 mb-4 flex flex-wrap items-center gap-2">
+        <span className="text-caption font-semibold text-muted">Quick ranges:</span>
+        {presets.map((preset) => {
+          const active = report.from === preset.from && report.to === preset.to;
+          return (
+            <Link
+              key={preset.label}
+              href={`/staff/reports?from=${preset.from}&to=${preset.to}`}
+              aria-current={active ? "true" : undefined}
+              className={cn(
+                "inline-flex min-h-9 items-center rounded-lg border px-3 text-caption font-semibold transition-colors",
+                active
+                  ? "border-brand-navy bg-brand-navy text-white"
+                  : "border-line bg-surface text-heading hover:border-line-strong hover:bg-brand-blue-soft/50",
+              )}
+            >
+              {preset.label}
+            </Link>
+          );
+        })}
         <span className="text-caption text-muted sm:ml-auto">
-          {report.days.length} day{report.days.length === 1 ? "" : "s"} · {report.from} → {report.to}
+          Showing {report.from} to {report.to} · {report.days.length} day
+          {report.days.length === 1 ? "" : "s"}
         </span>
-      </form>
+      </div>
 
       <div className="mt-4 grid gap-3 min-[360px]:grid-cols-2 xl:grid-cols-4">
         <StaffStat
@@ -246,6 +289,82 @@ async function Reports({ searchParams }: { searchParams: SearchParams }) {
               Collected totals use staff review or a manually recorded payment. A submitted
               screenshot does not count as collected until it is verified.
             </p>
+          </StaffPanel>
+
+          <StaffPanel
+            title="Free-plan headroom"
+            description="Supabase measures the database (500 MB) and file storage (1 GB) separately."
+          >
+            {quota ? (
+              <div className="space-y-3">
+                {[
+                  {
+                    label: "Database",
+                    used: quota.database_bytes,
+                    limit: 500 * 1024 * 1024,
+                    detail: `${quota.booking_count} bookings · ${quota.payment_count} payments · ${quota.audit_count} audit rows`,
+                  },
+                  {
+                    label: "Payment proofs",
+                    used: quota.storage_bytes,
+                    limit: 1024 * 1024 * 1024,
+                    detail: `${quota.proof_count} screenshot${quota.proof_count === 1 ? "" : "s"} kept`,
+                  },
+                ].map((item) => {
+                  const percent = Math.min(
+                    100,
+                    Math.round((item.used / item.limit) * 1000) / 10,
+                  );
+
+                  return (
+                    <div key={item.label}>
+                      <div className="flex items-baseline justify-between gap-3">
+                        <p className="text-caption font-bold text-heading">
+                          {item.label}
+                        </p>
+                        <p className="text-caption tabular-nums text-muted">
+                          {(item.used / 1024 / 1024).toFixed(1)} MB · {percent}%
+                        </p>
+                      </div>
+                      <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-page ring-1 ring-line">
+                        <div
+                          className={cn(
+                            "h-full rounded-full",
+                            percent > 80 ? "bg-danger" : "bg-brand-lime",
+                          )}
+                          style={{ width: `${Math.max(percent, 1)}%` }}
+                        />
+                      </div>
+                      <p className="mt-1 text-[0.6875rem] text-muted">{item.detail}</p>
+                    </div>
+                  );
+                })}
+                <div className="border-t border-line pt-3">
+                  <form action={purgeProofsAction}>
+                    <button
+                      type="submit"
+                      className={buttonClasses({ variant: "secondary", size: "sm" })}
+                    >
+                      Delete cancelled proofs
+                    </button>
+                  </form>
+                  <p className="mt-2 text-[0.6875rem] leading-relaxed text-muted">
+                    Screenshots are kept permanently. The only ones removed are
+                    those whose booking or open-play registration was cancelled,
+                    whose payment was rejected, or whose record was voided.
+                    Verified and completed bookings never lose their proof.
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <p className="text-caption text-muted">
+                Usage is unavailable right now. Run the migration that adds
+                <code className="mx-1 rounded bg-page px-1 py-0.5">
+                  staff_quota_usage()
+                </code>
+                or check the Supabase dashboard.
+              </p>
+            )}
           </StaffPanel>
         </div>
       </div>

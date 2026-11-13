@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ClubMap } from "@/components/home/club-map";
+import { ClubMapLazy } from "@/components/home/club-map-lazy";
 import { PageHeader } from "@/components/site/page-header";
 import { PublicPage } from "@/components/site/public-page";
 import { Reveal } from "@/components/motion/reveal";
@@ -159,7 +159,7 @@ export default function VisitPage() {
             </p>
           </div>
           <div className="mt-8">
-            <ClubMap />
+            <ClubMapLazy />
           </div>
         </div>
       </section>

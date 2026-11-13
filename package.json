@@ -9,9 +9,10 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "cf:build": "node scripts/sync-maplibre-worker.mjs && opennextjs-cloudflare build",
+    "cf:build": "node scripts/sync-maplibre-worker.mjs && opennextjs-cloudflare build && opennextjs-cloudflare populateCache local",
     "preview": "npm run cf:build && opennextjs-cloudflare preview",
-    "deploy": "npm run cf:build && opennextjs-cloudflare deploy"
+    "check:worker-size": "node scripts/check-worker-size.mjs",
+    "deploy": "npm run cf:build && npm run check:worker-size && opennextjs-cloudflare deploy"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",

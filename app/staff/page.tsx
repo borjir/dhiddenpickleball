@@ -39,6 +39,7 @@ import {
   type StaffPayment,
 } from "@/lib/staff/types";
 import { openPlayLevelLabel } from "@/lib/open-play";
+import { OPEN_PLAY_ENABLED } from "@/lib/features";
 import { cn } from "@/lib/cn";
 
 export const metadata: Metadata = {
@@ -82,9 +83,10 @@ function DateSwitcher({ dateId }: { dateId: string }) {
         />
         <button
           type="submit"
+          aria-label="Show this day"
           className="h-9 rounded-lg px-2 text-xs font-bold text-accent-ink transition-colors hover:bg-brand-blue-soft"
         >
-          Go
+          Show
         </button>
       </form>
       <Link
@@ -195,6 +197,7 @@ async function Dashboard({ searchParams }: { searchParams: SearchParams }) {
       .gte("starts_at", start)
       .lt("starts_at", end)
       .in("status", ["pending", "confirmed", "completed"])
+      .is("voided_at", null)
       .order("starts_at", { ascending: true }),
     supabase
       .from("open_play_sessions")
@@ -227,6 +230,7 @@ async function Dashboard({ searchParams }: { searchParams: SearchParams }) {
       .from("payments")
       .select("amount_php, reviewed_at")
       .eq("status", "paid")
+      .is("voided_at", null)
       .gte("reviewed_at", start)
       .lt("reviewed_at", end),
   ]);
@@ -353,7 +357,12 @@ async function Dashboard({ searchParams }: { searchParams: SearchParams }) {
         </div>
       ) : null}
 
-      <div className="mt-5 grid grid-cols-1 gap-3 min-[360px]:grid-cols-2 xl:grid-cols-4">
+      <div
+        className={cn(
+          "mt-5 grid grid-cols-1 gap-3 min-[360px]:grid-cols-2",
+          OPEN_PLAY_ENABLED ? "xl:grid-cols-4" : "xl:grid-cols-3",
+        )}
+      >
         <StaffStat
           icon={CalendarIcon}
           label="Court bookings"
@@ -362,14 +371,16 @@ async function Dashboard({ searchParams }: { searchParams: SearchParams }) {
           tone="blue"
           href={`/staff/bookings?date=${dateId}`}
         />
-        <StaffStat
-          icon={BallIcon}
-          label="Open-play players"
-          value={openPlayPlayers}
-          detail={`${sessions.length} session${sessions.length === 1 ? "" : "s"} today`}
-          tone="lime"
-          href="/staff/open-play"
-        />
+        {OPEN_PLAY_ENABLED ? (
+          <StaffStat
+            icon={BallIcon}
+            label="Open-play players"
+            value={openPlayPlayers}
+            detail={`${sessions.length} session${sessions.length === 1 ? "" : "s"} today`}
+            tone="lime"
+            href="/staff/open-play"
+          />
+        ) : null}
         <StaffStat
           icon={WalletIcon}
           label="To verify"
@@ -501,7 +512,7 @@ async function Dashboard({ searchParams }: { searchParams: SearchParams }) {
               </Link>
             ) : null}
 
-            {nearCapacity.length > 0 ? (
+            {OPEN_PLAY_ENABLED && nearCapacity.length > 0 ? (
               <Link
                 href="/staff/open-play"
                 className="flex items-center justify-between gap-3 rounded-lg border border-brand-blue/20 bg-brand-blue-soft/50 px-3 py-2.5"
@@ -547,16 +558,18 @@ async function Dashboard({ searchParams }: { searchParams: SearchParams }) {
               </span>
               <span className="text-sm font-bold text-heading">Review payments</span>
             </Link>
-            <Link
-              href="/staff/open-play"
-              className="group flex min-h-20 flex-col justify-between rounded-lg border border-line bg-page/50 p-3 transition-[border-color,background-color,transform] hover:-translate-y-px hover:border-brand-blue/35 hover:bg-surface"
-            >
-              <span className="flex items-start justify-between">
-                <BallIcon className="size-5 text-accent-ink" />
-                <ArrowRightIcon className="size-3.5 text-muted/60 transition-transform group-hover:translate-x-0.5 group-hover:text-accent-ink" />
-              </span>
-              <span className="text-sm font-bold text-heading">Open-play desk</span>
-            </Link>
+            {OPEN_PLAY_ENABLED ? (
+              <Link
+                href="/staff/open-play"
+                className="group flex min-h-20 flex-col justify-between rounded-lg border border-line bg-page/50 p-3 transition-[border-color,background-color,transform] hover:-translate-y-px hover:border-brand-blue/35 hover:bg-surface"
+              >
+                <span className="flex items-start justify-between">
+                  <BallIcon className="size-5 text-accent-ink" />
+                  <ArrowRightIcon className="size-3.5 text-muted/60 transition-transform group-hover:translate-x-0.5 group-hover:text-accent-ink" />
+                </span>
+                <span className="text-sm font-bold text-heading">Open-play desk</span>
+              </Link>
+            ) : null}
             <Link
               href="/staff/courts"
               className="group flex min-h-20 flex-col justify-between rounded-lg border border-line bg-page/50 p-3 transition-[border-color,background-color,transform] hover:-translate-y-px hover:border-brand-blue/35 hover:bg-surface"

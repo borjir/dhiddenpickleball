@@ -15,6 +15,9 @@ export type StaffPayment = {
   proof_path: string | null;
   submitted_at: string | null;
   rejection_reason: string | null;
+  /** Voided rows stay for the audit trail but drop out of every total. */
+  voided_at?: string | null;
+  voided_reason?: string | null;
   booking:
     | {
         reference: string;
@@ -52,6 +55,9 @@ export type StaffBooking = {
   player: StaffPerson | null;
   service: { name: string; code: string } | null;
   court_reservations: Array<{ court: { name: string } | null }> | null;
+  /** Present when the select asks for it; voided rows are excluded from totals. */
+  voided_at?: string | null;
+  voided_reason?: string | null;
 };
 
 export type StaffOpenPlaySession = {

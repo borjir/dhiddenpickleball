@@ -1,7 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Archivo, Source_Sans_3 } from "next/font/google";
 import { BookingModalProvider } from "@/components/booking/booking-modal-provider";
-import { NotificationsProvider } from "@/components/notifications/notifications-provider";
 import "./globals.css";
 
 const archivo = Archivo({
@@ -47,10 +46,10 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>
+      {/* The staff notification provider (and the Supabase client it needs) is
+          scoped to the staff routes so public pages do not ship it. */}
       <body className="flex min-h-full flex-col bg-page font-sans text-ink">
-        <NotificationsProvider>
-          <BookingModalProvider>{children}</BookingModalProvider>
-        </NotificationsProvider>
+        <BookingModalProvider>{children}</BookingModalProvider>
       </body>
     </html>
   );

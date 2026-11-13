@@ -1,5 +1,607 @@
 # Project Status
 
+## Payment-proof retention: the one limit that can actually fill (13 November 2026)
+
+Database growth is not the risk. It sits at 14 MB of 500 MB, is dominated by
+~1.2 kB audit rows, and every table that grows is trimmed by a scheduled job.
+Storage is the risk: 1 GB, ~108 kB per proof, and nothing ever deleted them, so
+the bucket had a hard lifetime of about 9,000 bookings.
+
+Deleting proof rows with SQL does nothing useful. Supabase's own documentation is
+unambiguous: removing rows from `storage.objects` leaves the physical file behind,
+so the object is orphaned and **keeps consuming the plan's storage**. Deletion has
+to go through the Storage API. That is why this is an HTTP endpoint and a staff
+action, not part of `run_data_hygiene()`, which is plain SQL inside `pg_cron`.
+
+### The rule (client decision, 13 November 2026)
+
+`lib/storage/proofs.ts` decides, `lib/storage/purge-proofs.ts` executes:
+
+**Proofs are kept permanently.** A screenshot is deleted only when the booking
+or open-play registration it belongs to was cancelled, when the payment was
+rejected, or when staff voided the record. Verified, completed, and no-show
+screenshots are never deleted, however old they are.
+
+So the deletion set is: `bookings.status = 'cancelled'` (which includes expired
+unpaid holds and cancelled open-play registrations, since cancelling a session
+moves its bookings to `cancelled`), `bookings.voided_at` or `payments.voided_at`
+set, or `payments.status = 'rejected'`.
+
+Each run deletes at most 300 objects, oldest first. There is no age window and
+no size cap any more — an earlier 90-day window plus a 700 MB soft cap was built
+and then removed on the client's instruction to keep proofs indefinitely. **The
+one behaviour that is now unbounded by design is storage growth itself:** at
+~108 kB per proof, the 1 GB plan still arrives at about 9,000 screenshots, so the
+Free-plan headroom panel stays as the early-warning signal rather than a safety
+net.
+
+### How it runs
+
+- `GET /api/cron/storage` with `Authorization: Bearer <EMAIL_CRON_SECRET>` — same
+  secret as the email cron so one scheduler drives both. Returns what it deleted.
+- **Delete cancelled proofs** button in the Free-plan headroom panel on
+  `/staff/reports`, so the club can clean up today even though **no scheduler is
+  configured yet** (that checklist item is still open).
+
+Both paths run the same function, are safe to repeat, and report the message
+through the usual staff flash.
+
+### Checks
+
+- `lib/storage/proofs.ts` selection rules exercised directly (7/7): an old
+  verified proof survives, an old completed-booking proof survives, a no-show
+  proof survives, a cancelled booking's proof is selected, a rejected payment's
+  proof is selected, a selected proof needs no minimum age, and one run caps at
+  300 oldest-first.
+- `npx tsc --noEmit` and `npx eslint lib/storage app/api/cron/storage
+  app/staff/actions.ts app/staff/reports/page.tsx` — passed, no output.
+- `npm run cf:build` + `node scripts/check-worker-size.mjs` — Worker
+  **2,719.61 KiB (88.5%, 352 KiB headroom)**, `/api/cron/storage` present as a
+  dynamic route.
+- Live project check: `profiles.can_manage_accounts`, `payments.voided_at`, and
+  `bookings.voided_at` all return 200, so the phase 11 migration is applied.
+- The flag itself is **not set yet.** The project's only staff account
+  (`joeljayponcearcipe@gmail.com`) is `role = 'staff'` with
+  `can_manage_accounts = false`. It cannot be set from the service-role key: that
+  role has no UPDATE grant on `profiles` (PostgREST returns 42501 and asks for
+  `GRANT UPDATE ON public.profiles TO service_role`), which is deliberate — the
+  column is SQL-only. Run this in the Supabase SQL editor, then reload the desk:
+
+  ```sql
+  update public.profiles
+  set can_manage_accounts = true
+  where email = 'joeljayponcearcipe@gmail.com' and role = 'staff';
+  ```
+
+  Until then `/staff/accounts` stays out of the sidebar.
+
+### Deployed (13 November 2026)
+
+`npm run deploy` succeeded — Worker version `ce991386-6e0d-4efa-a1d9-eb765fe08745`,
+2,719.57 KiB gzip, 22 ms startup. Live checks: `/` 200, `/visit` 200 (map mounts
+with 8 tile requests), `/staff/reports` 307 to sign-in, `/api/cron/storage` 503,
+and no `href="/open-play"` on the home page.
+
+Redeployed the same day with permanent proof retention — Worker version
+`6fb30971-567b-4164-af08-8ca42830e2f5`, 2,719.17 KiB gzip (88.5%, 352.83 KiB
+headroom). `/` 200, `/staff/reports` and `/staff/accounts` 307 to sign-in,
+`/api/cron/storage` still 503 (see below).
+
+**`/api/cron/storage` returns 503, not 401, which means `EMAIL_CRON_SECRET` is not
+visible to the Worker at runtime even though `wrangler secret list` shows it.**
+`/api/cron/email` does the same, and did before this change — so it is an existing
+environment issue, not this feature. Either the secret was stored empty, or
+`process.env` is not being populated for the bundle. Re-set it with
+`npx wrangler secret put EMAIL_CRON_SECRET` and re-check; until then the staff
+button is the only working path, and it depends on `SUPABASE_SERVICE_ROLE_KEY`
+(also present in the secret list) rather than on the cron secret.
+
+### Not verified / open
+
+- The Storage API deletion path has not run against the live bucket. The rules are
+  tested, but the first real run (button or cron) is the one that proves the
+  service-role key can list and remove objects, and it should be watched once.
+- Total bucket size is read from the `storage` schema through PostgREST. If that
+  schema is not exposed, the size comes back unknown and only the age rule runs;
+  the response reports that rather than pretending the cap was applied.
+- No scheduler exists, so nothing runs unattended yet. Either point the existing
+  cron service at `/api/cron/storage` daily, or click the button.
+
+## Worker was over the free-plan limit; map moved client-only (13 November 2026)
+
+`npm run cf:build` + `npm run check:worker-size` measured **3,072.36 KiB gzip** against the
+Cloudflare Free limit of 3,072 KiB — 0.36 KiB over, so `npm run deploy` stopped at the size gate.
+
+The cause was not new code: `maplibre-gl` (1.2 MB uncompressed) was in the Worker's server bundle
+because `app/visit/page.tsx` and the home page imported the map component statically, and SSR
+pulled its module graph in.
+
+Fixed with `components/home/club-map-lazy.tsx`: a client component that loads the map through
+`next/dynamic` with `ssr: false`, reusing the `.club-map-frame` box (22rem / 26rem from
+`globals.css`) as the placeholder so nothing shifts. Both pages now import `ClubMapLazy`.
+
+- `npm run check:worker-size` — **2,714.53 KiB gzip (88.4%, 357.47 KiB headroom)**.
+- `maplibre` no longer appears in `.open-next/server-functions/default/handler.mjs` or its SSR
+  chunks (grep count 0).
+- `npx tsc --noEmit` and `npx eslint` on the three touched files — passed, no output.
+- In headless Chrome, `/` and `/visit` both mount the map (`.maplibregl-canvas` present, 8
+  OpenFreeMap tile requests) after scrolling it into view, which is when the existing
+  IntersectionObserver starts it.
+
+## Account management, staff rate/hours editing, soft void, free-tier trims (13 November 2026)
+
+**Scope approved by the client:** account management for one or two owners,
+staff-editable prices and operating hours, removal of mistaken bookings and
+payments, and keeping the Supabase Free plan from filling up.
+
+### Account management is a flag, not a new role
+
+`profiles.can_manage_accounts` marks the owners who may invite, disable, and
+reset staff accounts. It is a column on the existing `staff` role, so decision
+D-14 (player and staff only, no manager/admin role) still holds. The app can
+never grant the flag to itself: the column is not in the authenticated update
+grant and the profile trigger rejects any in-app change to it.
+
+**Set it once in SQL:**
+
+```sql
+update public.profiles
+set can_manage_accounts = true
+where email = 'owner@example.com' and role = 'staff';
+```
+
+Then `/staff/accounts` appears in the desk sidebar for that account only. It
+lists staff accounts, shows who is an account manager and whose sign-in is
+disabled, sends invitations, disables/enables sign-in (via an auth ban, so
+history stays attached), and sends password resets. Invitations and resets are
+sent by Supabase auth email, so its Free-plan send rate applies; the page states
+the SQL fallback.
+
+**Order matters:** apply the migration before deploying, because `requireStaff()`
+now selects `can_manage_accounts` and will send staff back to sign-in if the
+column does not exist yet.
+
+### Prices and hours are staff-editable
+
+`/staff/courts` gained two panels:
+
+- **Prices** edits `service_rates.amount_php` per window (currently the 7:00 AM
+  and 5:00 PM hourly windows). Availability and `calculate_court_amount()` read
+  this table at call time, so new bookings use the new price immediately while
+  existing bookings keep their quoted amount.
+- **Operating hours** edits `court_operating_hours` per court and weekday, with
+  a per-day closed switch. Availability, the booking-time checks, and the
+  price-window checks all read this table, so the change applies without a
+  deploy or a function change. The court cards now show the configured hours
+  instead of the old hardcoded "7:00 AM – 12:00 AM" caption.
+
+### Wrong records are voided, not deleted
+
+The client asked for staff to be able to delete mistaken bookings and payments.
+Deleting a paid booking would destroy the club's accounting and dispute record,
+so this is implemented as a **soft void** (`voided_at`, `voided_reason`,
+`voided_by` on `bookings` and `payments`):
+
+- `staff_void_payment` accepts any payment, and when it voids a `paid` row it
+  puts the booking back to `unpaid` unless another live paid payment covers it.
+- `staff_void_booking` only accepts closed, unpaid bookings; a paid booking has
+  to go through cancel/refund, and a live hold has to expire or be cancelled.
+- Voided rows are excluded from the operations report, the dashboard totals, the
+  queues, and the booking list. The detail page and payment card keep showing
+  them with a Voided badge and the reason.
+
+### Free-tier trims
+
+The daily `public.run_data_hygiene()` job keeps its existing windows
+(`email_outbox` 30 days, read notifications 90 days, `audit_logs` 1 year) and now
+also deletes:
+
+- court holds whose window lapsed, that were never confirmed, and that never
+  received a payment row (a hold with a proof attached is evidence and stays);
+- open-play registrations still `registered` more than 24 hours after the
+  session ended, together with their unpaid booking, so attendance marking and
+  the session itself are untouched;
+- reservation groups left empty by those deletes.
+
+Completed, no-show, and staff-cancelled bookings are never touched by the job.
+Payment-proof screenshots are **not** deleted by it: they are the only row type
+that grows with volume, and a retention window is still a client decision. New
+`staff_quota_usage()` feeds a **Free-plan headroom** panel on `/staff/reports`
+showing database size against 500 MB, proof storage against 1 GB, and the row
+counts behind each.
+
+### Files
+
+- `supabase/migrations/20261113000100_phase11_staff_admin.sql` (new)
+- `lib/staff/auth.ts` (`canManageAccounts`, `requireAccountManager`)
+- `app/staff/accounts/page.tsx` (new), `app/staff/actions.ts`
+- `app/staff/courts/page.tsx`, `app/staff/payments/page.tsx`,
+  `app/staff/bookings/page.tsx`, `app/staff/bookings/[reference]/page.tsx`,
+  `app/staff/page.tsx`, `app/staff/reports/page.tsx`
+- `components/staff/staff-nav.tsx`, `lib/staff/types.ts`,
+  `lib/staff/reports.ts`
+- `docs/ux/CLIENT_DECISIONS.md` (new decision D-29)
+
+### Checks
+
+- `npm run build` — passed (42 routes, including `/staff/accounts`).
+- `npx tsc --noEmit` — passed, no output.
+- `npx eslint app/staff lib/staff components/staff` — passed, no output.
+- **Migration executed against a real Postgres engine (PGlite) with stand-ins for
+  the Supabase-managed objects** (`auth.uid()`, `is_staff()`, `storage.objects`,
+  the `anon`/`authenticated`/`service_role` roles, and the tables the phase 11
+  migration touches). 31 of 31 checks passed:
+  - the migration applies cleanly and creates the flag, the six columns, and all
+    six functions;
+  - both void RPCs refuse without staff access and refuse a missing reason;
+  - a live hold and a paid booking are both rejected by `staff_void_booking`, a
+    closed unpaid booking voids once and releases its reservation, and a second
+    void is refused;
+  - voiding the only paid payment reverts the booking to `unpaid`, while another
+    live paid payment keeps it `paid`;
+  - hygiene deletes the expired unpaid hold and the expired-released hold, keeps
+    a hold with a proof attached, keeps completed and staff-cancelled bookings,
+    deletes the abandoned open-play booking with no orphan registration left,
+    and keeps recent, attended, and paid registrations;
+  - the older hygiene windows still clear `email_outbox`, `notifications`, and
+    `audit_logs`;
+  - `staff_quota_usage()` returns database bytes, proof bytes, and row counts;
+  - the role trigger lets an account manager change a role and blocks a
+    non-manager, and blocks any in-app change to the manager flag itself.
+
+### Not verified / open
+
+- **The migration has not been applied to the Supabase project.** The project is
+  linked (`supabase/.temp/project-ref`), but no database password or access
+  token is available in this environment, so the change could only be executed
+  against the local Postgres engine above, not the real project. Apply it with
+  `npx supabase db push` (or paste the file into the SQL editor), then set the
+  manager flag.
+- The screens were not opened in a browser: staff routes need a session and no
+  staff credentials were available. After the migration, sign in, set the flag,
+  and check `/staff/accounts`, `/staff/courts`, a voided payment and booking, and
+  the reports panel.
+- Invitation and reset emails depend on the Supabase auth SMTP settings in the
+  project; the Free plan limits sends per hour.
+- Proof-image retention is still undecided, so storage only grows and is
+  monitored from the new panel.
+- Nothing was deployed.
+
+## Open play hidden pending client clarification, public-page payload cut (13 November 2026)
+
+**Scope completed:** hide every open-play entry point until the client confirms
+the programme, and reduce the JavaScript the public pages download. No booking,
+payment, permission, database, or open-play data rule changed.
+
+### Open play is hidden behind one flag
+
+`lib/features.ts` exports `OPEN_PLAY_ENABLED = false`. Every entry point reads
+that value, so restoring the feature is a one-line change plus a redeploy:
+
+- Public header, desktop and mobile menus, and the footer **Play** column.
+- The homepage hero's **See open play** action.
+- Staff sidebar **Open play** item, the mobile tab bar item (the bar now sizes
+  itself to the remaining tabs), the dashboard **Open-play players** tile, the
+  **Open-play desk** quick action, and the **Sessions filling up** alert.
+
+The `/open-play` and `/staff/open-play` routes, their server actions, the
+database functions, and the open-play tables are untouched. They are simply
+unlinked, so an existing booking or a direct URL still resolves.
+
+**Reminder: turn open play back on** when the client answers the open-play
+questions (schedule, price, capacity, skill levels, and whether it is normal or
+DUPR-enabled). Flip `OPEN_PLAY_ENABLED` to `true`, rebuild, and redeploy.
+
+### Measured payload change
+
+Measured with a real headless Chrome session against a local production build
+(`next start`), mobile viewport 390×844, cache disabled, cold navigation to `/`:
+
+| Metric | Before | After |
+| --- | --- | --- |
+| Requests | 29 | 25 |
+| Transferred | 814 KiB | 708 KiB |
+| Script transferred | 316 KiB | 214 KiB |
+| Supabase client chunk on `/` | 67 KiB | not requested |
+
+Two causes were removed:
+
+- **Staff notifications provider moved off public pages.** `app/layout.tsx` no
+  longer mounts `NotificationsProvider`; it now wraps only `app/staff/layout.tsx`
+  and the new `app/notifications/layout.tsx`. That keeps the Supabase client and
+  its Realtime channel (a 67 KiB gzip chunk) off every public page.
+- **Booking flow deferred.** `components/booking/booking-modal-provider.tsx`
+  loads `CourtBooking`, `OpenPlayRegistration`, and `OpenPlayBrowser` through
+  `next/dynamic` with a skeleton fallback, instead of importing them into the
+  root-layout bundle. That also removes the Turnstile widget bundles from pages
+  that never open a booking.
+
+To keep the first **Book a court** click fast despite the deferred chunk,
+`BookingTrigger` and the header button prewarm the court module on hover, focus,
+or touch start. Dialog-ready timing on the new build measured 474, 478, and
+494 ms after a hover, against 517, 931, and 1,223 ms when the button is clicked
+with no hover (the chunk then races the server action). The previous build
+measured 387 ms once. These are same-machine local readings with high variance,
+so the interaction numbers are indicative only; the payload numbers are the
+reliable result.
+
+### Files
+
+- `lib/features.ts` (new)
+- `app/notifications/layout.tsx` (new)
+- `app/layout.tsx`, `app/staff/layout.tsx`, `app/staff/page.tsx`
+- `components/booking/booking-modal-provider.tsx`,
+  `components/booking/booking-trigger.tsx`
+- `components/home/home-page.tsx`, `components/site/site-header.tsx`,
+  `components/site/site-footer.tsx`, `components/staff/staff-nav.tsx`
+
+### Checks
+
+- `npm run build` — passed (41 routes).
+- `npx tsc --noEmit` — passed, no output.
+- Scoped `npx eslint --max-warnings=0` on the ten changed files — passed.
+- Public pages crawled after the change (`/`, `/courts`, `/club`, `/visit`,
+  `/book`, `/lookup`, `/club/faq`): zero `href="/open-play"` links remain.
+- Page-weight measurement as in the table above.
+
+### Not verified / open
+
+- Staff pages were not opened in a browser: they need a staff session and no
+  credentials were available. The sidebar, mobile tab bar, and dashboard gating
+  are checked by type-check and build only. Sign in once and confirm the mobile
+  bar shows four tabs and the Open-play tile is gone.
+- Lighthouse, field data, and a phone-on-mobile-network test were not run; the
+  numbers above are a single local machine.
+- Nothing was deployed. Run `npm run deploy` to publish.
+- **Super admin role is not implemented.** Adding one changes the auth and RLS
+  model that `D-14` settled (player and staff only), so it is waiting on the
+  client's answers about who may grant roles and manage prices, staff accounts,
+  and audit history.
+
+## Cloudflare CPU failures and Worker hangs (10 November 2026)
+
+**Problem:** the live Worker returned Cloudflare `error code: 1102` ("Worker
+exceeded CPU time limit") on a large share of page views, and other requests
+hung for about 40 seconds with no response before recovering later. The daily
+100,000-request limit was not involved: `wrangler tail` showed successful page
+renders using **20–65 ms of CPU** against the Free plan's 10 ms budget, and hung
+invocations ending as `canceled` after ~42 s with only ~6 ms of CPU and a
+pending `waitUntil()` task.
+
+### Root cause
+
+- Every request re-rendered its page because the adapter used its dummy
+  incremental cache (`x-nextjs-cache: MISS` even on prerendered routes), so the
+  static public pages paid a full React render each time.
+- The proxy ran the Supabase session client on every public page, adding
+  middleware and auth work to pages that never read a session.
+- React server renders retain per-isolate state, the known OpenNext failure mode
+  behind intermittent 1102s and dying isolates
+  (opennextjs/opennextjs-cloudflare#1381). Serving prerendered pages from a
+  cache avoids the render path that leaks.
+
+### Implemented
+
+- **Static-assets page cache:** `open-next.config.ts` uses the read-only
+  Workers static-assets incremental cache with `enableCacheInterception: true`.
+  `cf:build` now runs `opennextjs-cloudflare populateCache local`, which copies
+  the 25 prerendered route-cache entries into
+  `.open-next/assets/cdn-cgi/_next_cache` before upload. A cached page (HTML or
+  RSC navigation) is returned before the Next render runs.
+- **Proxy scope:** `proxy.ts` now matches only `/staff`, `/staff-access`,
+  `/notifications`, `/auth/*`, the retired-player redirects, and a root URL that
+  actually carries an auth result (`code`, `token_hash`, `error`,
+  `error_description`). Public pages skip the middleware bundle and Supabase
+  client entirely.
+
+### Files
+
+- `open-next.config.ts`, `package.json` (`cf:build`),
+  `proxy.ts`
+
+### Checks
+
+- `npm run cf:build` — passed (Next build, Worker bundle, cache population).
+- `npx tsc --noEmit` — passed, no output.
+- `npx eslint proxy.ts open-next.config.ts` — passed, no output.
+- `npm run check:worker-size` — passed at 2,931.52 KiB / 3,072 KiB gzip
+  (95.4%, 140.48 KiB headroom).
+- Local `wrangler dev`: `/`, `/?resume=cart`, `/courts`, `/courts/court-1`,
+  `/club`, `/club/faq`, `/visit`, `/policies/booking`, `/book`, `/lookup`, and
+  `/open-play` returned 200. Homepage HTML and RSC navigations came from the
+  cache interceptor; `/staff` and `/notifications` redirected to staff sign-in;
+  `/?code=abc` redirected to `/auth/callback`; `/sign-in` redirected to
+  `/lookup`. Repeated homepage requests took ~20–35 ms wall locally, down from
+  a ~1.5 s cold render.
+- No cache-write errors appeared in the local Worker log.
+
+### Deployed and load-tested
+
+- Deployed on 10 November 2026 as version
+  `f87b85c6-d773-44d2-9419-73a7ac14152a` (deployment created 14:15 UTC).
+- CPU is now measurable on the live Worker. `wrangler tail` sampled 144
+  invocations during the test below; cached pages typically used **3–10 ms
+  CPU** (`/`, `/club`, `/courts`, `/policies/*`, `/visit`), while dynamic pages
+  used roughly 15–100 ms with cold-render spikes up to 526 ms (`/book`), 275 ms
+  (`/open-play`), and 255 ms (`/lookup`). Every sampled invocation returned
+  `outcome: ok`; there were no exceptions and no `exceededCpu`/`canceled`
+  outcomes.
+- Load model: **300 users/day at six page views each = 1,800 views**, 65% on
+  cached marketing pages and 35% on `/book`, `/lookup`, and `/open-play`,
+  compressed into 38 seconds, plus a 200-request homepage burst at 20 concurrent.
+  All **2,000 requests returned HTTP 200** (p50 47 ms, p95 201 ms, max 1.35 s
+  end-to-end from the test client). That rate is roughly 1,350x the average
+  request rate implied by 500 users/day (3,000 views/day), so a normal day is
+  far lighter; the test instead exercises a short traffic spike.
+- Tail samples under load, so the CPU figures cover 144 of the 2,000 requests;
+  the pass/fail result covers all 2,000.
+
+### Remaining risk
+
+- Dynamic pages still render per request, so a sustained flood aimed at
+  `/book`, `/lookup`, or `/open-play` (bots, a large campaign) could still
+  accumulate isolate retention. Options if that appears: the Cache API wrapper
+  from opennextjs/opennextjs-cloudflare#1381, Workers Paid (30 s CPU), or
+  explicitly caching those responses.
+- Client-side prefetch behaviour after enabling cache interception was not
+  exercised in a browser.
+
+## Staff filters, Excel export, pagination, and edge caching (10 November 2026)
+
+**Scope completed:** make every staff list filter easy to read and operate for
+non-technical front-desk staff, add a real search to each list, replace the plain
+CSV report with a branded Excel workbook, paginate lists that grow over time,
+cache hashed build assets correctly, cut the homepage photo download, and add a
+deploy-time Worker-size budget. No booking, payment, permission, or database
+rule changed.
+
+### Implemented
+
+- **Shared filter bar** (`components/staff/staff-filters.tsx`): visible labels on
+  every field, a named submit button instead of a generic Apply, a persistent
+  **Clear filters** action, and a short instruction line. Added labelled search,
+  date, and select controls.
+- **Bookings:** search now resolves guest name, mobile, email, booking reference,
+  and group reference on the server. Previously only the reference was queried,
+  so a player-name search returned nothing. A search covers every date and every
+  status by default and says so on-screen; choosing a status still narrows it.
+  Status labels now read "Active bookings", "Waiting for payment", "Everything".
+- **Payments:** new search across player name/mobile/email, booking reference,
+  group reference, and GCash transaction reference, scoped to the selected tab.
+  The tabs got a "Show payments" label and status-specific empty states.
+- **Open play:** new filters for player/roster search, a single date, skill
+  level, and session status, with an explicit "every date" search note.
+- **Court blocks:** new search by reason or court name plus a court filter that
+  keeps whole-club blocks visible.
+- **Reports:** clearly labelled From/To dates, a "Show report" submit button, and
+  quick ranges for Today, Last 7 days, Last 30 days, and This month.
+- **Dashboard:** the date button now reads **Show** instead of **Go**.
+
+### Excel export
+
+The reports export is now a styled `.xlsx` workbook, not a CSV. The **Operations
+report** sheet uses the club palette: a navy title band, lime accent rail, blue
+section bars, warm off-white data rows, Georgia display headings, Calibri body
+text, and peso number formatting. It contains an **At a glance** block of eight
+metrics, a daily activity table with alternating rows and a **TOTAL** row, notes
+that explain how collected/outstanding/occupancy are counted, and the club
+contact footer. The table has an AutoFilter and a repeating print-title row; the
+sheet is set up to print on A4 landscape, fit to one page wide.
+
+The button reads **Export Excel**, and the download is named
+`D-Hidden-Operations-<from>-to-<to>.xlsx`. `lib/staff/xlsx.ts` writes the ZIP and
+OOXML parts directly instead of adding a spreadsheet dependency, because the
+Worker gzip bundle is close to the Cloudflare free-plan limit. A generated sample
+was parsed with Python `zipfile`, `ElementTree`, and `openpyxl`: all XML parts
+were well-formed, the workbook opened with 26 rows and 8 columns, the currency
+format was `₱#,##0.00`, and the merged summary, AutoFilter, styles, and footer
+were present.
+
+### Staff pagination
+
+Pagination is limited to lists whose history actually grows:
+
+- **Payments:** every tab is now 25 payments per page with a total count. Only the
+  current page's proof URLs are signed, so older history no longer forces 80–150
+  signed links on each load.
+- **Bookings:** search results are 40 per page, which also keeps a fully booked
+  day on one page. Date, status, and search filters are preserved in the page
+  links.
+- An out-of-range page redirects to the last real page instead of showing a
+  misleading empty list.
+- Open play and court blocks remain bounded to upcoming/active records, so they
+  were left compact rather than adding controls that would never appear.
+
+### Cloudflare performance and capacity
+
+- `public/_headers` marks `/_next/static/*` as `public, max-age=31536000,
+  immutable`. These filenames are content-hashed, so repeat visits no longer
+  revalidate every script and stylesheet. Verified live: `Cache-Control` is
+  immutable and the asset layer reports `CF-Cache-Status: HIT`.
+- Static assets already bypass the Worker through the negative `run_worker_first`
+  rules in `wrangler.jsonc`, so they do not consume Worker requests or CPU.
+- HTML is Brotli-compressed. Live TTFB from the test network was roughly
+  0.09–0.19 s for `/`, `/book`, and `/courts/court-1`. This is a single-location
+  check, not field data.
+- The Worker upload is 2,926.96 KiB gzip against the 3,072 KiB free-plan limit
+  (about 145 KiB headroom). No new dependency was added for Excel. Treat heavy
+  server-side packages and unused routes as a deployment risk.
+- The GitHub keep-alive workflow for the Supabase free plan is present and is
+  scheduled four times a day. Its actual run history could not be checked
+  because the GitHub CLI is not installed here.
+- The homepage hero, club page, and Court 2 now use WebP derivatives: a
+  1376×768 file at 184 KB for desktop and a 960×536 file at 101 KB for phones and
+  cards, down from the 923 KB JPEG. The hero uses a plain `img` with `srcSet`, so
+  a phone picks the 960 px file. The original JPEG is retained as the source and
+  for the internal design-preview page.
+
+### Files
+
+- `components/staff/staff-filters.tsx` (new)
+- `components/staff/staff-pagination.tsx` (new)
+- `lib/staff/search.ts` (new)
+- `lib/staff/pagination.ts` (new)
+- `lib/staff/xlsx.ts` (new)
+- `public/_headers` (new)
+- `public/courts/pickleball2-960.webp`, `public/courts/pickleball2-1376.webp`
+  (new WebP derivatives)
+- `scripts/check-worker-size.mjs` (new)
+- `app/staff/bookings/page.tsx`, `app/staff/payments/page.tsx`,
+  `app/staff/open-play/page.tsx`, `app/staff/courts/page.tsx`,
+  `app/staff/reports/page.tsx`, `app/staff/reports/export/route.ts`,
+  `app/staff/page.tsx`
+
+### Checks
+
+- `npx tsc --noEmit` — passed, no output.
+- Scoped `npx eslint` on the changed staff pages, filters, pagination, and
+  XLSX writer — passed with `--max-warnings=0`.
+- Pagination helper assertions — 9/9 passed (filter preservation, page parsing,
+  out-of-range clamping, and page counts).
+- `npm run build` — passed (Next.js 16.4.5, 41 routes generated).
+- `npm run check:worker-size` — passed at 2,927.06 KiB / 3,072 KiB gzip
+  (95.3%, 144.94 KiB headroom).
+- `npm run deploy` — passed; live Worker versions
+  `637961a2-81a5-4c09-a587-802831649d0d` (XLSX export),
+  `8e14c4fd-89ae-48ca-bb55-a119be66930c` (immutable asset headers),
+  `1cdc3217-dfa5-4730-9c5d-159a30bb35e3` (pagination), and
+  `fa4759ce-13b1-4cc9-b979-6cd3522c85eb` (WebP hero and size guard) are at
+  `https://bookings.dhiddenpickleball.workers.dev`.
+- Live routing: `/`, `/book`, `/courts/court-2`, and `/club` returned 200;
+  `/staff`, `/staff/bookings?page=2`,
+  `/staff/payments?status=paid&page=2`, and `/staff/reports/export` returned 307
+  to the staff sign-in.
+- Live image check: the homepage references the responsive 1376/960 WebP hero;
+  the files returned 200 at 187,574 and 102,502 bytes. Court 2 and the club page
+  reference the 960 WebP file.
+- Live asset check: hashed JS returned `Cache-Control: public,
+  max-age=31536000, immutable` with `CF-Cache-Status: HIT`; the WebP images are
+  served by the asset layer rather than the Worker.
+- XLSX validation: generated sample parsed by Python `zipfile`, `ElementTree`,
+  and `openpyxl`; all XML well-formed, branded styles and weight/currency
+  formatting confirmed.
+
+### Not verified
+
+- No authenticated browser pass: staff routes require a staff session and no
+  credentials were used. Check `/staff/bookings`, `/staff/payments`,
+  `/staff/open-play`, `/staff/courts`, and `/staff/reports` at roughly 390 px
+  and 1440 px, including a search with no results, a cleared filter, and the
+  mobile filter stacking.
+- Pagination links were built and unit-checked, but not clicked in a signed-in
+  browser. Confirm Previous/Next keeps the date, status, tab, and search, and
+  that the out-of-range redirect lands on the last page.
+- The new OR-style PostgREST search filters were type-checked and built, not
+  executed against production data. Run one search per page in staging before
+  relying on them at the desk.
+- The workbook was not downloaded from the live Worker or opened in desktop
+  Excel, because the export requires a staff session; the sample was validated
+  with a separate XLSX parser. Check one live export in Excel or Google Sheets.
+- The performance figures are from a single network location, not Lighthouse or
+  real-user field data. The 3 MiB Worker limit remains the main capacity
+  constraint. The WebP derivatives were visually inspected, but not tested on a
+  slow mobile connection.
+
 ## Official QR asset deployment fix (10 November 2026)
 
 **Problem:** the deployed site returned `404` for the official QR image, while the
@@ -202,8 +804,9 @@ policy page, and in-page anchor was crawled and returned 200/307 as expected.
 
 - The fix is verified in the local Worker build only; it is not deployed. Run `npm run deploy` (which
   rebuilds `.open-next`) to update the live Worker.
-- `public/courts/pickleball2.jpg` is ~923 KB. It is now free of Worker requests but still the largest
-  download on the homepage and club page; compressing or resizing it would need client approval.
+- `public/courts/pickleball2.jpg` was ~923 KB. It is now free of Worker requests, and the homepage,
+  club page, and Court 2 use 184 KB/101 KB WebP derivatives; the JPEG remains the source asset and is
+  still used by the internal design-preview page.
 - `public/logo/hidden-pickleball.png` (~1.2 MB) is unused; the WebP is what the site loads.
 
 ## Mailjet email, Turnstile production secret (9 November 2026)

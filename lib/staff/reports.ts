@@ -73,7 +73,10 @@ export async function getStaffReport(
   const [bookingsResult, paymentsResult, outstandingResult] = await Promise.all([
     supabase
       .from("bookings")
-      .select("starts_at, duration_minutes, status, amount_php, service:services(code)")
+      .select(
+        "starts_at, duration_minutes, status, amount_php, service:services(code)",
+      )
+      .is("voided_at", null)
       .gte("starts_at", fromRange.start)
       .lt("starts_at", toRange.end)
       .order("starts_at", { ascending: true }),
@@ -81,6 +84,7 @@ export async function getStaffReport(
       .from("payments")
       .select("amount_php, reviewed_at")
       .eq("status", "paid")
+      .is("voided_at", null)
       .gte("reviewed_at", fromRange.start)
       .lt("reviewed_at", toRange.end),
     supabase
@@ -88,6 +92,7 @@ export async function getStaffReport(
       .select("amount_php")
       .in("status", ["pending", "confirmed"])
       .neq("payment_status", "paid")
+      .is("voided_at", null)
       .gte("starts_at", now),
   ]);
 

@@ -1,14 +1,13 @@
 import Image from "next/image";
 import Link from "next/link";
-import { ClubMap } from "@/components/home/club-map";
+import { ClubMapLazy } from "@/components/home/club-map-lazy";
 import { Faq } from "@/components/home/faq";
 import { HeroMedia } from "@/components/home/hero-media";
 import { FadeIn, Reveal } from "@/components/motion/reveal";
 import { Logo } from "@/components/brand/logo";
 import { BookingTrigger } from "@/components/booking/booking-trigger";
 import { OpenPlayTrigger } from "@/components/booking/open-play-trigger";
-import { buttonClasses } from "@/components/ui/button";
-import {
+import { buttonClasses } from "@/components/ui/button";import {
   ArrowRightIcon,
   ArrowUpRightIcon,
   BallIcon,
@@ -24,6 +23,7 @@ import { SiteFooter } from "@/components/site/site-footer";
 import { SiteHeader } from "@/components/site/site-header";
 import { CLUB } from "@/lib/club";
 import { COURTS } from "@/lib/courts";
+import { OPEN_PLAY_ENABLED } from "@/lib/features";
 
 const steps = [
   {
@@ -52,7 +52,9 @@ const steps = [
 /** Hero photography cycles continuously. Append another club photo to extend it. */
 const heroSlides = [
   {
-    src: "/courts/pickleball2.jpg",
+    src: "/courts/pickleball2-1376.webp",
+    srcSet:
+      "/courts/pickleball2-960.webp 960w, /courts/pickleball2-1376.webp 1376w",
     alt: "Doubles play on a pickleball court with hills and sea in the background",
   },
   {
@@ -147,12 +149,14 @@ export function HomePage() {
                       Book a court
                       <ArrowRightIcon className="size-5 transition-transform duration-200 group-hover:translate-x-0.5" />
                     </BookingTrigger>
-                    <OpenPlayTrigger
-                      className="group inline-flex h-13 w-full items-center justify-center gap-2 rounded-lg border border-white/25 bg-white/[0.06] px-6 text-base font-semibold text-white backdrop-blur-sm transition-colors duration-200 hover:border-white/50 hover:bg-white/15 sm:w-auto"
-                    >
-                      See open play
-                      <ArrowRightIcon className="size-4 text-white/70 transition-transform duration-200 group-hover:translate-x-0.5" />
-                    </OpenPlayTrigger>
+                    {OPEN_PLAY_ENABLED ? (
+                      <OpenPlayTrigger
+                        className="group inline-flex h-13 w-full items-center justify-center gap-2 rounded-lg border border-white/25 bg-white/[0.06] px-6 text-base font-semibold text-white backdrop-blur-sm transition-colors duration-200 hover:border-white/50 hover:bg-white/15 sm:w-auto"
+                      >
+                        See open play
+                        <ArrowRightIcon className="size-4 text-white/70 transition-transform duration-200 group-hover:translate-x-0.5" />
+                      </OpenPlayTrigger>
+                    ) : null}
                   </div>
                   <p className="mt-3 text-[0.6875rem] text-white/50">
                     Book online. Your slot is held for 15 minutes while you pay
@@ -675,7 +679,7 @@ export function HomePage() {
                 className="lg:col-start-2 lg:row-span-2 lg:row-start-1"
               >
                 <div className="[&>div]:h-full">
-                  <ClubMap />
+                  <ClubMapLazy />
                 </div>
               </Reveal>
             </div>

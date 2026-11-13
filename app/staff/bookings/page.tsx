@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { buttonClasses } from "@/components/ui/button";
@@ -15,7 +16,21 @@ import {
   StaffFlash,
   StaffPageHeader,
 } from "@/components/staff/staff-ui";
+import {
+  StaffFilterBar,
+  StaffFilterDate,
+  StaffFilterField,
+  StaffFilterSelect,
+  StaffSearchField,
+} from "@/components/staff/staff-filters";
+import { StaffPagination } from "@/components/staff/staff-pagination";
 import { requireStaff } from "@/lib/staff/auth";
+import {
+  staffPageCount,
+  staffPageHref,
+  staffPageNumber,
+} from "@/lib/staff/pagination";
+import { bookingSearchParts, staffSearchTerm } from "@/lib/staff/search";
 import {
   bookingStatusMeta,
   formatPeso,
@@ -40,18 +55,19 @@ type SearchParams = Promise<{
   date?: string | string[];
   status?: string | string[];
   q?: string | string[];
+  page?: string | string[];
   notice?: string | string[];
   error?: string | string[];
 }>;
 
 const STATUSES = [
-  { value: "active", label: "Active" },
-  { value: "pending", label: "Pending holds" },
+  { value: "active", label: "Active bookings" },
+  { value: "pending", label: "Waiting for payment" },
   { value: "confirmed", label: "Confirmed" },
   { value: "completed", label: "Completed" },
   { value: "no_show", label: "No-shows" },
   { value: "cancelled", label: "Cancelled" },
-  { value: "all", label: "All statuses" },
+  { value: "all", label: "Everything" },
 ] as const;
 
 function text(value: string | string[] | undefined) {
@@ -68,13 +84,26 @@ function RoomLabel({ booking }: { booking: StaffBooking }) {
 async function BookingList({ searchParams }: { searchParams: SearchParams }) {
   const { supabase } = await requireStaff();
   const params = await searchParams;
-  const query = text(params.q).trim();
+  const query = staffSearchTerm(text(params.q));
   const requestedDate = text(params.date);
   const dateId = isValidDateId(requestedDate) ? requestedDate : manilaTodayId();
-  const status = STATUSES.some((item) => item.value === text(params.status))
-    ? (text(params.status) as (typeof STATUSES)[number]["value"])
-    : "active";
+  const requestedStatus = text(params.status);
+  const status = STATUSES.some((item) => item.value === requestedStatus)
+    ? (requestedStatus as (typeof STATUSES)[number]["value"])
+    : query
+      ? "all"
+      : "active";
   const { start, end } = manilaDateRange(dateId);
+  const pageSize = 40;
+  const page = staffPageNumber(text(params.page));
+  const listParams = {
+    q: query || undefined,
+    date: query ? undefined : dateId,
+    status,
+  };
+  const clearSearchHref = `/staff/bookings?date=${dateId}${
+    requestedStatus && requestedStatus !== "all" ? `&status=${status}` : ""
+  }`;
 
   let request = supabase
     .from("bookings")
@@ -85,12 +114,16 @@ async function BookingList({ searchParams }: { searchParams: SearchParams }) {
        player:customers!bookings_customer_id_fkey(full_name, email, phone:mobile),
        service:services(name, code),
        court_reservations(court:courts(name))`,
+      { count: "exact" },
     )
+    // Voided rows are audit history, not desk work.
+    .is("voided_at", null)
     .order("starts_at", { ascending: !query })
-    .limit(query ? 200 : 120);
+    .range((page - 1) * pageSize, page * pageSize - 1);
 
   if (query) {
-    request = request.or(`reference.ilike.%${query}%`);
+    const parts = await bookingSearchParts(supabase, query);
+    request = request.or(parts.join(","));
   } else {
     request = request.gte("starts_at", start).lt("starts_at", end);
   }
@@ -98,24 +131,13 @@ async function BookingList({ searchParams }: { searchParams: SearchParams }) {
   if (status === "active") request = request.in("status", ["pending", "confirmed"]);
   else if (status !== "all") request = request.eq("status", status);
 
-  const { data, error } = await request;
-  let bookings = (data ?? []) as unknown as StaffBooking[];
+  const { data, error, count } = await request;
+  const bookings = (data ?? []) as unknown as StaffBooking[];
+  const total = count ?? 0;
+  const totalPages = staffPageCount(total, pageSize);
 
-  if (query) {
-    const needle = query.toLowerCase();
-    bookings = bookings.filter((booking) => {
-      const haystack = [
-        booking.reference,
-        booking.booking_group?.reference,
-        booking.player?.full_name,
-        booking.player?.email,
-        booking.player?.phone,
-      ]
-        .filter(Boolean)
-        .join(" ")
-        .toLowerCase();
-      return haystack.includes(needle);
-    });
+  if (!error && page > totalPages) {
+    redirect(staffPageHref("/staff/bookings", listParams, totalPages));
   }
 
   return (
@@ -136,89 +158,90 @@ async function BookingList({ searchParams }: { searchParams: SearchParams }) {
         <StaffFlash notice={text(params.notice) || null} error={text(params.error) || null} />
       </div>
 
-      <form
+      <StaffFilterBar
         action="/staff/bookings"
-        method="get"
-        className="mb-4 grid gap-2 rounded-xl border border-line bg-surface p-3 shadow-card sm:grid-cols-2 lg:grid-cols-[minmax(0,1fr)_10rem_10rem_auto]"
+        active={Boolean(query || requestedDate || text(params.status))}
+        clearHref="/staff/bookings"
+        submitLabel="Show bookings"
+        help="Leave a box empty to see everything."
+        columns="sm:grid-cols-2 lg:grid-cols-[minmax(0,1.4fr)_11rem_13rem]"
       >
-        <label className="relative block sm:col-span-2 lg:col-span-1">
-          <span className="sr-only">Search bookings</span>
-          <SearchIcon className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted" />
-          <input
-            type="search"
-            name="q"
-            defaultValue={query}
-            placeholder="Search reference, name, email, or phone"
-            className="h-10 w-full rounded-lg border border-line bg-page pl-9 pr-3 text-sm text-ink transition-[border-color,box-shadow] focus:border-brand-blue focus:outline-none focus:ring-4 focus:ring-brand-blue/15"
-          />
-        </label>
-        <label>
-          <span className="sr-only">Booking date</span>
-          <input
-            type="date"
-            name="date"
-            defaultValue={dateId}
-            className="h-10 w-full rounded-lg border border-line bg-page px-2 text-sm font-semibold text-heading"
-          />
-        </label>
-        <label>
-          <span className="sr-only">Booking status</span>
-          <select
-            name="status"
-            defaultValue={status}
-            className="h-10 w-full rounded-lg border border-line bg-page px-2 text-sm font-semibold text-heading"
-          >
-            {STATUSES.map((item) => (
-              <option key={item.value} value={item.value}>
-                {item.label}
-              </option>
-            ))}
-          </select>
-        </label>
-        <button
-          type="submit"
-          className={buttonClasses({ size: "md", className: "sm:col-span-2 lg:col-span-1" })}
+        <StaffSearchField
+          id="booking-search"
+          label="Search bookings"
+          placeholder="Name, mobile, email, or reference"
+          defaultValue={query}
+          hint="Looks through every date and status, including old bookings."
+          className="sm:col-span-2 lg:col-span-1"
+        />
+        {query ? (
+          <input type="hidden" name="date" value={dateId} />
+        ) : (
+          <StaffFilterField id="booking-date" label="Date">
+            <StaffFilterDate id="booking-date" name="date" value={dateId} />
+          </StaffFilterField>
+        )}
+        <StaffFilterField
+          id="booking-status"
+          label="Booking status"
+          hint="Active means waiting for payment or already confirmed."
         >
-          Apply
-        </button>
-      </form>
+          <StaffFilterSelect
+            id="booking-status"
+            name="status"
+            value={status}
+            options={STATUSES}
+          />
+        </StaffFilterField>
+      </StaffFilterBar>
 
       <div className="mb-4 flex flex-wrap items-center gap-2">
-        <Link
-          href={`/staff/bookings?date=${shiftDateId(dateId, -1)}&status=${status}`}
-          aria-label={`Previous day, ${formatStaffDate(`${shiftDateId(dateId, -1)}T12:00:00+08:00`)}`}
-          className="inline-flex h-9 items-center gap-1 rounded-lg border border-line bg-surface px-2.5 text-caption font-semibold text-heading transition-colors hover:border-line-strong hover:bg-brand-blue-soft/50"
-        >
-          <ArrowLeftIcon className="size-3.5" />
-          {formatStaffDate(`${shiftDateId(dateId, -1)}T12:00:00+08:00`, { year: undefined })}
-        </Link>
-        <span className="inline-flex h-9 items-center rounded-lg bg-brand-navy px-3 text-caption font-bold text-white">
-          {query ? `Search: “${query}”` : formatStaffDate(`${dateId}T12:00:00+08:00`)}
-        </span>
-        <Link
-          href={`/staff/bookings?date=${shiftDateId(dateId, 1)}&status=${status}`}
-          aria-label={`Next day, ${formatStaffDate(`${shiftDateId(dateId, 1)}T12:00:00+08:00`)}`}
-          className="inline-flex h-9 items-center gap-1 rounded-lg border border-line bg-surface px-2.5 text-caption font-semibold text-heading transition-colors hover:border-line-strong hover:bg-brand-blue-soft/50"
-        >
-          {formatStaffDate(`${shiftDateId(dateId, 1)}T12:00:00+08:00`, { year: undefined })}
-          <ArrowRightIcon className="size-3.5" />
-        </Link>
-        {!query && dateId !== manilaTodayId() ? (
-          <Link
-            href={`/staff/bookings?status=${status}`}
-            className="inline-flex h-9 items-center rounded-lg px-2 text-caption font-bold text-accent-ink hover:bg-brand-blue-soft/60"
-          >
-            Jump to today
-          </Link>
-        ) : null}
         {query ? (
-          <Link
-            href={`/staff/bookings?date=${dateId}`}
-            className="inline-flex h-9 items-center rounded-lg px-2 text-caption font-bold text-accent-ink hover:bg-brand-blue-soft/60"
-          >
-            Clear search
-          </Link>
-        ) : null}
+          <>
+            <span className="inline-flex min-h-9 items-center rounded-lg bg-brand-navy px-3 text-caption font-bold text-white">
+              Searching all dates for “{query}”
+            </span>
+            <span className="text-caption font-semibold text-muted">
+              {total} match{total === 1 ? "" : "es"}
+            </span>
+            <Link
+              href={clearSearchHref}
+              className="inline-flex h-9 items-center rounded-lg px-2 text-caption font-bold text-accent-ink hover:bg-brand-blue-soft/60"
+            >
+              Clear search
+            </Link>
+          </>
+        ) : (
+          <>
+            <Link
+              href={`/staff/bookings?date=${shiftDateId(dateId, -1)}&status=${status}`}
+              aria-label={`Previous day, ${formatStaffDate(`${shiftDateId(dateId, -1)}T12:00:00+08:00`)}`}
+              className="inline-flex h-9 items-center gap-1 rounded-lg border border-line bg-surface px-2.5 text-caption font-semibold text-heading transition-colors hover:border-line-strong hover:bg-brand-blue-soft/50"
+            >
+              <ArrowLeftIcon className="size-3.5" />
+              {formatStaffDate(`${shiftDateId(dateId, -1)}T12:00:00+08:00`, { year: undefined })}
+            </Link>
+            <span className="inline-flex h-9 items-center rounded-lg bg-brand-navy px-3 text-caption font-bold text-white">
+              {formatStaffDate(`${dateId}T12:00:00+08:00`)}
+            </span>
+            <Link
+              href={`/staff/bookings?date=${shiftDateId(dateId, 1)}&status=${status}`}
+              aria-label={`Next day, ${formatStaffDate(`${shiftDateId(dateId, 1)}T12:00:00+08:00`)}`}
+              className="inline-flex h-9 items-center gap-1 rounded-lg border border-line bg-surface px-2.5 text-caption font-semibold text-heading transition-colors hover:border-line-strong hover:bg-brand-blue-soft/50"
+            >
+              {formatStaffDate(`${shiftDateId(dateId, 1)}T12:00:00+08:00`, { year: undefined })}
+              <ArrowRightIcon className="size-3.5" />
+            </Link>
+            {dateId !== manilaTodayId() ? (
+              <Link
+                href={`/staff/bookings?status=${status}`}
+                className="inline-flex h-9 items-center rounded-lg px-2 text-caption font-bold text-accent-ink hover:bg-brand-blue-soft/60"
+              >
+                Today
+              </Link>
+            ) : null}
+          </>
+        )}
       </div>
 
       {error ? (
@@ -229,13 +252,26 @@ async function BookingList({ searchParams }: { searchParams: SearchParams }) {
 
       {!error && bookings.length === 0 ? (
         <StaffEmpty
-          icon={CalendarIcon}
-          title="Nothing to show here"
-          description="Try a different date, clear the filter, or search by a booking reference."
+          icon={query ? SearchIcon : CalendarIcon}
+          title={query ? `No booking found for “${query}”` : "Nothing on this day"}
+          description={
+            query
+              ? "Check the spelling, then try the mobile number or the booking reference printed on the receipt."
+              : "Try another date, choose a different status, or clear the filters."
+          }
           action={
-            <Link href="/staff/bookings/new" className={buttonClasses({ size: "sm" })}>
-              Create a walk-in
-            </Link>
+            query ? (
+              <Link
+                href={clearSearchHref}
+                className={buttonClasses({ size: "sm" })}
+              >
+                Clear search
+              </Link>
+            ) : (
+              <Link href="/staff/bookings/new" className={buttonClasses({ size: "sm" })}>
+                Create a walk-in
+              </Link>
+            )
           }
         />
       ) : null}
@@ -354,11 +390,14 @@ async function BookingList({ searchParams }: { searchParams: SearchParams }) {
         </div>
       ) : null}
 
-      {bookings.length >= 120 && !query ? (
-        <p className="mt-3 text-caption text-muted">
-          Showing the first 120 rows. Narrow the date or status to see fewer.
-        </p>
-      ) : null}
+      <StaffPagination
+        page={page}
+        pageSize={pageSize}
+        total={total}
+        basePath="/staff/bookings"
+        params={listParams}
+        noun={query ? "matching bookings" : "bookings"}
+      />
     </>
   );
 }

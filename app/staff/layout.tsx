@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { StaffShell } from "@/components/staff/staff-shell";
+import { NotificationsProvider } from "@/components/notifications/notifications-provider";
 import { requireStaff } from "@/lib/staff/auth";
 
 // The operations desk is authenticated and request-scoped. It is never
@@ -25,8 +26,10 @@ export default async function StaffLayout({ children }: { children: ReactNode })
     .eq("status", "awaiting_verification");
 
   return (
-    <StaffShell staff={staff} reviewCount={count ?? 0}>
-      {children}
-    </StaffShell>
+    <NotificationsProvider>
+      <StaffShell staff={staff} reviewCount={count ?? 0}>
+        {children}
+      </StaffShell>
+    </NotificationsProvider>
   );
 }

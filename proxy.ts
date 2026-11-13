@@ -56,15 +56,37 @@ export async function proxy(request: NextRequest) {
     );
   }
 
+  // Reached only for a root auth result; its redirect already returned above.
+  if (pathname === "/") return NextResponse.next();
+
   return updateSession(request, { requireStaff: isStaffRoute });
 }
 
 export const config = {
   matcher: [
     /*
-     * Refresh sessions on application routes. Static assets, image
-     * optimisation, and the favicon do not need an auth round trip.
+     * Only routes that read or write a session run the proxy. The public site
+     * is guest-only, so its pages skip the Supabase client, middleware bundle
+     * and auth round trip entirely — on the Workers Free CPU budget that work
+     * was enough to push page requests over the limit.
      */
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)",
+    // Supabase email links can fall back to the site root. Match only the
+    // query strings that the callback handles, never a plain homepage visit.
+    { source: "/", has: [{ type: "query", key: "code" }] },
+    { source: "/", has: [{ type: "query", key: "token_hash" }] },
+    { source: "/", has: [{ type: "query", key: "error" }] },
+    { source: "/", has: [{ type: "query", key: "error_description" }] },
+    // Staff session refresh and the staff-only gate.
+    "/staff",
+    "/staff/:path*",
+    "/staff-access/:path*",
+    "/notifications",
+    "/auth/:path*",
+    // Retired player routes and the legacy password pages still redirect.
+    "/sign-in",
+    "/sign-up",
+    "/account/:path*",
+    "/forgot-password",
+    "/reset-password",
   ],
 };

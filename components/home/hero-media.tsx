@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 import {
   motion,
@@ -11,6 +10,7 @@ import {
 
 export type HeroSlide = {
   src: string;
+  srcSet?: string;
   alt: string;
 };
 
@@ -59,13 +59,19 @@ export function HeroMedia({ slides }: { slides: readonly HeroSlide[] }) {
             animate={{ opacity: index === active ? 1 : 0 }}
             transition={{ duration: CROSSFADE_SECONDS, ease: [0.16, 1, 0.3, 1] }}
           >
-            <Image
+            {/* A plain img is intentional: Cloudflare serves these files
+                without Next image optimisation, so srcSet lets phones take the
+                960px WebP instead of downloading the 1376px one. */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
               src={slide.src}
-              alt={slide.alt}
-              fill
-              priority={index === 0}
+              srcSet={slide.srcSet}
               sizes="100vw"
-              className="hero-slide-drift object-cover object-center"
+              alt={slide.alt}
+              fetchPriority={index === 0 ? "high" : "auto"}
+              loading={index === 0 ? "eager" : "lazy"}
+              decoding="async"
+              className="hero-slide-drift absolute inset-0 size-full object-cover object-center"
               style={{ animationDelay: `${index * -6}s` }}
             />
           </motion.div>
