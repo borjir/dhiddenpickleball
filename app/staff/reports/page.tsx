@@ -94,7 +94,7 @@ async function Reports({ searchParams }: { searchParams: SearchParams }) {
       />
 
       {text(params.notice) || text(params.error) ? (
-        <div className="mt-5">
+        <div className="mt-5 lg:mt-6">
           <StaffFlash
             notice={text(params.notice) || null}
             error={text(params.error) || null}
@@ -102,7 +102,7 @@ async function Reports({ searchParams }: { searchParams: SearchParams }) {
         </div>
       ) : null}
 
-      <div className="mt-5">
+      <div className="mt-5 lg:mt-6">
         <StaffFilterBar
           action="/staff/reports"
           active={Boolean(text(params.from) || text(params.to))}
@@ -177,7 +177,7 @@ async function Reports({ searchParams }: { searchParams: SearchParams }) {
         />
       </div>
 
-      <div className="mt-5 grid gap-5 xl:grid-cols-[minmax(0,1fr)_20rem] xl:items-start">
+      <div className="mt-5 lg:mt-6 grid gap-6 xl:grid-cols-[minmax(0,1fr)_20rem] xl:items-start">
         <StaffPanel
           title="Daily activity"
           description="Court hours and money collected are shown per Manila date."
@@ -188,7 +188,7 @@ async function Reports({ searchParams }: { searchParams: SearchParams }) {
             <table className="w-full min-w-[660px] text-left text-sm">
               <thead className="border-b border-line bg-page/70 text-[0.6875rem] uppercase tracking-[0.1em] text-muted">
                 <tr>
-                  <th className="px-4 py-2.5 font-bold">Date</th>
+                  <th className="px-4 py-3 font-bold">Date</th>
                   <th className="px-3 py-2.5 text-right font-bold">Courts</th>
                   <th className="px-3 py-2.5 font-bold">Hours</th>
                   <th className="px-3 py-2.5 text-right font-bold">Open play</th>
@@ -199,7 +199,7 @@ async function Reports({ searchParams }: { searchParams: SearchParams }) {
               <tbody className="divide-y divide-line">
                 {report.days.map((day) => (
                   <tr key={day.dateId} className="hover:bg-page/45">
-                    <td className="whitespace-nowrap px-4 py-2.5 font-semibold text-heading">
+                    <td className="whitespace-nowrap px-4 py-3 font-semibold text-heading">
                       {day.label.replace(/, \d{4}$/, "")}
                     </td>
                     <td className="px-3 py-2.5 text-right text-muted">{day.courtBookings}</td>
@@ -250,7 +250,7 @@ async function Reports({ searchParams }: { searchParams: SearchParams }) {
           </div>
         </StaffPanel>
 
-        <div className="space-y-5">
+        <div className="space-y-6">
           <StaffPanel title="Court occupancy" description="Based on 2 courts × 17 open hours per day.">
             <div className="flex items-end justify-between gap-3">
               <p className="font-display text-4xl font-extrabold tracking-[-0.05em] text-heading">

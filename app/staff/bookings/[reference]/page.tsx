@@ -248,12 +248,12 @@ async function BookingDetail({ params, searchParams }: PageProps) {
         />
       </div>
 
-      <div className="mt-5">
+      <div className="mt-5 lg:mt-6">
         <StaffFlash notice={text(query.notice) || null} error={text(query.error) || null} />
       </div>
 
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_23rem] xl:items-start">
-        <div className="space-y-5">
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_23rem] xl:items-start">
+        <div className="space-y-6">
           <StaffPanel
             title={group ? "Reserved court times" : "Session"}
             description={group ? "One reference and one payment cover every range." : undefined}
@@ -499,7 +499,7 @@ async function BookingDetail({ params, searchParams }: PageProps) {
           </StaffPanel>
         </div>
 
-        <div className="space-y-5 xl:sticky xl:top-8">
+        <div className="space-y-6 xl:sticky xl:top-8">
           <StaffPanel title="Player">
             <p className="text-base font-bold text-heading">{personLabel(person)}</p>
             <p className="mt-1 break-all text-caption text-muted">{person?.email ?? "No email on file"}</p>

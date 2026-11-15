@@ -37,16 +37,24 @@ async function BookingPanel() {
   }
 
   const supabase = await createClient();
-  const { data: courtRows } = await supabase
-    .from("courts")
-    .select("id, name, slug")
-    .eq("is_active", true)
-    .order("sort_order", { ascending: true });
+  const [courtResult, settingsResult] = await Promise.all([
+    supabase
+      .from("courts")
+      .select("id, name, slug")
+      .eq("is_active", true)
+      .order("sort_order", { ascending: true }),
+    supabase
+      .from("club_settings")
+      .select("booking_window_days")
+      .eq("id", 1)
+      .maybeSingle(),
+  ]);
 
   return (
     <CourtBooking
-      courts={courtRows ?? []}
+      courts={courtResult.data ?? []}
       today={manilaDateId(new Date())}
+      bookingWindowDays={Number(settingsResult.data?.booking_window_days) || 30}
     />
   );
 }

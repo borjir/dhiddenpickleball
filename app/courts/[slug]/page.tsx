@@ -108,13 +108,18 @@ export default async function CourtPage({ params }: CourtPageProps) {
                     icon: ClockIcon,
                   },
                   {
-                    label: "Day rate",
-                    value: "₱250 per hour before 5:00 PM",
+                    label: "Weekday, before 5 PM",
+                    value: "₱250 per hour",
                     icon: WalletIcon,
                   },
                   {
-                    label: "Evening rate",
-                    value: "₱300 per hour from 5:00 PM",
+                    label: "Weekday, from 5 PM",
+                    value: "₱300 per hour",
+                    icon: WalletIcon,
+                  },
+                  {
+                    label: "Weekend",
+                    value: "₱300 per hour all day",
                     icon: WalletIcon,
                   },
                 ].map((item) => {

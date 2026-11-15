@@ -86,6 +86,13 @@ export function LookupPanel({ initialReference = "" }: { initialReference?: stri
   const [resetCount, setResetCount] = useState(0);
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
   const [turnstileReset, setTurnstileReset] = useState(0);
+  // A scanned QR is a complete credential pair, so the lookup should not wait
+  // for a button press. When the one-use security token is not ready yet, the
+  // scan is queued and runs as soon as Turnstile hands one over.
+  const [queuedLookup, setQueuedLookup] = useState<{
+    reference: string;
+    mobile: string;
+  } | null>(null);
   const qrInputRef = useRef<HTMLInputElement>(null);
   const resultRef = useRef<HTMLElement>(null);
   const revealedReference = useRef<string | null>(null);
@@ -121,9 +128,9 @@ export function LookupPanel({ initialReference = "" }: { initialReference?: stri
   );
 
   // Confirmation links include the mobile in the URL fragment, which never
-  // reaches the server. Fill both fields, then let the guest pass the security
-  // check once and press the button; auto-submitting would eat a one-use token
-  // before the widget is ready.
+  // reaches the server. Fill both fields and queue the lookup, so opening the
+  // link shows the status without a button press; the queue waits for a fresh
+  // Turnstile token rather than spending one before the widget is ready.
   useEffect(() => {
     if (didAutoLookup.current || !initialReference) return;
 
@@ -140,10 +147,26 @@ export function LookupPanel({ initialReference = "" }: { initialReference?: stri
     );
     const timer = window.setTimeout(() => {
       setMobile(formatMobileDisplay(mobileFromLink));
+      setQueuedLookup({ reference: initialReference, mobile: mobileFromLink });
     }, 0);
 
     return () => window.clearTimeout(timer);
   }, [initialReference]);
+
+  // Run a scanned QR as soon as the security check is ready. The hand-off is
+  // deferred by a tick so the queue clears outside the effect body.
+  useEffect(() => {
+    if (!queuedLookup || !turnstileToken || pending) return;
+
+    const payload = queuedLookup;
+    const token = turnstileToken;
+    const timer = window.setTimeout(() => {
+      setQueuedLookup(null);
+      void runLookup(payload.reference, payload.mobile, token);
+    }, 0);
+
+    return () => window.clearTimeout(timer);
+  }, [pending, queuedLookup, runLookup, turnstileToken]);
 
   // The status renders below the form, so bring it into view the first time a
   // reference opens. Later polls and proof uploads keep the reader in place.
@@ -173,25 +196,39 @@ export function LookupPanel({ initialReference = "" }: { initialReference?: stri
   }, [resetCount]);
 
   // Keep an open status page current when staff verify or update a booking.
+  // Poll while the tab is visible and re-check right away when the guest
+  // comes back to it, so a status, date, or time change shows up promptly.
   useEffect(() => {
     if (!record) return;
 
-    const timer = window.setInterval(() => {
+    const reference = record.reference;
+    const mobile = record.mobile;
+
+    function refreshNow() {
       if (document.visibilityState !== "visible") return;
 
-      void refreshGuestRecord({
-        reference: record.reference,
-        mobile: record.mobile,
-      })
+      void refreshGuestRecord({ reference, mobile })
         .then((response) => {
           if (response.status === "ok") setResult(response);
         })
         .catch(() => {
           // Keep the last visible status; the next interval can retry.
         });
-    }, 45_000);
+    }
 
-    return () => window.clearInterval(timer);
+    const timer = window.setInterval(refreshNow, 30_000);
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") refreshNow();
+    };
+
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    window.addEventListener("focus", refreshNow);
+
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+      window.removeEventListener("focus", refreshNow);
+    };
   }, [record]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -220,7 +257,7 @@ export function LookupPanel({ initialReference = "" }: { initialReference?: stri
   async function handleQrUpload(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     event.target.value = "";
-    if (!file) return;
+    if (!file || pending) return;
 
     if (file.size === 0 || file.size > MAX_QR_BYTES) {
       setResult({
@@ -256,11 +293,17 @@ export function LookupPanel({ initialReference = "" }: { initialReference?: stri
       }
 
       setReference(payload.reference);
+      setMobile(formatMobileDisplay(payload.mobile));
 
       if (turnstileToken) {
         await runLookup(payload.reference, payload.mobile, turnstileToken);
       } else {
-        setMobile(formatMobileDisplay(payload.mobile));
+        // The challenge is still being issued; the effect above fires the
+        // lookup the moment the token exists.
+        setQueuedLookup({
+          reference: payload.reference,
+          mobile: payload.mobile,
+        });
       }
     } finally {
       setScanning(false);
@@ -320,6 +363,11 @@ export function LookupPanel({ initialReference = "" }: { initialReference?: stri
             {scanning ? (
               <p className="mt-2 text-caption text-muted" role="status">
                 Reading QR code…
+              </p>
+            ) : queuedLookup ? (
+              <p className="mt-2 text-caption text-muted" role="status">
+                QR found. Checking the booking as soon as the security check is
+                ready…
               </p>
             ) : null}
           </div>

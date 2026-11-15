@@ -154,7 +154,7 @@ async function BookingList({ searchParams }: { searchParams: SearchParams }) {
         }
       />
 
-      <div className="mt-5">
+      <div className="mt-5 lg:mt-6">
         <StaffFlash notice={text(params.notice) || null} error={text(params.error) || null} />
       </div>
 
@@ -296,7 +296,7 @@ async function BookingList({ searchParams }: { searchParams: SearchParams }) {
                   const paymentMeta = paymentStatusMeta(booking.payment_status);
                   return (
                     <tr key={booking.id} className="transition-colors hover:bg-page/55">
-                      <td className="whitespace-nowrap px-4 py-3">
+                      <td className="whitespace-nowrap px-4 py-3.5">
                         <Link
                           href={`/staff/bookings/${encodeURIComponent(booking.reference)}`}
                           className="font-semibold text-heading hover:text-accent-ink"
@@ -307,28 +307,28 @@ async function BookingList({ searchParams }: { searchParams: SearchParams }) {
                           {formatStaffTime(booking.starts_at)} · {booking.duration_minutes} min
                         </span>
                       </td>
-                      <td className="px-4 py-3">
+                      <td className="px-4 py-3.5">
                         <p className="font-semibold text-heading">{personLabel(booking.player)}</p>
                         <p className="mt-0.5 max-w-[12rem] truncate text-caption text-muted">
                           {booking.player?.email ?? "No email"}
                         </p>
                       </td>
-                      <td className="px-4 py-3">
+                      <td className="px-4 py-3.5">
                         <p className="font-semibold text-heading"><RoomLabel booking={booking} /></p>
                         <p className="mt-0.5 font-mono text-[0.625rem] text-muted">
                           {booking.booking_group?.reference ?? booking.reference}
                         </p>
                       </td>
-                      <td className="px-4 py-3">
+                      <td className="px-4 py-3.5">
                         <Badge variant={statusMeta.variant} dot>{statusMeta.label}</Badge>
                         {booking.status === "pending" && booking.hold_expires_at ? (
                           <p className="mt-1 text-[0.625rem] text-warning">Hold active</p>
                         ) : null}
                       </td>
-                      <td className="px-4 py-3">
+                      <td className="px-4 py-3.5">
                         <Badge variant={paymentMeta.variant}>{paymentMeta.label}</Badge>
                       </td>
-                      <td className="whitespace-nowrap px-4 py-3 text-right font-bold text-heading">
+                      <td className="whitespace-nowrap px-4 py-3.5 text-right font-bold text-heading">
                         {formatPeso(Number(booking.amount_php))}
                       </td>
                     </tr>

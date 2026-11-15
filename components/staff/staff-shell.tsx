@@ -23,7 +23,7 @@ export function StaffShell({
       <div className="lg:pl-[16.5rem]">
         <main
           id="staff-main"
-          className="mx-auto w-full max-w-[1600px] px-4 pb-24 pt-5 sm:px-6 sm:pt-6 lg:px-8 lg:pb-8 lg:pt-8"
+          className="mx-auto w-full max-w-[1600px] px-4 pt-5 pb-[calc(5.75rem+env(safe-area-inset-bottom))] sm:px-6 sm:pt-6 lg:px-10 lg:pt-9 lg:pb-10"
         >
           {children}
         </main>

@@ -235,7 +235,7 @@ async function Payments({ searchParams }: { searchParams: SearchParams }) {
         }
       />
 
-      <div className="mt-5">
+      <div className="mt-5 lg:mt-6">
         <StaffFlash notice={text(params.notice) || null} error={text(params.error) || null} />
       </div>
 
@@ -257,8 +257,8 @@ async function Payments({ searchParams }: { searchParams: SearchParams }) {
         />
       </StaffFilterBar>
 
-      <p className="mt-5 text-caption font-bold text-heading">Show payments</p>
-      <div className="mt-1.5 flex items-center gap-1 overflow-x-auto rounded-xl border border-line bg-surface p-1 shadow-card">
+      <p className="mt-5 lg:mt-6 text-caption font-bold text-heading">Show payments</p>
+      <div className="mt-1.5 grid grid-cols-2 gap-1 rounded-xl border border-line bg-surface p-1 shadow-card sm:flex sm:items-center">
         {TABS.map((tab) => {
           const active = tab.value === status;
           return (
@@ -267,7 +267,7 @@ async function Payments({ searchParams }: { searchParams: SearchParams }) {
               href={`/staff/payments?status=${tab.value}`}
               aria-current={active ? "page" : undefined}
               className={cn(
-                "relative inline-flex min-h-10 flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-lg px-3 text-sm font-semibold transition-colors",
+                "relative inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-lg px-2 text-sm font-semibold transition-colors sm:min-w-0 sm:flex-1 sm:px-3",
                 active
                   ? "bg-brand-navy text-white shadow-sm"
                   : "text-muted hover:bg-brand-blue-soft/50 hover:text-heading",

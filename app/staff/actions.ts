@@ -357,7 +357,12 @@ export async function createOpenPlaySessionAction(formData: FormData) {
     .object({
       startsAt: z.string().datetime(),
       duration: z.number().int().min(15).max(1440),
-      level: z.enum(["beginner", "intermediate", "advanced"]),
+      level: z.enum([
+        "all_levels",
+        "beginner",
+        "intermediate",
+        "advanced",
+      ]),
       capacity: z.coerce.number().int().min(1).max(100),
       amount: z.coerce.number().min(0).max(100000),
     })
@@ -417,7 +422,12 @@ export async function updateOpenPlaySessionAction(formData: FormData) {
       sessionId: uuid,
       startsAt: z.string().datetime(),
       duration: z.number().int().min(15).max(1440),
-      level: z.enum(["beginner", "intermediate", "advanced"]),
+      level: z.enum([
+        "all_levels",
+        "beginner",
+        "intermediate",
+        "advanced",
+      ]),
       capacity: z.coerce.number().int().min(1).max(100),
       amount: z.coerce.number().min(0).max(100000),
       status: z.enum(["scheduled", "cancelled", "completed"]),

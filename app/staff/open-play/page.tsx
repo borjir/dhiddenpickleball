@@ -50,7 +50,8 @@ type SearchParams = Promise<{
 }>;
 
 const LEVELS = [
-  { value: "all", label: "All levels" },
+  { value: "all", label: "Any level" },
+  { value: "all_levels", label: "All levels" },
   { value: "beginner", label: "Beginner" },
   { value: "intermediate", label: "Intermediate" },
   { value: "advanced", label: "Advanced" },
@@ -144,7 +145,7 @@ async function OpenPlayDesk({ searchParams }: { searchParams: SearchParams }) {
         }
       />
 
-      <div className="mt-5">
+      <div className="mt-5 lg:mt-6">
         <StaffFlash notice={text(params.notice) || null} error={text(params.error) || null} />
       </div>
 
@@ -189,7 +190,7 @@ async function OpenPlayDesk({ searchParams }: { searchParams: SearchParams }) {
         </StaffFilterField>
       </StaffFilterBar>
 
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_21rem] xl:items-start">
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_21rem] xl:items-start">
         <div className="space-y-4">
           {query && !error && sessions.length > 0 ? (
             <p className="text-caption font-semibold text-muted">
@@ -297,7 +298,7 @@ async function OpenPlayDesk({ searchParams }: { searchParams: SearchParams }) {
             <Field id="new-session-date" label="Date" required>
               <Input id="new-session-date" name="date" type="date" defaultValue={manilaTodayId()} required />
             </Field>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 gap-2 min-[360px]:grid-cols-2">
               <Field id="new-session-time" label="Start" required>
                 <Input id="new-session-time" name="time" type="time" defaultValue="08:00" required />
               </Field>
@@ -307,12 +308,13 @@ async function OpenPlayDesk({ searchParams }: { searchParams: SearchParams }) {
             </div>
             <Field id="new-session-level" label="Level" required>
               <Select id="new-session-level" name="level" defaultValue="beginner">
+                <option value="all_levels">All levels</option>
                 <option value="beginner">Beginner</option>
                 <option value="intermediate">Intermediate</option>
                 <option value="advanced">Advanced</option>
               </Select>
             </Field>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 gap-2 min-[360px]:grid-cols-2">
               <Field id="new-session-capacity" label="Capacity" required>
                 <Input id="new-session-capacity" name="capacity" type="number" min={1} max={100} defaultValue={12} required />
               </Field>

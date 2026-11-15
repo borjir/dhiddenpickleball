@@ -49,7 +49,7 @@ unpaid bookings are automatically cancelled). Both were resolved on 4 November
 | --- | --- | --- | --- |
 | D-01 | Confirmation model / temporary hold | P0 | Resolved by owner 4 Nov — **15-minute hold** |
 | D-02 | Guest booking vs account required | P0 | Answered — account required |
-| D-03 | Pricing, durations, buffer, booking window | P0 | Partly answered — rate and durations settled |
+| D-03 | Pricing, durations, buffer, booking window | P0 | Resolved 15 Nov — weekday/weekend rates, both-courts pricing, 30-day window; rounding and buffer open |
 | D-04 | Court inventory and facilities | P0 | Partly answered — 2 courts settled, facilities open |
 | D-05 | Operating hours and closures | P0 | Partly answered — hours settled, closures open |
 | D-06 | Cancellation, reschedule, no-show, refund | P0 | Resolved by owner 4 Nov — outcomes set |
@@ -179,13 +179,24 @@ reservation or closing time, and sums the hourly rates across the range. The
 original 60/90/120 values remain valid for existing rows. Minimum/maximum
 booking length, buffer, and partial-hour rules are still open.
 
+**Owner decision (15 Nov 2026) — weekend rate, both courts, booking window:**
+
+- Weekdays: ₱250/hour before 5:00 PM, ₱300/hour from 5:00 PM.
+- Weekends (Saturday and Sunday): ₱300/hour for the whole day, including
+  before 5:00 PM.
+- The booking flow's **Both** court option books Court 1 and Court 2 for the
+  same hours and charges each court, so the hourly total doubles (₱500 or
+  ₱600).
+- Bookings open **30 days ahead** of today (Asia/Manila), enforced in the
+  database (`club_settings.booking_window_days = 30`) and in the date picker.
+
+Implemented in `20261115000100_weekend_rates_booking_window.sql` and
+`components/booking/court-booking.tsx`.
+
 **Still open:**
 
-- Whether weekends carry a different rate. Response 1 said the evening rate
-  applies all day at weekends; Response 2 is silent, so **do not assume it**.
 - Minimum and maximum booking length (blank).
 - Buffer or cleanup time between bookings (blank).
-- How far ahead a player may book (blank).
 - Same-day booking cutoff (blank).
 - Partial-hour and rounding rules, which matter for 90-minute bookings and for
   any booking that crosses 5:00 PM.
@@ -353,10 +364,19 @@ delegated the defaults so open play could proceed:
   advanced; 120 minutes each; capacity 12.
 - **Ownership:** staff can edit any open-play session detail.
 
-The defaults live in `open_play_sessions` rows, not in the UI. The migration
-seeds 52 Saturdays. Staff can edit the date/time, level, price, capacity, and
-status directly now; the staff management screen is Phase 8. A waitlist is still
-not approved (`D-22`), and DUPR/coaching are not part of this implementation.
+**Owner update (15 November 2026):**
+
+- Added an **All levels** option (`all_levels`) so a session can be open to every
+  standard, not only beginner/intermediate/advanced. The existing three remain.
+- The generated weekly schedule was removed at the owner's instruction, leaving
+  one session as a live example (Saturday 21 November 2026, beginner, 8–10 AM).
+  **The client creates sessions manually from `/staff/open-play`; there is no
+  recurring schedule or automation.**
+
+The defaults live in `open_play_sessions` rows, not in the UI. Staff can edit the
+date/time, level, price, capacity, and status directly now; the staff management
+screen is Phase 8. A waitlist is still not approved (`D-22`), and DUPR/coaching
+are not part of this implementation.
 
 **Blocks:** Phase 5 open-play page, Phase 7 registration, Phase 8 staff tools.
 
@@ -713,7 +733,7 @@ These are not open:
 ## Response format for the remaining answers
 
 ```text
-D-03: weekend rate ___ ; buffer ___ ; booking window ___ days ; rounding ___
+D-03: buffer ___ ; rounding ___
 D-04: publishable facilities ___
 D-05: closures/holidays ___
 D-07: full receiving account name ___ ; Maya for courts? ___

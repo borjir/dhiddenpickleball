@@ -17,7 +17,7 @@ export const FAQ_ITEMS: readonly FaqItem[] = [
   {
     question: "How much does court time cost?",
     answer:
-      "₱250 per court-hour before 5:00 PM and ₱300 per court-hour from 5:00 PM. Choose your start and end time; the full amount is shown before you confirm.",
+      "₱250 per court-hour before 5:00 PM on weekdays and ₱300 per court-hour from 5:00 PM. Weekends are ₱300 per court-hour all day. Booking both courts at the same time doubles the rate. Choose your start and end time; the full amount is shown before you confirm.",
   },
   {
     question: "How do I pay?",

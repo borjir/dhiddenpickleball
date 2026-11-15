@@ -61,6 +61,7 @@ type Rate = {
   starts_at_minute: number;
   ends_at_minute: number;
   amount_php: number;
+  day_of_week: number | null;
   service: { code: string; name: string } | null;
 };
 type OperatingHours = {
@@ -91,6 +92,12 @@ function timeLabel(minute: number) {
   const suffix = hours >= 12 ? "PM" : "AM";
   const display = hours % 12 === 0 ? 12 : hours % 12;
   return `${display}:${String(minutes).padStart(2, "0")} ${suffix}`;
+}
+
+function rateDayLabel(day: number | null) {
+  if (day === null) return "Every day";
+  if (day === 0 || day === 6) return "Weekend";
+  return DAY_NAMES[day] ?? "Every day";
 }
 
 function hoursSummary(rows: OperatingHours[]) {
@@ -148,7 +155,7 @@ async function Courts({ searchParams }: { searchParams: SearchParams }) {
       supabase
         .from("service_rates")
         .select(
-          "id, starts_at_minute, ends_at_minute, amount_php, service:services(code, name)",
+          "id, starts_at_minute, ends_at_minute, amount_php, day_of_week, service:services(code, name)",
         )
         .eq("is_active", true)
         .order("starts_at_minute"),
@@ -181,7 +188,7 @@ async function Courts({ searchParams }: { searchParams: SearchParams }) {
         description="Block maintenance, private events, or a whole-club closure. Blocked time disappears from online availability immediately."
       />
 
-      <div className="mt-5">
+      <div className="mt-5 lg:mt-6">
         <StaffFlash notice={text(params.notice) || null} error={text(params.error) || null} />
       </div>
 
@@ -220,7 +227,7 @@ async function Courts({ searchParams }: { searchParams: SearchParams }) {
         </StaffFilterField>
       </StaffFilterBar>
 
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_22rem] xl:items-start">
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_22rem] xl:items-start">
         <StaffPanel
           title="Upcoming blocks"
           description="Shown in Asia/Manila time."
@@ -312,7 +319,7 @@ async function Courts({ searchParams }: { searchParams: SearchParams }) {
             <Field id="block-date" label="Date" required>
               <Input id="block-date" name="date" type="date" defaultValue={manilaTodayId()} required />
             </Field>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 gap-2 min-[360px]:grid-cols-2">
               <Field id="block-start" label="From" required>
                 <Input id="block-start" name="startTime" type="time" defaultValue="08:00" required />
               </Field>
@@ -343,7 +350,7 @@ async function Courts({ searchParams }: { searchParams: SearchParams }) {
         </StaffPanel>
       </div>
 
-      <div className="mt-5 grid gap-3 sm:grid-cols-2">
+      <div className="mt-5 lg:mt-6 grid gap-3 sm:grid-cols-2">
         {courts.map((court) => (
           <div
             key={court.id}
@@ -368,7 +375,7 @@ async function Courts({ searchParams }: { searchParams: SearchParams }) {
         ))}
       </div>
 
-      <div className="mt-5 grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] xl:items-start">
+      <div className="mt-5 lg:mt-6 grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] xl:items-start">
         <StaffPanel
           title="Prices"
           description="New bookings use the new amount immediately. Existing bookings keep the price they were quoted."
@@ -392,7 +399,8 @@ async function Courts({ searchParams }: { searchParams: SearchParams }) {
                       {rate.service?.name ?? "Court rental"}
                     </p>
                     <p className="mt-0.5 text-caption text-muted">
-                      {timeLabel(rate.starts_at_minute)} – {timeLabel(rate.ends_at_minute)}
+                      {rateDayLabel(rate.day_of_week)} · {timeLabel(rate.starts_at_minute)} –{" "}
+                      {timeLabel(rate.ends_at_minute)}
                     </p>
                   </div>
                   <form

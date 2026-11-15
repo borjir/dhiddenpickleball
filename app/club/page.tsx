@@ -103,8 +103,8 @@ export default function ClubPage() {
               </h2>
               <p className="mt-4 text-base leading-relaxed text-muted">
                 Two bookable courts, open daily from 7:00 AM to 12:00 AM.
-                Hourly rates change once at 5:00 PM. Staff verify every GCash
-                payment before it is marked paid.
+                Weekday rates change at 5:00 PM; weekends are ₱300 all day.
+                Staff verify every GCash payment before it is marked paid.
               </p>
               <address className="mt-6 not-italic">
                 <p className="text-sm font-semibold text-ink">

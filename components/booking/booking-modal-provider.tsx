@@ -318,6 +318,7 @@ export function BookingModalProvider({ children }: { children: ReactNode }) {
                   <CourtBooking
                     courts={courtData.courts}
                     today={courtData.today}
+                    bookingWindowDays={courtData.bookingWindowDays}
                     embedded
                   />
                 </Suspense>

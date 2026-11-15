@@ -198,8 +198,11 @@ export type BookingModalData =
       status: "ok";
       courts: { id: string; name: string; slug: string }[];
       today: string;
+      bookingWindowDays: number;
     }
   | { status: "error"; message: string };
+
+const DEFAULT_BOOKING_WINDOW_DAYS = 30;
 
 export async function getBookingModalData(): Promise<BookingModalData> {
   if (!isSupabaseConfigured()) {
@@ -211,16 +214,23 @@ export async function getBookingModalData(): Promise<BookingModalData> {
 
   const supabase = await createClient();
 
-  const { data: courtRows } = await supabase
-    .from("courts")
-    .select("id, name, slug")
-    .eq("is_active", true)
-    .order("sort_order", { ascending: true });
+  const [courtRowsResult, settingsResult] = await Promise.all([
+    supabase
+      .from("courts")
+      .select("id, name, slug")
+      .eq("is_active", true)
+      .order("sort_order", { ascending: true }),
+    supabase.from("club_settings").select("booking_window_days").eq("id", 1).maybeSingle(),
+  ]);
 
   return {
     status: "ok",
-    courts: courtRows ?? [],
+    courts: courtRowsResult.data ?? [],
     today: manilaDateId(new Date()),
+    bookingWindowDays:
+      Number(settingsResult.data?.booking_window_days) > 0
+        ? Number(settingsResult.data?.booking_window_days)
+        : DEFAULT_BOOKING_WINDOW_DAYS,
   };
 }
 

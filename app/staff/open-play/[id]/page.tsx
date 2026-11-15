@@ -8,7 +8,12 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { Field, Input, Select, Textarea } from "@/components/ui/field";
-import { ArrowLeftIcon, BallIcon, UsersIcon } from "@/components/ui/icons";
+import {
+  ArrowLeftIcon,
+  BallIcon,
+  ChevronDownIcon,
+  UsersIcon,
+} from "@/components/ui/icons";
 import { ConfirmSubmitButton } from "@/components/staff/confirm-submit-button";
 import {
   StaffEmpty,
@@ -134,12 +139,12 @@ async function SessionDetail({ params, searchParams }: PageProps) {
         />
       </div>
 
-      <div className="mt-5">
+      <div className="mt-5 lg:mt-6">
         <StaffFlash notice={text(query.notice) || null} error={text(query.error) || null} />
       </div>
 
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_23rem] xl:items-start">
-        <div className="space-y-5">
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_23rem] xl:items-start">
+        <div className="space-y-6">
           <StaffPanel
             title="Player roster"
             description={`${active.length} of ${session.capacity} places filled`}
@@ -158,11 +163,11 @@ async function SessionDetail({ params, searchParams }: PageProps) {
             ) : null}
 
             {registrations.length > 0 ? (
-              <div className="space-y-2">
+              <div className="space-y-2.5 sm:space-y-3">
                 {registrations.map((registration) => (
                   <div
                     key={registration.id}
-                    className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-line bg-page/50 px-3.5 py-3"
+                    className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-line bg-page/50 px-4 py-3.5"
                   >
                     <div className="min-w-0">
                       <p className="text-sm font-bold text-heading">{personLabel(registration.player)}</p>
@@ -191,17 +196,20 @@ async function SessionDetail({ params, searchParams }: PageProps) {
                         <label className="sr-only" htmlFor={`attendance-${registration.id}`}>
                           Attendance for {personLabel(registration.player)}
                         </label>
-                        <select
-                          id={`attendance-${registration.id}`}
-                          name="status"
-                          defaultValue={registration.status}
-                          className="h-8 rounded-md border border-line bg-surface px-2 text-xs font-semibold text-heading"
-                        >
-                          <option value="registered">Registered</option>
-                          <option value="attended">Attended</option>
-                          <option value="no_show">No-show</option>
-                          <option value="cancelled">Cancelled</option>
-                        </select>
+                        <div className="relative">
+                          <select
+                            id={`attendance-${registration.id}`}
+                            name="status"
+                            defaultValue={registration.status}
+                            className="h-8 appearance-none rounded-md border border-line bg-surface pl-2.5 pr-8 text-xs font-semibold text-heading"
+                          >
+                            <option value="registered">Registered</option>
+                            <option value="attended">Attended</option>
+                            <option value="no_show">No-show</option>
+                            <option value="cancelled">Cancelled</option>
+                          </select>
+                          <ChevronDownIcon className="pointer-events-none absolute top-1/2 right-2.5 size-3.5 -translate-y-1/2 text-muted" />
+                        </div>
                         <SubmitButton
                           variant="secondary"
                           size="sm"
@@ -242,6 +250,7 @@ async function SessionDetail({ params, searchParams }: PageProps) {
                 </Field>
                 <Field id="session-level" label="Level" required>
                   <Select id="session-level" name="level" defaultValue={session.skill_level}>
+                    <option value="all_levels">All levels</option>
                     <option value="beginner">Beginner</option>
                     <option value="intermediate">Intermediate</option>
                     <option value="advanced">Advanced</option>
@@ -285,23 +294,23 @@ async function SessionDetail({ params, searchParams }: PageProps) {
           </StaffPanel>
         </div>
 
-        <div className="space-y-5 xl:sticky xl:top-8">
+        <div className="space-y-6 xl:sticky xl:top-8">
           <StaffPanel title="Session facts">
             <dl className="divide-y divide-line">
               <div className="flex justify-between gap-3 py-2.5 first:pt-0">
-                <dt className="text-caption text-muted">Date</dt>
-                <dd className="text-right text-sm font-semibold text-heading">{formatStaffDateTime(session.starts_at)}</dd>
+                <dt className="shrink-0 text-caption text-muted">Date</dt>
+                <dd className="min-w-0 text-right text-sm font-semibold break-words text-heading">{formatStaffDateTime(session.starts_at)}</dd>
               </div>
               <div className="flex justify-between gap-3 py-2.5">
-                <dt className="text-caption text-muted">Level</dt>
-                <dd className="text-right text-sm font-semibold text-heading">{openPlayLevelLabel(session.skill_level)}</dd>
+                <dt className="shrink-0 text-caption text-muted">Level</dt>
+                <dd className="min-w-0 text-right text-sm font-semibold text-heading">{openPlayLevelLabel(session.skill_level)}</dd>
               </div>
               <div className="flex justify-between gap-3 py-2.5">
-                <dt className="text-caption text-muted">Places</dt>
+                <dt className="shrink-0 text-caption text-muted">Places</dt>
                 <dd className="text-right text-sm font-semibold text-heading">{active.length} / {session.capacity}</dd>
               </div>
               <div className="flex justify-between gap-3 py-2.5">
-                <dt className="text-caption text-muted">Price</dt>
+                <dt className="shrink-0 text-caption text-muted">Price</dt>
                 <dd className="text-right text-sm font-semibold text-heading">{formatPeso(Number(session.amount_php))}</dd>
               </div>
             </dl>

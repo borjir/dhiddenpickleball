@@ -55,7 +55,7 @@ const stepContent = [
     eyebrow: "Step 1 · Choose a time",
     title: "Pick your court time",
     description:
-      "Tap an open hour. Tap adjacent hours to extend your booking, then review your total.",
+      "Tap an open hour. Pick a later hour and the free hours in between become one range; a gap can be added as another court time in the same booking.",
   },
   {
     eyebrow: "Step 2 · Your details",
@@ -150,6 +150,8 @@ type HourCell = {
   endMinute: number;
   status: "open" | "taken" | "past" | "in-cart";
   slot?: AvailabilitySlot;
+  // "Both" cells quote every court at that hour, so the amount is a sum.
+  amountPhp?: number;
 };
 
 type DateParts = {
@@ -199,25 +201,6 @@ function formatDateId(value: string) {
   }).format(new Date(Date.UTC(parts.year, parts.monthIndex, parts.day)));
 }
 
-function quickDateParts(value: string) {
-  const parts = parseDateId(value);
-  if (!parts) return { weekday: "Date", monthDay: value };
-
-  const date = new Date(Date.UTC(parts.year, parts.monthIndex, parts.day));
-
-  return {
-    weekday: new Intl.DateTimeFormat("en-PH", {
-      weekday: "short",
-      timeZone: "UTC",
-    }).format(date),
-    monthDay: new Intl.DateTimeFormat("en-PH", {
-      month: "short",
-      day: "numeric",
-      timeZone: "UTC",
-    }).format(date),
-  };
-}
-
 function formatMonth(year: number, monthIndex: number) {
   return `${MONTH_NAMES[monthIndex]} ${year}`;
 }
@@ -226,6 +209,7 @@ function buildCalendarCells(
   year: number,
   monthIndex: number,
   today: string,
+  lastBookableDate: string,
 ): CalendarCell[] {
   const cells: CalendarCell[] = [];
   const leading = new Date(Date.UTC(year, monthIndex, 1)).getUTCDay();
@@ -243,7 +227,7 @@ function buildCalendarCells(
       key: dateId,
       dayOfMonth: day,
       dateId,
-      disabled: dateId < today,
+      disabled: dateId < today || dateId > lastBookableDate,
     });
   }
 
@@ -384,14 +368,18 @@ function SlotSkeleton() {
   );
 }
 
+const DEFAULT_BOOKING_WINDOW_DAYS = 30;
+
 export function CourtBooking({
   courts,
   today,
   embedded = false,
+  bookingWindowDays = DEFAULT_BOOKING_WINDOW_DAYS,
 }: {
   courts: CourtOption[];
   today: string;
   embedded?: boolean;
+  bookingWindowDays?: number;
 }) {
   const searchParams = useSearchParams();
   const reduce = useReducedMotion();
@@ -411,7 +399,15 @@ export function CourtBooking({
       ? requestedDuration / 60
       : 1;
 
-  const [date, setDate] = useState(initialDate);
+  const windowDays =
+    Number.isFinite(bookingWindowDays) && bookingWindowDays > 0
+      ? Math.round(bookingWindowDays)
+      : DEFAULT_BOOKING_WINDOW_DAYS;
+  const lastBookableDate = addDays(today, windowDays);
+
+  const [date, setDate] = useState(
+    initialDate > lastBookableDate ? today : initialDate,
+  );
   const [courtFilter, setCourtFilter] = useState<"all" | string>(
     requestedCourt && courts.some((court) => court.id === requestedCourt)
       ? requestedCourt
@@ -441,11 +437,11 @@ export function CourtBooking({
   const [forceNewRange, setForceNewRange] = useState(false);
   // An out-of-range pick the player can confirm as a separate court time.
   const [blockedSlot, setBlockedSlot] = useState<{
-    slot: AvailabilitySlot;
+    startMinute: number;
     date: string;
+    slot?: AvailabilitySlot;
   } | null>(null);
   const [step, setStep] = useState(0);
-  const [showCalendar, setShowCalendar] = useState(false);
   const [nowMinute, setNowMinute] = useState(0);
   const [notice, setNotice] = useState<string | null>(null);
   const [bookingState, setBookingState] =
@@ -640,18 +636,19 @@ export function CourtBooking({
   }, [cart, hydrated]);
 
   const todayParts = parseDateId(today)!;
-  const quickDates = Array.from({ length: 14 }, (_, index) =>
-    addDays(today, index),
-  );
   const selectedDateLabel = formatDateId(date);
   const calendarCells = buildCalendarCells(
     visibleMonth.year,
     visibleMonth.monthIndex,
     today,
+    lastBookableDate,
   );
   const monthPosition =
     visibleMonth.year * 12 + visibleMonth.monthIndex;
   const todayPosition = todayParts.year * 12 + todayParts.monthIndex;
+  const lastBookablePosition =
+    parseDateId(lastBookableDate)!.year * 12 +
+    parseDateId(lastBookableDate)!.monthIndex;
 
   const courtOptions = useMemo(() => {
     if (courts.length > 0) return courts;
@@ -669,20 +666,9 @@ export function CourtBooking({
     return Array.from(seen.values());
   }, [courts, slots]);
 
-  const slotsForPicker = slots.filter(
-    (slot) =>
-      !cart.some(
-        (item) =>
-          item.courtId === slot.courtId &&
-          item.date === date &&
-          item.startMinute < slot.startMinute + 60 &&
-          slot.startMinute < item.endMinute,
-      ),
-  );
-  const visibleSlots =
-    courtFilter === "all"
-      ? slotsForPicker
-      : slotsForPicker.filter((slot) => slot.courtId === courtFilter);
+  // "Both" books every court at once, so the grid shows one cell per hour and
+  // quotes the combined hourly amount.
+  const pairMode = courtFilter === "all" && courtOptions.length > 1;
   const hourCells = useMemo(() => {
     const courtIds =
       courtFilter === "all"
@@ -695,6 +681,64 @@ export function CourtBooking({
       startMinute < DAY_CLOSE_MINUTE;
       startMinute += 60
     ) {
+      if (pairMode) {
+        const covering = courtIds.map((courtId) =>
+          cart.find(
+            (item) =>
+              item.courtId === courtId &&
+              item.date === date &&
+              item.startMinute <= startMinute &&
+              startMinute < item.endMinute,
+          ),
+        );
+        const slotsHere = courtIds.map((courtId) =>
+          slots.find(
+            (slot) =>
+              slot.courtId === courtId && slot.startMinute === startMinute,
+          ),
+        );
+
+        if (covering.some(Boolean)) {
+          cells.push({
+            key: `pair-cart-${startMinute}`,
+            courtId: null,
+            courtName: "Both courts",
+            startMinute,
+            endMinute: startMinute + 60,
+            status: "in-cart",
+            slot: slotsHere.find(Boolean),
+          });
+          continue;
+        }
+
+        if (slotsHere.every(Boolean)) {
+          cells.push({
+            key: `pair-open-${startMinute}`,
+            courtId: null,
+            courtName: "Both courts",
+            startMinute,
+            endMinute: startMinute + 60,
+            status: "open",
+            slot: slotsHere[0],
+            amountPhp: slotsHere.reduce(
+              (total, slot) => total + (slot?.amountPhp ?? 0),
+              0,
+            ),
+          });
+          continue;
+        }
+
+        cells.push({
+          key: `pair-taken-${startMinute}`,
+          courtId: null,
+          courtName: null,
+          startMinute,
+          endMinute: startMinute + 60,
+          status: date === today && startMinute <= nowMinute ? "past" : "taken",
+        });
+        continue;
+      }
+
       const openSlots = slots.filter(
         (slot) =>
           courtIds.includes(slot.courtId) &&
@@ -785,6 +829,7 @@ export function CourtBooking({
     courtOptions,
     date,
     nowMinute,
+    pairMode,
     slots,
     today,
   ]);
@@ -792,6 +837,7 @@ export function CourtBooking({
   const activeContent = stepContent[step];
   const group = bookingState.group;
   const cartTotal = cart.reduce((total, item) => total + item.amountPhp, 0);
+  const openHourCount = hourCells.filter((cell) => cell.status === "open").length;
   const canSubmit = cart.length > 0 && !pending;
 
   function clearBookingFeedback() {
@@ -820,14 +866,34 @@ export function CourtBooking({
 
   function removeRange(key: string) {
     const removed = cart.find((item) => item.key === key);
+    if (!removed) return;
+
+    // A "Both" block is one decision, so removing it clears both courts.
+    const keys = new Set(
+      pairMode
+        ? cart
+            .filter(
+              (item) =>
+                item.date === removed.date &&
+                item.startMinute === removed.startMinute &&
+                item.endMinute === removed.endMinute,
+            )
+            .map((item) => item.key)
+        : [key],
+    );
+    const next = cart.filter((item) => !keys.has(item.key));
+
     rememberCart();
-    setCart((current) => current.filter((item) => item.key !== key));
-    setActiveRangeKey((current) => (current === key ? null : current));
-    if (removed) {
-      setNotice(
-        `Removed ${formatDateId(removed.date)} · ${formatHourRange(removed.startMinute, removed.endMinute)}.`,
-      );
-    }
+    setCart(next);
+    setActiveRangeKey((current) =>
+      current && keys.has(current) ? null : current,
+    );
+    setNotice(
+      `Removed ${formatDateId(removed.date)} · ${formatHourRange(removed.startMinute, removed.endMinute)}${pairMode ? " for both courts" : ""}.`,
+    );
+
+    // Emptying the selection sends the player back to picking a time.
+    if (next.length === 0) setStep(0);
   }
 
   function changeDate(nextDate: string) {
@@ -837,6 +903,7 @@ export function CourtBooking({
       setVisibleMonth({ year: parts.year, monthIndex: parts.monthIndex });
     }
     setActiveRangeKey(null);
+    setBlockedSlot(null);
     setBlockedSlot(null);
     setAvailabilityState("loading");
     setAvailabilityError(null);
@@ -881,9 +948,8 @@ export function CourtBooking({
       ?.scrollIntoView({ behavior: "smooth", block: "center" });
   }
 
-  function trimHourFromRange(item: CartRange, startMinute: number) {
-    rememberCart();
-
+  /** Splits a range around one hour without touching other cart entries. */
+  function trimmedSegments(item: CartRange, startMinute: number) {
     const courtSlots = slots
       .filter((candidate) => candidate.courtId === item.courtId)
       .sort((a, b) => a.startMinute - b.startMinute);
@@ -910,6 +976,14 @@ export function CourtBooking({
     buildSegment(item.startMinute, startMinute);
     buildSegment(startMinute + 60, item.endMinute);
 
+    return segments;
+  }
+
+  function trimHourFromRange(item: CartRange, startMinute: number) {
+    rememberCart();
+
+    const segments = trimmedSegments(item, startMinute);
+
     setCart((current) => [
       ...current.filter((candidate) => candidate.key !== item.key),
       ...segments,
@@ -921,13 +995,223 @@ export function CourtBooking({
     );
   }
 
-  // A non-adjacent pick bridges the gap into the range it belongs with when
-  // every hour in between is open, so 4 PM then 10 PM becomes 4 PM – 11 PM.
-  function bridgedRange(slot: AvailabilitySlot): CartRange | null {
+  /** Builds one cart entry per court for a whole-hour span, or null if any
+   * court is not open for every hour in it. */
+  function pairItemsForSpan(startMinute: number, endMinute: number) {
+    const hours = (endMinute - startMinute) / 60;
+    const items: CartRange[] = [];
+
+    for (const court of courtOptions) {
+      const chain = slots
+        .filter(
+          (slot) =>
+            slot.courtId === court.id &&
+            slot.startMinute >= startMinute &&
+            slot.startMinute < endMinute,
+        )
+        .sort((a, b) => a.startMinute - b.startMinute);
+
+      if (chain.length !== hours) return null;
+
+      const item = rangeToCartItem(chain, date);
+      if (!item) return null;
+
+      items.push(item);
+    }
+
+    return items;
+  }
+
+  /** "Both" taps add, extend, or trim every court at once. */
+  function togglePairHour(startMinute: number) {
+    setBookingState(initialBookingState);
+    setNotice(null);
+    setBlockedSlot(null);
+
+    const covering = courtOptions.map((court) => ({
+      court,
+      item: cart.find(
+        (candidate) =>
+          candidate.courtId === court.id &&
+          candidate.date === date &&
+          candidate.startMinute <= startMinute &&
+          startMinute < candidate.endMinute,
+      ),
+    }));
+    const covered = covering.filter((entry) => entry.item);
+
+    // The hour is booked on every court: remove it from all of them.
+    if (covered.length === courtOptions.length) {
+      rememberCart();
+      const keys = new Set(covered.map((entry) => entry.item!.key));
+      setCart((current) =>
+        current.flatMap((item) =>
+          keys.has(item.key) ? trimmedSegments(item, startMinute) : [item],
+        ),
+      );
+      setActiveRangeKey(null);
+      setForceNewRange(false);
+      setNotice(`Removed ${formatHourRange(startMinute)} from both courts.`);
+      return;
+    }
+
+    // Half a pair (for example after removing one court) is completed instead
+    // of ignored, because "Both" asks for both courts.
+    if (covered.length > 0) {
+      const additions: CartRange[] = [];
+      for (const entry of covering.filter((candidate) => !candidate.item)) {
+        const startSlot = slots.find(
+          (slot) =>
+            slot.courtId === entry.court.id && slot.startMinute === startMinute,
+        );
+        const item = startSlot ? rangeToCartItem([startSlot], date) : null;
+        if (!item) {
+          setNotice(
+            "That hour is not free on both courts. Choose another time, or filter to one court.",
+          );
+          return;
+        }
+        additions.push(item);
+      }
+
+      rememberCart();
+      setCart((current) => [...current, ...additions]);
+      setActiveRangeKey(additions[0].key);
+      setForceNewRange(false);
+      setNotice(`Added ${formatHourRange(startMinute)} for both courts.`);
+      return;
+    }
+
+    const neighbours = forceNewRange
+      ? []
+      : courtOptions.map((court) => ({
+          court,
+          item: cart.find(
+            (candidate) =>
+              candidate.courtId === court.id &&
+              candidate.date === date &&
+              (candidate.endMinute === startMinute ||
+                candidate.startMinute === startMinute + 60),
+          ),
+        }));
+
+    const aligned =
+      neighbours.length > 0 &&
+      neighbours.every(
+        (entry) =>
+          entry.item &&
+          entry.item.startMinute === neighbours[0].item?.startMinute &&
+          entry.item.endMinute === neighbours[0].item?.endMinute,
+      );
+
+    if (aligned) {
+      const newStart = Math.min(
+        startMinute,
+        ...neighbours.map((entry) => entry.item!.startMinute),
+      );
+      const newEnd = Math.max(
+        startMinute + 60,
+        ...neighbours.map((entry) => entry.item!.endMinute),
+      );
+      const items = pairItemsForSpan(newStart, newEnd);
+
+      if (!items) {
+        setNotice(
+          "That hour is not free on both courts, so it was not added. Choose another time.",
+        );
+        return;
+      }
+
+      rememberCart();
+      const keys = new Set(neighbours.map((entry) => entry.item!.key));
+      setCart((current) => [
+        ...current.filter((item) => !keys.has(item.key)),
+        ...items,
+      ]);
+      setActiveRangeKey(items[0].key);
+      setForceNewRange(false);
+      setNotice(
+        `Extended the court time to ${formatDateId(date)} · ${formatHourRange(newStart, newEnd)} for both courts.`,
+      );
+      return;
+    }
+
+    // A pick further along the day bridges into the range it belongs with when
+    // every hour on both courts in between is open, so 12 PM – 1 PM then 9 PM
+    // becomes 12 PM – 10 PM for both courts instead of a second block.
+    if (!forceNewRange) {
+      const span = bridgeSpan(
+        startMinute,
+        courtOptions.map((court) => court.id),
+      );
+      const items = span
+        ? pairItemsForSpan(span.startMinute, span.endMinute)
+        : null;
+
+      if (span && items) {
+        rememberCart();
+        setCart((current) => [
+          ...current.filter(
+            (item) =>
+              !(
+                item.date === date &&
+                item.startMinute < span.endMinute &&
+                span.startMinute < item.endMinute
+              ),
+          ),
+          ...items,
+        ]);
+        setActiveRangeKey(items[0].key);
+        setForceNewRange(false);
+        setNotice(
+          `Extended the court time to ${formatDateId(date)} · ${formatHourRange(span.startMinute, span.endMinute)} for both courts.`,
+        );
+        return;
+      }
+    }
+
+    if (cart.length > 0 && !forceNewRange) {
+      setBlockedSlot({ startMinute, date });
+      const span = bridgeSpan(
+        startMinute,
+        courtOptions.map((court) => court.id),
+      );
+      setNotice(
+        span
+          ? blockedBridgeNotice(
+              span,
+              courtOptions.map((court) => court.id),
+            )
+          : "That hour is outside your current court time, so it was not added. Extend an existing range with a neighbouring hour, or add it below; it stays in the same booking.",
+      );
+      return;
+    }
+
+    const items = pairItemsForSpan(startMinute, startMinute + 60);
+
+    if (!items) {
+      setNotice(
+        "That hour is not free on both courts. Choose another time, or filter to one court.",
+      );
+      return;
+    }
+
+    rememberCart();
+    setCart((current) => [...current, ...items]);
+    setActiveRangeKey(items[0].key);
+    setForceNewRange(false);
+    setNotice(
+      `Added ${formatDateId(date)} · ${formatHourRange(startMinute)} for both courts. Tap an adjacent hour to extend, or use × to remove it.`,
+    );
+  }
+
+  /** The span between a new pick and the range it would join, or null when a
+   * new pick must start its own range. */
+  function bridgeSpan(startMinute: number, courtIds: string[]) {
     if (forceNewRange) return null;
 
     const sameDayRanges = cart.filter(
-      (item) => item.courtId === slot.courtId && item.date === date,
+      (item) => courtIds.includes(item.courtId) && item.date === date,
     );
     if (sameDayRanges.length === 0) return null;
 
@@ -935,41 +1219,98 @@ export function CourtBooking({
       ? sameDayRanges.find((item) => item.key === activeRangeKey)
       : undefined;
     const gapFor = (item: CartRange) =>
-      item.startMinute > slot.startMinute
-        ? item.startMinute - (slot.startMinute + 60)
-        : slot.startMinute - item.endMinute;
+      item.startMinute > startMinute
+        ? item.startMinute - (startMinute + 60)
+        : startMinute - item.endMinute;
     const target =
       active ?? [...sameDayRanges].sort((a, b) => gapFor(a) - gapFor(b))[0];
 
-    const spanStart = Math.min(target.startMinute, slot.startMinute);
-    const spanEnd = Math.max(target.endMinute, slot.startMinute + 60);
+    return {
+      startMinute: Math.min(target.startMinute, startMinute),
+      endMinute: Math.max(target.endMinute, startMinute + 60),
+    };
+  }
+
+  /** The first hour in a span with no bookable slot, if any. */
+  function unavailableHour(
+    span: { startMinute: number; endMinute: number },
+    courtId: string,
+  ) {
+    const courtSlots = slots.filter((slot) => slot.courtId === courtId);
+
+    for (
+      let minute = span.startMinute;
+      minute < span.endMinute;
+      minute += 60
+    ) {
+      if (!courtSlots.some((slot) => slot.startMinute === minute)) return minute;
+    }
+
+    return null;
+  }
+
+  /** Names the hour that stops a wide range from being one continuous booking,
+   * instead of leaving the player to hunt for it in the grid. */
+  function blockedBridgeNotice(
+    span: { startMinute: number; endMinute: number },
+    courtIds: string[],
+  ) {
+    for (const courtId of courtIds) {
+      const hour = unavailableHour(span, courtId);
+      if (hour === null) continue;
+
+      const court = courtOptions.find((option) => option.id === courtId);
+      const where =
+        courtIds.length > 1 && court ? ` on ${court.name}` : "";
+
+      return `${formatHourRange(hour)}${where} is already booked or closed, so the time can’t be one continuous booking. Add the new hour below instead; it stays in the same booking and one GCash total.`;
+    }
+
+    return "Those hours can’t be joined into one continuous booking. Add the new hour below instead; it stays in the same booking and one GCash total.";
+  }
+
+  function bridgedRange(slot: AvailabilitySlot): CartRange | null {
+    const span = bridgeSpan(slot.startMinute, [slot.courtId]);
+    if (!span) return null;
+
     const courtSlots = slots
       .filter((candidate) => candidate.courtId === slot.courtId)
       .sort((a, b) => a.startMinute - b.startMinute);
     const spanSlots = courtSlots.filter(
       (candidate) =>
-        candidate.startMinute >= spanStart && candidate.startMinute < spanEnd,
+        candidate.startMinute >= span.startMinute &&
+        candidate.startMinute < span.endMinute,
     );
 
     // Refuse the bridge when any hour in between is taken or closed.
-    if (spanSlots.length !== (spanEnd - spanStart) / 60) return null;
+    if (spanSlots.length !== (span.endMinute - span.startMinute) / 60) {
+      return null;
+    }
 
     return rangeToCartItem(spanSlots, date);
   }
 
   function addBlockedSlotSeparately() {
-    if (!blockedSlot) return;
+    if (!blockedSlot || blockedSlot.date !== date) return;
 
-    const item = rangeToCartItem([blockedSlot.slot], blockedSlot.date);
-    if (!item) return;
+    const items = pairMode
+      ? pairItemsForSpan(blockedSlot.startMinute, blockedSlot.startMinute + 60)
+      : blockedSlot.slot
+        ? (() => {
+            const item = rangeToCartItem([blockedSlot.slot!], blockedSlot.date);
+            return item ? [item] : null;
+          })()
+        : null;
+
+    if (!items) return;
 
     rememberCart();
-    setCart((current) => [...current, item]);
-    setActiveRangeKey(item.key);
+    setCart((current) => [...current, ...items]);
+    setActiveRangeKey(items[0].key);
     setForceNewRange(false);
     setBlockedSlot(null);
     setNotice(
-      `Added ${formatDateId(blockedSlot.date)} · ${formatHourRange(blockedSlot.slot.startMinute)} as a separate court time. Tap an adjacent hour to extend it, or use × to remove it.`,
+      `Added ${formatDateId(blockedSlot.date)} · ${formatHourRange(blockedSlot.startMinute)} as another court time in this booking${pairMode ? " for both courts" : ""}. One GCash total covers it. Tap an adjacent hour to extend it, or use × to remove it.`,
     );
   }
 
@@ -1076,9 +1417,12 @@ export function CourtBooking({
     // which only "Add court time" may start. Otherwise leave the cart as it
     // is and tell the player how to add one.
     if (cart.length > 0 && !forceNewRange) {
-      setBlockedSlot({ slot, date });
+      setBlockedSlot({ startMinute: slot.startMinute, slot, date });
+      const span = bridgeSpan(slot.startMinute, [slot.courtId]);
       setNotice(
-        "That hour is outside your current court time, so it was not added. Extend an existing range with a neighbouring hour, or add it as a separate court time below.",
+        span
+          ? blockedBridgeNotice(span, [slot.courtId])
+          : "That hour is outside your current court time, so it was not added. Extend an existing range with a neighbouring hour, or add it below; it stays in the same booking.",
       );
       return;
     }
@@ -1097,7 +1441,7 @@ export function CourtBooking({
 
   function showMonth(offset: number) {
     const position = monthPosition + offset;
-    if (position < todayPosition) return;
+    if (position < todayPosition || position > lastBookablePosition) return;
 
     const year = Math.floor(position / 12);
     const monthIndex = position % 12;
@@ -1198,10 +1542,19 @@ export function CourtBooking({
       : undefined;
     // The most recently edited range is highlighted. Tapping an added hour
     // trims just that hour; × removes the whole range.
-    const active = Boolean(cartItem && cartItem.key === activeRangeKey);
+    const active = cartItem
+      ? cartItem.key === activeRangeKey
+      : selected &&
+        cart.some(
+          (item) =>
+            item.key === activeRangeKey &&
+            item.date === date &&
+            item.startMinute <= cell.startMinute &&
+            cell.startMinute < item.endMinute,
+        );
     const detail =
       cell.status === "open"
-        ? `${cell.courtName ?? "Court"} · ${formatPeso(cell.slot!.amountPhp)} · Tap to add`
+        ? `${cell.courtName ?? "Court"} · ${formatPeso(cell.amountPhp ?? cell.slot!.amountPhp)} · Tap to add`
         : cell.status === "in-cart"
           ? active
             ? "Current · tap hour to remove"
@@ -1225,7 +1578,13 @@ export function CourtBooking({
                 : "added, tap to remove just this hour; use the remove button to delete the whole range"
               : cell.status
         }`}
-        onClick={() => cell.slot && toggleSlot(cell.slot)}
+        onClick={() => {
+          if (pairMode) {
+            togglePairHour(cell.startMinute);
+            return;
+          }
+          if (cell.slot) toggleSlot(cell.slot);
+        }}
         className={cn(
           "group flex min-h-[3.8rem] flex-col justify-between rounded-xl border px-2.5 py-2 text-left transition-colors duration-200",
           active
@@ -1407,75 +1766,17 @@ export function CourtBooking({
                       aria-label="Choose a date"
                       className="mt-4"
                     >
+                      <p className="text-caption text-muted">
+                        Selected:{" "}
+                        <span className="font-semibold text-ink">
+                          {selectedDateLabel}
+                        </span>
+                      </p>
+
                       <div
-                        className={cn(
-                          "-mx-1 flex gap-2 overflow-x-auto px-1 pb-2",
-                          embedded && "lg:hidden",
-                        )}
+                        id="booking-date-calendar"
+                        className="mt-2 w-full max-w-md rounded-xl border border-line bg-page/50 p-3"
                       >
-                        {quickDates.map((dateId) => {
-                          const selected = dateId === date;
-                          const parts = quickDateParts(dateId);
-
-                          return (
-                            <button
-                              key={dateId}
-                              type="button"
-                              aria-pressed={selected}
-                              aria-label={`${formatDateId(dateId)}${selected ? ", selected" : ""}`}
-                              onClick={() => changeDate(dateId)}
-                              className={cn(
-                                "flex min-w-[4.75rem] shrink-0 flex-col items-center rounded-xl border px-3 py-2.5 text-center transition-colors duration-200",
-                                selected
-                                  ? "border-brand-navy bg-brand-navy text-white shadow-card"
-                                  : "border-line bg-surface text-heading hover:border-brand-blue/40 hover:bg-brand-blue-soft/60",
-                              )}
-                            >
-                              <span
-                                className={cn(
-                                  "text-[0.625rem] font-bold uppercase tracking-[0.12em]",
-                                  selected ? "text-white/60" : "text-muted",
-                                )}
-                              >
-                                {parts.weekday}
-                              </span>
-                              <span className="mt-0.5 text-sm font-bold">
-                                {parts.monthDay}
-                              </span>
-                            </button>
-                          );
-                        })}
-                      </div>
-
-                      <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
-                        <p className="text-caption text-muted">
-                          Selected:{" "}
-                          <span className="font-semibold text-ink">
-                            {selectedDateLabel}
-                          </span>
-                        </p>
-                        <button
-                          type="button"
-                          aria-expanded={showCalendar}
-                          aria-controls="booking-date-calendar"
-                          onClick={() => setShowCalendar((value) => !value)}
-                          className={cn(
-                            "inline-flex min-h-9 items-center text-sm font-semibold text-accent-ink underline-offset-4 hover:underline",
-                            embedded && "lg:hidden",
-                          )}
-                        >
-                          {showCalendar ? "Hide calendar" : "More dates"}
-                        </button>
-                      </div>
-
-                      {showCalendar || embedded ? (
-                        <div
-                          id="booking-date-calendar"
-                          className={cn(
-                            "mt-3 max-w-md rounded-xl border border-line bg-page/50 p-3",
-                            embedded && !showCalendar && "hidden lg:block",
-                          )}
-                        >
                           <div className="flex items-center justify-between gap-2">
                             <button
                               type="button"
@@ -1498,8 +1799,9 @@ export function CourtBooking({
                             <button
                               type="button"
                               aria-label="Next month"
+                              disabled={monthPosition >= lastBookablePosition}
                               onClick={() => showMonth(1)}
-                              className="inline-flex size-11 items-center justify-center rounded-lg border border-line bg-surface text-heading transition-colors duration-200 hover:border-brand-blue/50 hover:bg-brand-blue-soft/60"
+                              className="inline-flex size-11 items-center justify-center rounded-lg border border-line bg-surface text-heading transition-colors duration-200 hover:border-brand-blue/50 hover:bg-brand-blue-soft/60 disabled:cursor-not-allowed disabled:opacity-40"
                             >
                               <ArrowRightIcon className="size-4" />
                             </button>
@@ -1535,7 +1837,7 @@ export function CourtBooking({
                                   type="button"
                                   disabled={cell.disabled}
                                   aria-pressed={selected}
-                                  aria-label={`${formatDateId(cell.dateId)}${cell.disabled ? ", past" : selected ? ", selected" : ", available"}`}
+                                  aria-label={`${formatDateId(cell.dateId)}${cell.disabled ? ", unavailable" : selected ? ", selected" : ", available"}`}
                                   onClick={() => changeDate(cell.dateId!)}
                                   className={cn(
                                     "flex h-11 items-center justify-center rounded-lg text-sm font-semibold transition-colors duration-200",
@@ -1552,10 +1854,10 @@ export function CourtBooking({
                             })}
                           </div>
                           <p className="mt-2 text-caption text-muted">
-                            Past dates are unavailable.
+                            Past dates and dates past the {windowDays}-day booking
+                            window are unavailable.
                           </p>
-                        </div>
-                      ) : null}
+                      </div>
                     </div>
                   </section>
 
@@ -1571,8 +1873,8 @@ export function CourtBooking({
                           <span className="skeleton h-6 w-28 rounded-full" />
                         ) : (
                           <Badge variant="lime" dot>
-                            {visibleSlots.length} open{" "}
-                            {visibleSlots.length === 1 ? "slot" : "slots"}
+                            {openHourCount} open{" "}
+                            {openHourCount === 1 ? "slot" : "slots"}
                           </Badge>
                         )
                       }
@@ -1580,8 +1882,9 @@ export function CourtBooking({
 
                     {embedded ? (
                       <p className="mt-2 text-sm leading-relaxed text-muted">
-                        Tap an open hour. Tap adjacent hours to extend. Use Add
-                        court time for another date or range.
+                        Tap an open hour. Tap a later hour to extend across the
+                        free hours in between. Use Add court time for a gap or
+                        another date.
                       </p>
                     ) : null}
 
@@ -1592,12 +1895,20 @@ export function CourtBooking({
                           AM – 12:00 AM daily
                         </span>
                         <span>
-                          <span className="font-semibold text-ink">Day</span> ₱250/hour
-                          before 5 PM
+                          <span className="font-semibold text-ink">Weekday</span>{" "}
+                          ₱250/hour before 5 PM
                         </span>
                         <span>
                           <span className="font-semibold text-ink">Evening</span>{" "}
                           ₱300/hour from 5 PM
+                        </span>
+                        <span>
+                          <span className="font-semibold text-ink">Weekend</span>{" "}
+                          ₱300/hour all day
+                        </span>
+                        <span>
+                          <span className="font-semibold text-ink">Both</span>{" "}
+                          Court 1 + Court 2, double the hourly rate
                         </span>
                       </div>
                     )}
@@ -1641,7 +1952,8 @@ export function CourtBooking({
                             embedded && "hidden",
                           )}
                         >
-                          Filter the grid, or compare both courts.
+                          Both books Court 1 and Court 2 at the same time for
+                          double the hourly rate.
                         </p>
                       </div>
                     ) : null}
@@ -1742,8 +2054,8 @@ export function CourtBooking({
                           >
                             <p className="text-caption text-ink">
                               {formatHourRange(
-                                blockedSlot.slot.startMinute,
-                                blockedSlot.slot.startMinute + 60,
+                                blockedSlot.startMinute,
+                                blockedSlot.startMinute + 60,
                               )}{" "}
                               on {formatDateId(blockedSlot.date)} is not part of
                               your current court time.
@@ -1754,7 +2066,7 @@ export function CourtBooking({
                               className="shrink-0"
                               onClick={addBlockedSlotSeparately}
                             >
-                              Add it as a separate court time
+                              Add this hour to the booking
                             </Button>
                           </div>
                         ) : null}
@@ -2042,15 +2354,26 @@ export function CourtBooking({
                                     · {item.courtName}
                                   </p>
                                 </div>
-                                <span className="text-sm font-semibold text-heading">
-                                  {formatPeso(item.amountPhp)}
-                                </span>
+                                <div className="flex items-center gap-2">
+                                  <span className="text-sm font-semibold text-heading">
+                                    {formatPeso(item.amountPhp)}
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={() => removeRange(item.key)}
+                                    aria-label={`Cancel ${formatDateId(item.date)} ${formatHourRange(item.startMinute, item.endMinute)} on ${item.courtName}`}
+                                    className="inline-flex size-9 shrink-0 items-center justify-center rounded-lg border border-line text-base leading-none text-muted transition-colors hover:border-brand-blue/50 hover:bg-brand-blue-soft/60 hover:text-accent-ink"
+                                  >
+                                    <span aria-hidden="true">×</span>
+                                  </button>
+                                </div>
                               </div>
                             ))}
                           </div>
                           <p className="mt-3 text-caption text-muted">
                             One reference and one GCash total cover all court
-                            times.
+                            times. Use × to remove a court time here if your
+                            plans change, before you hold the slot.
                           </p>
                         </section>
 

@@ -1,6 +1,10 @@
 import type { BadgeVariant } from "@/components/ui/badge";
 
-export type OpenPlaySkillLevel = "beginner" | "intermediate" | "advanced";
+export type OpenPlaySkillLevel =
+  | "all_levels"
+  | "beginner"
+  | "intermediate"
+  | "advanced";
 
 export type OpenPlaySessionStatus = "scheduled" | "cancelled" | "completed";
 
@@ -33,6 +37,12 @@ export const OPEN_PLAY_LEVELS: Record<
   OpenPlaySkillLevel,
   { label: string; description: string; variant: BadgeVariant }
 > = {
+  all_levels: {
+    label: "All levels",
+    description:
+      "Open to everyone. Beginners and experienced players share the session.",
+    variant: "neutral",
+  },
   beginner: {
     label: "Beginner",
     description: "New to pickleball or still building consistency.",

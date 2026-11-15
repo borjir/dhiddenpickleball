@@ -1,5 +1,215 @@
 # Project Status
 
+## Guest status freshness and staff desktop spacing (15 November 2026)
+
+### QR check runs itself
+
+On `/lookup`, scanning or uploading a booking QR (`DHPB1|REF|MOBILE`) used to
+only fill the form; the guest still had to press "Check booking status". The
+upload now queues the lookup and runs it as soon as the Turnstile widget has a
+token (it is often ready a moment after the upload). The same applies to the
+`#mobile=` confirmation link. While waiting, the form shows "QR found.
+Checking the booking as soon as the security check is ready…". The button stays
+as a manual fallback.
+
+### Status page follows staff edits
+
+An open status page re-checks itself every 30 seconds (down from 45) and now
+also refreshes immediately when the guest returns to the tab, so payment
+verification, status changes, and voided bookings appear without a reload.
+
+Changing an open-play session's **date or time** used to update only
+`open_play_sessions`; each registered guest's booking row kept the old time, so
+their status page and confirmation showed stale details.
+`20261115000400_sync_open_play_session_times.sql` adds an
+`after update of starts_at, duration_minutes` trigger that moves every
+registered/attended guest's linked booking to the new start, end, and duration.
+Skill level already came from the session, so level edits were live. Court
+bookings have no staff date/time editor — only status changes — and those are
+covered by the status refresh.
+
+### Desktop spacing
+
+Staff screens were tuned for phones and read as cramped on a desktop. Raised:
+main content padding (`lg:px-10 lg:pt-9 lg:pb-10`), panel body padding
+(`sm:p-6`), panel header padding, stat-card padding, filter-bar padding, section
+gaps (`gap-6`, `space-y-6`, `mt-5 lg:mt-6`), dashboard stat/quick-action gaps,
+and bookings/reports table row padding. Mobile spacing is unchanged.
+
+### Checks
+
+- `npx tsc --noEmit` — passed.
+- `npx eslint` over the lookup panel, `app/staff`, and `components/staff` —
+  passed.
+- `npm run build` — see the latest run in the session log.
+- `npx supabase db push --remote --yes` — applied the sync trigger to
+  production.
+- **Not verified in a browser**: `/lookup` needs a real QR/camera and the staff
+  desk needs a signed-in session; the time-sync trigger was applied but not
+exercised against a live session edit.
+
+## Staff desk mobile pass (15 November 2026)
+
+Requested after the owner reported overlapping and cramped staff screens on a
+phone. The authenticated desk cannot be reached from the build environment, so
+this was a layout audit of every staff screen at 320–430px rather than a browser
+screenshot review. Fixed:
+
+- **Content behind the tab bar.** The staff main area reserved a flat 96px for
+the bottom bar, but the bar is 64px plus the iOS safe-area inset (~34px). Main
+  now reserves `5.75rem + env(safe-area-inset-bottom)`, so the last card or
+  button is never covered.
+- **Payment tabs.** Four tabs with counts sat in one `overflow-x-auto` row with
+  `flex-1` items that could not shrink, so "Awaiting verification" was cut off
+  and the last tabs were off-screen. They are now a 2×2 grid below `sm` and a
+  single row from `sm` up — every tab visible without horizontal scrolling.
+- **Dashboard date switcher.** A fixed 7.25rem date input plus arrows and the
+  "Today" chip overflowed a 320px header. It now wraps, the date field flexes to
+  the available width on phones, and keeps its fixed width from `sm` up.
+- **Timeline rows.** Start and end time were printed twice per row; the second,
+  right-aligned copy is hidden below `sm`, removing the squeeze against long
+  booking titles.
+- **Narrow form grids.** Open-play start/end, capacity/price, and the court
+  closure time fields stack to one column below 360px instead of splitting into
+  two ~140px inputs.
+- **Long fact values.** `StaffFacts` and the open-play session facts now wrap
+  instead of pushing past the panel edge (dates such as
+  "Sat, 21 Nov 2026, 8:00 AM").
+
+### Checks
+
+- `npx tsc --noEmit` — passed.
+- `npx eslint` over every changed staff file — passed.
+- **Not visually verified**: the staff desk needs a signed-in staff session, so
+  the fixes were checked by reading the layout code, not by screenshot.
+
+## Open play re-enabled (15 November 2026)
+
+`OPEN_PLAY_ENABLED` in `lib/features.ts` is `true` again at the client's request.
+The feature was never removed: routes, database functions, staff screens, guest
+registration, and the GCash proof flow stayed in place behind the switch. This
+change re-links the public header, footer, homepage, staff navigation, and the
+staff dashboard cards.
+
+Staff publish sessions from `/staff/open-play` (₱75, Saturdays, 12 places —
+staff-editable, per `D-10`). There is **no recurring schedule and no
+scheduler**: each session is created one date at a time, and the public page
+shows an empty state until a session exists.
+
+### Schedule cleaned up
+
+The hosted project held 157 generated sessions — three every Saturday from
+7 November 2026 through 30 October 2027 — including one 60-minute ₱80 session
+on 16 November. At the owner's instruction, `20261115000300_open_play_session_cleanup.sql`
+removed all of them except **Saturday 21 November 2026, beginner, 8:00–10:00 AM**,
+which already had one registered player. Deleting a session is blocked while
+registrations exist, so the registrations' bookings (and their payments) were
+deleted first; their three payment screenshots were removed from storage before
+that. A JSON backup of every deleted row is in
+`.tmp-ui/open-play-backup-2026-11-15T08-52-19-191Z.json` (gitignored).
+
+Verified live: one session remains, its registration intact. The client creates
+future sessions from `/staff/open-play` whenever they want them.
+
+### All-levels sessions
+
+`20261115000200_open_play_all_levels.sql` adds `all_levels` to
+`open_play_skill_level`, so staff can publish a session open to every standard.
+It appears in `OPEN_PLAY_LEVELS` (`All levels`), the create and edit session
+forms, and the staff level filter (whose "no filter" option is now labelled
+*Any level* so the two are distinguishable).
+
+### Checks
+
+- `npx tsc --noEmit` — passed.
+- `npx eslint` over the changed open-play files — passed.
+- `npm run build` — passed, `/open-play` and `/open-play/[id]` compiled.
+- `npx supabase db push --remote --yes` — the three 15 November migrations
+  applied to production.
+- Live verification through the service role and the public availability RPC:
+  1 session, 1 registration, weekend and window quotes as expected.
+
+### Still required
+
+- Rebuild and deploy (`npm run deploy`) for the live site to show open play, the
+  all-levels option, and the booking-flow changes.
+
+## Weekend rates, both courts, and a 30-day window (15 November 2026)
+
+Client instruction, 15 November: weekday pricing stays ₱250/hour before 5:00 PM
+and ₱300/hour after; weekends are ₱300/hour all day; the **Both** court option
+books Court 1 and Court 2 for the same hours and charges both (₱500 or ₱600);
+bookings may be made no more than one month ahead. Two booking-flow changes came
+with it: a court time can now be cancelled in Step 2, and the mobile date picker
+shows the same calendar as desktop instead of a quick-date strip behind a
+"More dates" toggle.
+
+### How it works
+
+- `20261115000100_weekend_rates_booking_window.sql` adds Saturday/Sunday rate
+  windows at ₱300 for the full day, sets `club_settings.booking_window_days = 30`,
+  and replaces `calculate_court_amount` so rate windows resolve
+  `court + day > court > service day > service`. Before this, the function read
+  only generic windows, so `service_rates.day_of_week` was dead configuration.
+- The same migration guards `get_court_availability` against dates beyond the
+  window, and `calculate_court_amount` raises for them, so a stale tab cannot
+  book or quote past the window even though the picker blocks those dates.
+- Weekday bookings that cross 5:00 PM are still pro-rated across the two generic
+  windows. Weekends use a single 0–1440 window, so no rate change applies.
+- **Both** is one grid cell per hour covering every court. It adds one cart entry
+  per court, so the price is the sum, the cart shows each court separately, and
+  removing the block removes both. An hour is only selectable when every court
+  is free; adjacent taps extend both courts together.
+- A later pick extends the range it belongs with across every free hour in
+  between, in single-court and Both modes alike: 12 PM – 1 PM then 9 PM – 10 PM
+  becomes 12 PM – 10 PM. "Both" had no gap bridging before this change.
+- When an hour in between is booked or closed the range cannot be continuous, so
+  the message names that hour (and the court, in Both mode) and offers **Add
+  this hour to the booking**. That path keeps the hour in the same booking and
+  the same GCash total, which the earlier "separate court time" wording did not
+  make clear.
+- Step 2 lists the chosen court times with a **Cancel** button per row. Removing
+  the last one returns to Step 1, before the 15-minute hold exists, so nothing
+  needs releasing on the server.
+- The date picker is now always the calendar on mobile and desktop, and disables
+  dates after `today + booking_window_days` (Asia/Manila).
+
+### Files
+
+- `supabase/migrations/20261115000100_weekend_rates_booking_window.sql` (new)
+- `components/booking/court-booking.tsx` — pair selection, Step 2 cancel, calendar
+- `components/booking/booking-modal-provider.tsx`, `app/book/page.tsx`,
+  `app/book/actions.ts` — pass `booking_window_days` into the picker
+- Rate copy: `lib/policies.ts`, `lib/faq.ts`, `app/club/rules/page.tsx`,
+  `app/courts/page.tsx`, `app/courts/[slug]/page.tsx`, `app/club/page.tsx`,
+  `components/home/home-page.tsx`, `app/staff/bookings/new/page.tsx`,
+  `app/staff/courts/page.tsx` (weekend windows are now labelled by day),
+  `components/booking/booking-preview.tsx`, `app/design-preview/page.tsx`
+- `docs/ux/CLIENT_DECISIONS.md` — D-03 weekend rate, both-courts pricing, and the
+  30-day window recorded as owner decisions.
+
+### Checks
+
+- `npx tsc --noEmit` — passed, no output.
+- `npx eslint` over every changed TypeScript file — passed, no output.
+- `npm run build` — passed, all routes compiled.
+
+### Applied to production
+
+- `npx supabase db push` applied this migration on 15 November 2026. Verified
+  against the live project through `get_court_availability`: Tuesday 17 Nov
+  quotes ₱250 before 5 PM and ₱300 after; Saturday 21 Nov quotes ₱300 all day;
+  Monday 14 Dec (29 days out) is bookable; Sunday 20 Dec (35 days out) returns
+  no slots.
+- The Worker still needs a rebuild and deploy for the new *Both* court option,
+  the Step 2 cancel button, and the calendar to reach players. Until then the
+  live UI quotes the new prices but behaves like the previous release.
+- The 30-day limit applies to staff-created court bookings too, because both
+  paths price through `calculate_court_amount`. If staff need to book further
+  ahead, that needs an explicit override (`D-15`).
+- Partial-hour rounding, buffer time, same-day cutoffs, and maximum players per
+  court remain open.
+
 ## Payment-proof retention: the one limit that can actually fill (13 November 2026)
 
 Database growth is not the risk. It sits at 14 MB of 500 MB, is dominated by

@@ -430,7 +430,7 @@ export function BookingPreview() {
     ? "Select a start time to see the amount."
     : price.spansRateChange
       ? "Pro-rated across the 5:00 PM rate change. Rounding rules are not confirmed."
-      : "₱250/hour before 5:00 PM, ₱300/hour after. The weekend rate is not confirmed.";
+      : "₱250/hour before 5:00 PM on weekdays, ₱300/hour after, and ₱300/hour all day at weekends.";
 
   const errors = {
     name:
@@ -800,8 +800,8 @@ export function BookingPreview() {
                       {sampleDates[0].month} –{" "}
                       {sampleDates[sampleDates.length - 1].dayOfMonth}{" "}
                       {sampleDates[sampleDates.length - 1].month}{" "}
-                      {sampleDates[sampleDates.length - 1].year}. The real
-                      booking window has not been confirmed.
+                      {sampleDates[sampleDates.length - 1].year}. The sample
+                      window is fixed; live bookings open 30 days ahead.
                     </p>
                   </section>
 
@@ -1154,7 +1154,7 @@ export function BookingPreview() {
                       "Cancellation cutoff: 24 hours before court time.",
                       "Payment deadline: 15 minutes, the same window as the temporary hold.",
                     ]}
-                    note="Weekend rates, holiday closures, and the payment account name are still open in the decision register."
+                    note="Holiday closures and the payment account name are still open in the decision register."
                   />
                 </aside>
               </div>

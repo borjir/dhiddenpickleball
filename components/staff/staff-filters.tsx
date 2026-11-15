@@ -36,7 +36,7 @@ export function StaffFilterBar({
     <form
       action={action}
       method="get"
-      className="mb-4 rounded-xl border border-line bg-surface p-3 shadow-card sm:p-4"
+      className="mb-5 rounded-xl border border-line bg-surface p-3 shadow-card sm:p-5"
     >
       <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
         <p className="text-[0.6875rem] font-bold uppercase tracking-[0.14em] text-muted">
@@ -45,7 +45,7 @@ export function StaffFilterBar({
         <p className="text-caption text-muted">{help}</p>
       </div>
 
-      <div className={cn("mt-2.5 grid gap-2.5", columns)}>{children}</div>
+      <div className={cn("mt-3 grid gap-2.5 sm:gap-3", columns)}>{children}</div>
 
       <div className="mt-3 flex flex-wrap items-center gap-2">
         <button

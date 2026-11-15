@@ -18,7 +18,7 @@ export function StaffPageHeader({
   actions?: ReactNode;
 }) {
   return (
-    <header className="flex flex-col gap-4 border-b border-line pb-5 sm:flex-row sm:items-end sm:justify-between sm:gap-6 sm:pb-6">
+    <header className="flex flex-col gap-4 border-b border-line pb-5 sm:flex-row sm:items-end sm:justify-between sm:gap-6 sm:pb-7">
       <div className="min-w-0">
         <p className="flex items-center gap-2 text-[0.6875rem] font-bold uppercase tracking-[0.18em] text-accent-ink">
           <span aria-hidden="true" className="h-[3px] w-5 rounded-full bg-brand-lime" />
@@ -131,7 +131,7 @@ export function StaffStat({
   );
 
   const className = cn(
-    "group relative block overflow-hidden rounded-xl border border-line bg-surface p-4 shadow-card transition-[border-color,box-shadow,transform] duration-200",
+    "group relative block overflow-hidden rounded-xl border border-line bg-surface p-4 shadow-card transition-[border-color,box-shadow,transform] duration-200 sm:p-5",
     href && "hover:-translate-y-0.5 hover:border-line-strong hover:shadow-raised",
   );
 
@@ -166,7 +166,7 @@ export function StaffPanel({
         className,
       )}
     >
-      <div className="flex flex-wrap items-start justify-between gap-3 border-b border-line bg-page/35 px-4 py-3.5 sm:px-5">
+      <div className="flex flex-wrap items-start justify-between gap-3 border-b border-line bg-page/35 px-4 py-3.5 sm:px-6 sm:py-4">
         <div className="flex min-w-0 items-start gap-2.5">
           <span
             aria-hidden="true"
@@ -183,7 +183,7 @@ export function StaffPanel({
         </div>
         {action}
       </div>
-      <div className={cn("p-4 sm:p-5", bodyClassName)}>{children}</div>
+      <div className={cn("p-4 sm:p-6", bodyClassName)}>{children}</div>
     </section>
   );
 }
@@ -278,8 +278,10 @@ export function StaffFacts({
           key={item.label}
           className="flex items-baseline justify-between gap-4 py-2.5 first:pt-0 last:pb-0"
         >
-          <dt className="text-caption text-muted">{item.label}</dt>
-          <dd className="text-right text-sm font-semibold text-ink">{item.value}</dd>
+          <dt className="shrink-0 text-caption text-muted">{item.label}</dt>
+          <dd className="min-w-0 text-right text-sm font-semibold break-words text-ink">
+            {item.value}
+          </dd>
         </div>
       ))}
     </dl>

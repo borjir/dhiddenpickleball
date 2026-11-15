@@ -85,14 +85,14 @@ export default async function AccountsPage({
         description="Invite a staff member, switch sign-in off when someone leaves, and send a password reset. The account manager flag is set in SQL, so this page can never grant itself more access."
       />
 
-      <div className="mt-5">
+      <div className="mt-5 lg:mt-6">
         <StaffFlash
           notice={text(params.notice) || null}
           error={text(params.error) || null}
         />
       </div>
 
-      <div className="mt-5 grid gap-4 xl:grid-cols-[minmax(0,1fr)_22rem]">
+      <div className="mt-5 lg:mt-6 grid gap-6 xl:grid-cols-[minmax(0,1fr)_22rem]">
         <StaffPanel
           title={`${accounts.length} staff account${accounts.length === 1 ? "" : "s"}`}
           description="Everyone listed here can open the operations desk."

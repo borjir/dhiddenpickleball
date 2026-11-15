@@ -292,8 +292,8 @@ The palette is settled in §9 above.
 
 Still needed:
 
-1. Weekend rate; partial-hour and cross-5:00-PM rounding.
-2. Booking window, buffer time, and maximum players per court.
+1. Partial-hour and cross-5:00-PM rounding.
+2. Buffer time and maximum players per court.
 3. Publishable facilities list and holiday closures.
 4. Open-play schedule, price, capacity, skill levels, and waitlist rules.
 5. Named staff accounts and the permission split.

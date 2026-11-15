@@ -62,15 +62,19 @@ function DateSwitcher({ dateId }: { dateId: string }) {
   const next = shiftDateId(dateId, 1);
 
   return (
-    <div className="flex items-center gap-1 rounded-xl border border-line bg-surface p-1 shadow-card">
+    <div className="flex w-full flex-wrap items-center gap-1 rounded-xl border border-line bg-surface p-1 shadow-card sm:w-auto sm:flex-nowrap">
       <Link
         href={`/staff?date=${previous}`}
         aria-label="Previous day"
-        className="grid size-9 place-items-center rounded-lg text-muted transition-colors hover:bg-brand-blue-soft hover:text-heading"
+        className="grid size-9 shrink-0 place-items-center rounded-lg text-muted transition-colors hover:bg-brand-blue-soft hover:text-heading"
       >
         <ArrowLeftIcon className="size-4" />
       </Link>
-      <form action="/staff" method="get" className="flex items-center gap-1">
+      <form
+        action="/staff"
+        method="get"
+        className="flex min-w-0 flex-1 items-center gap-1 sm:flex-none"
+      >
         <label htmlFor="dashboard-date" className="sr-only">
           Dashboard date
         </label>
@@ -79,12 +83,12 @@ function DateSwitcher({ dateId }: { dateId: string }) {
           type="date"
           name="date"
           defaultValue={dateId}
-          className="h-9 w-[7.25rem] rounded-lg border border-line bg-page px-2 text-xs font-semibold text-heading"
+          className="h-9 w-full min-w-0 rounded-lg border border-line bg-page px-2 text-xs font-semibold text-heading sm:w-[7.25rem]"
         />
         <button
           type="submit"
           aria-label="Show this day"
-          className="h-9 rounded-lg px-2 text-xs font-bold text-accent-ink transition-colors hover:bg-brand-blue-soft"
+          className="h-9 shrink-0 rounded-lg px-2 text-xs font-bold text-accent-ink transition-colors hover:bg-brand-blue-soft"
         >
           Show
         </button>
@@ -92,7 +96,7 @@ function DateSwitcher({ dateId }: { dateId: string }) {
       <Link
         href={`/staff?date=${next}`}
         aria-label="Next day"
-        className="grid size-9 place-items-center rounded-lg text-muted transition-colors hover:bg-brand-blue-soft hover:text-heading"
+        className="grid size-9 shrink-0 place-items-center rounded-lg text-muted transition-colors hover:bg-brand-blue-soft hover:text-heading"
       >
         <ArrowRightIcon className="size-4" />
       </Link>
@@ -141,7 +145,7 @@ function TimelineRow({
         </div>
         {detail ? <p className="mt-0.5 truncate text-caption text-muted">{detail}</p> : null}
       </div>
-      <span className="shrink-0 whitespace-nowrap text-right text-caption font-semibold tabular-nums text-muted">
+      <span className="hidden shrink-0 whitespace-nowrap text-right text-caption font-semibold tabular-nums text-muted sm:block">
         {formatStaffTimeRange(start, end)}
       </span>
     </div>
@@ -301,12 +305,12 @@ async function Dashboard({ searchParams }: { searchParams: SearchParams }) {
         actions={<DateSwitcher dateId={dateId} />}
       />
 
-      <div className="mt-5">
+      <div className="mt-5 lg:mt-6">
         <StaffFlash notice={text(params.notice) || null} error={text(params.error) || null} />
       </div>
 
       {dateId === todayId && (onCourtNow || nextUp) ? (
-        <div className="mt-5 grid gap-2 rounded-xl border border-line bg-surface p-2.5 shadow-card sm:grid-cols-2 sm:gap-3 sm:p-3">
+        <div className="mt-5 lg:mt-6 grid gap-2 rounded-xl border border-line bg-surface p-2.5 shadow-card sm:grid-cols-2 sm:gap-3 sm:p-3">
           <div className="flex items-center gap-3 rounded-lg bg-brand-blue-soft/60 px-3 py-2.5">
             <span className="relative grid size-9 shrink-0 place-items-center rounded-full bg-surface text-accent-ink ring-1 ring-brand-blue/20">
               {onCourtNow ? (
@@ -359,7 +363,7 @@ async function Dashboard({ searchParams }: { searchParams: SearchParams }) {
 
       <div
         className={cn(
-          "mt-5 grid grid-cols-1 gap-3 min-[360px]:grid-cols-2",
+          "mt-5 lg:mt-6 grid grid-cols-1 gap-3 min-[360px]:grid-cols-2 sm:gap-4",
           OPEN_PLAY_ENABLED ? "xl:grid-cols-4" : "xl:grid-cols-3",
         )}
       >
@@ -399,7 +403,7 @@ async function Dashboard({ searchParams }: { searchParams: SearchParams }) {
         />
       </div>
 
-      <div className="mt-5 grid gap-5 xl:grid-cols-[minmax(0,1.35fr)_minmax(20rem,0.65fr)]">
+      <div className="mt-5 lg:mt-6 grid gap-6 xl:grid-cols-[minmax(0,1.35fr)_minmax(20rem,0.65fr)]">
         <StaffPanel
           title="Day timeline"
           description="Courts and open play in one chronological view."
@@ -443,7 +447,7 @@ async function Dashboard({ searchParams }: { searchParams: SearchParams }) {
           )}
         </StaffPanel>
 
-        <div className="space-y-5">
+        <div className="space-y-6">
           <StaffPanel
             title="Needs attention"
             description="Work the queue before the next player arrives."
@@ -537,7 +541,7 @@ async function Dashboard({ searchParams }: { searchParams: SearchParams }) {
             ) : null}
           </StaffPanel>
 
-          <StaffPanel title="Quick actions" bodyClassName="grid grid-cols-2 gap-2">
+          <StaffPanel title="Quick actions" bodyClassName="grid grid-cols-2 gap-3">
             <Link
               href="/staff/bookings/new"
               className="group flex min-h-20 flex-col justify-between rounded-lg border border-line bg-page/50 p-3 transition-[border-color,background-color,transform] hover:-translate-y-px hover:border-brand-blue/35 hover:bg-surface"

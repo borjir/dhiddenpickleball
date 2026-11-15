@@ -353,8 +353,8 @@ export function HomePage() {
                   Nothing buried.
                 </h2>
                 <p className="mt-4 max-w-md text-base leading-relaxed text-muted">
-                  Day rate before 5:00 PM, evening rate after. The full amount
-                  appears before you confirm.
+                  Weekday rate before 5:00 PM, evening rate after, and one flat
+                  weekend rate. The full amount appears before you confirm.
                 </p>
                 <BookingTrigger
                   className={buttonClasses({ size: "lg", className: "mt-7" })}
@@ -384,10 +384,10 @@ export function HomePage() {
                       <div className="flex items-end justify-between gap-4 border-b border-white/12 py-4 first:pt-0">
                         <div>
                           <p className="font-display text-base font-semibold">
-                            Day rate
+                            Weekday, before 5 PM
                           </p>
                           <p className="mt-1 text-sm text-white/55">
-                            Before 5:00 PM
+                            Monday to Friday
                           </p>
                         </div>
                         <p className="text-right font-display text-3xl font-extrabold tracking-tight sm:text-4xl">
@@ -400,10 +400,26 @@ export function HomePage() {
                       <div className="flex items-end justify-between gap-4 border-b border-white/12 py-4">
                         <div>
                           <p className="font-display text-base font-semibold">
-                            Evening rate
+                            Weekday, from 5 PM
                           </p>
                           <p className="mt-1 text-sm text-white/55">
-                            From 5:00 PM
+                            Monday to Friday
+                          </p>
+                        </div>
+                        <p className="text-right font-display text-3xl font-extrabold tracking-tight sm:text-4xl">
+                          ₱300
+                          <span className="ml-1 text-sm font-semibold text-white/50">
+                            /hr
+                          </span>
+                        </p>
+                      </div>
+                      <div className="flex items-end justify-between gap-4 border-b border-white/12 py-4">
+                        <div>
+                          <p className="font-display text-base font-semibold">
+                            Weekend, all day
+                          </p>
+                          <p className="mt-1 text-sm text-white/55">
+                            Saturday and Sunday
                           </p>
                         </div>
                         <p className="text-right font-display text-3xl font-extrabold tracking-tight sm:text-4xl">
@@ -432,7 +448,8 @@ export function HomePage() {
                       <ShieldIcon className="mt-0.5 size-4 shrink-0 text-brand-lime" />
                       <p className="text-[0.8125rem] leading-relaxed text-white/70">
                         The full amount, cancellation cutoff, and payment method
-                        are shown before you confirm.
+                        are shown before you confirm. Booking both courts for the
+                        same hours doubles the hourly rate.
                       </p>
                     </div>
                   </div>

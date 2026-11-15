@@ -66,11 +66,11 @@ async function WalkInForm({ searchParams }: { searchParams: SearchParams }) {
         }
       />
 
-      <div className="mt-5">
+      <div className="mt-5 lg:mt-6">
         <StaffFlash notice={text(params.notice) || null} error={text(params.error) || null} />
       </div>
 
-      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_18rem] lg:items-start">
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_18rem] lg:items-start">
         <StaffPanel title="Booking details" description="All times are Asia/Manila.">
           <form action={createWalkInAction} className="space-y-4">
             <input type="hidden" name="returnPath" value="/staff/bookings/new" />
@@ -204,7 +204,8 @@ async function WalkInForm({ searchParams }: { searchParams: SearchParams }) {
               <div>
                 <p className="text-sm font-semibold text-heading">Open daily</p>
                 <p className="mt-1 text-caption leading-relaxed text-muted">
-                  7:00 AM – 12:00 AM. Rates change at 5:00 PM.
+                  7:00 AM – 12:00 AM. Weekday rates change at 5:00 PM;
+                  weekends are flat. Bookings open 30 days ahead.
                 </p>
               </div>
             </div>
@@ -212,13 +213,19 @@ async function WalkInForm({ searchParams }: { searchParams: SearchParams }) {
               <p className="text-[0.6875rem] font-bold uppercase tracking-[0.12em] text-muted">Current rates</p>
               <dl className="mt-2 space-y-1.5 text-sm">
                 <div className="flex justify-between gap-3">
-                  <dt className="text-muted">7:00 AM – 5:00 PM</dt>
+                  <dt className="text-muted">Weekday, 7:00 AM – 5:00 PM</dt>
                   <dd className="font-semibold text-heading">
                     {formatPeso(Number(rates?.[0]?.amount_php ?? 250))}/hr
                   </dd>
                 </div>
                 <div className="flex justify-between gap-3">
-                  <dt className="text-muted">5:00 PM – 12:00 AM</dt>
+                  <dt className="text-muted">Weekday, 5:00 PM – 12:00 AM</dt>
+                  <dd className="font-semibold text-heading">
+                    {formatPeso(Number(rates?.[1]?.amount_php ?? 300))}/hr
+                  </dd>
+                </div>
+                <div className="flex justify-between gap-3">
+                  <dt className="text-muted">Weekend, all day</dt>
                   <dd className="font-semibold text-heading">
                     {formatPeso(Number(rates?.[1]?.amount_php ?? 300))}/hr
                   </dd>

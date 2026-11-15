@@ -38,7 +38,7 @@ export const POLICIES: readonly Policy[] = [
         id: "booking-a-court",
         heading: "Booking a court",
         paragraphs: [
-          "Court time is booked by the hour. The confirmed rates are ₱250 per hour before 5:00 PM and ₱300 per hour from 5:00 PM. A booking runs from your chosen start time to your chosen end time.",
+          "Court time is booked by the hour. Weekdays are ₱250 per hour before 5:00 PM and ₱300 per hour from 5:00 PM. Weekends are ₱300 per hour all day. Booking both courts for the same hours doubles the hourly rate. A booking runs from your chosen start time to your chosen end time.",
         ],
         items: [
           "A full name and valid mobile number are required at review, after the date, time, and price are shown. No account is created.",
@@ -79,7 +79,7 @@ export const POLICIES: readonly Policy[] = [
         id: "still-being-confirmed",
         heading: "Additional rules",
         paragraphs: [
-          "Weekend pricing, partial-hour rounding, buffer time, booking windows, player limits, and holiday closures are not yet published. Contact the club if your booking depends on one of these.",
+          "Bookings open 30 days ahead. Partial-hour rounding, buffer time between bookings, player limits, and holiday closures are not yet published. Contact the club if your booking depends on one of these.",
         ],
       },
       {
@@ -305,7 +305,7 @@ export const POLICIES: readonly Policy[] = [
         id: "booking-rules",
         heading: "Booking rules",
         paragraphs: [
-          "Court time is priced per court-hour: ₱250 before 5:00 PM and ₱300 from 5:00 PM. Choose your start and end time. Open-play sessions show their own price per player. The full amount is shown before you confirm or reserve.",
+          "Court time is priced per court-hour: ₱250 before 5:00 PM on weekdays and ₱300 from 5:00 PM, with ₱300 all day at weekends. Booking both courts for the same hours doubles the hourly rate. Choose your start and end time; bookings open 30 days ahead. Open-play sessions show their own price per player. The full amount is shown before you confirm or reserve.",
         ],
         items: [
           "A confirmed court request holds the slot for 15 minutes. The payment deadline is the same window. If proof is not submitted in time, the request is cancelled and the slot returns to the schedule.",

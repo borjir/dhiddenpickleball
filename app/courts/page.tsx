@@ -53,7 +53,7 @@ export default function CourtsPage() {
       <PageHeader
         eyebrow="The courts"
         title="Two courts. One clear hourly rate."
-        intro="Court 1 and Court 2 are bookable daily, 7:00 AM to 12:00 AM. Rates change once, at 5:00 PM."
+        intro="Court 1 and Court 2 are bookable daily, 7:00 AM to 12:00 AM. Weekday rates change at 5:00 PM; weekends are ₱300 all day."
       >
         <BookingTrigger className={buttonClasses({ size: "lg" })}>
           Book a court
@@ -123,7 +123,7 @@ export default function CourtsPage() {
                     <dl className="mt-5 grid grid-cols-2 gap-4 border-t border-line pt-4">
                       <div>
                         <dt className="text-[0.625rem] font-bold uppercase tracking-[0.14em] text-muted">
-                          Day rate
+                          Weekday, before 5 PM
                         </dt>
                         <dd className="mt-1 text-sm font-semibold text-heading">
                           ₱250 / hour
@@ -131,7 +131,15 @@ export default function CourtsPage() {
                       </div>
                       <div>
                         <dt className="text-[0.625rem] font-bold uppercase tracking-[0.14em] text-muted">
-                          From 5 PM
+                          Weekday, from 5 PM
+                        </dt>
+                        <dd className="mt-1 text-sm font-semibold text-heading">
+                          ₱300 / hour
+                        </dd>
+                      </div>
+                      <div className="col-span-2">
+                        <dt className="text-[0.625rem] font-bold uppercase tracking-[0.14em] text-muted">
+                          Weekend, all day
                         </dt>
                         <dd className="mt-1 text-sm font-semibold text-heading">
                           ₱300 / hour

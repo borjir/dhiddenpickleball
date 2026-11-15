@@ -26,8 +26,8 @@ const implemented = [
 ];
 
 const pending = [
-  "Weekend rate, partial-hour and cross-5:00-PM rounding",
-  "Booking window, buffer time, and maximum players per court",
+  "Partial-hour and cross-5:00-PM rounding",
+  "Buffer time and maximum players per court",
   "Holiday closures and publishable facilities",
   "Open-play schedule, price, capacity, and waitlist rules",
   "Named staff accounts and permission split",

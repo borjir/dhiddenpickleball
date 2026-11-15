@@ -35,13 +35,16 @@ const sections: readonly RuleSection[] = [
     id: "rates-and-durations",
     heading: "Rates and durations",
     paragraphs: [
-      "Court time is priced per court-hour. The rate changes once at 5:00 PM.",
+      "Court time is priced per court-hour. On weekdays the rate changes once at 5:00 PM; weekends use the evening rate all day.",
     ],
     items: [
-      "₱250 per court-hour before 5:00 PM.",
-      "₱300 per court-hour from 5:00 PM.",
+      "Monday to Friday: ₱250 per court-hour before 5:00 PM.",
+      "Monday to Friday: ₱300 per court-hour from 5:00 PM.",
+      "Saturday and Sunday: ₱300 per court-hour all day.",
+      "Booking Court 1 and Court 2 for the same hours doubles the hourly rate, for example ₱500 instead of ₱250.",
       "Choose your start and end time. The amount is based on the hourly rate.",
-      "Weekend pricing and partial-hour rounding are still being confirmed, so they are not stated as policy here.",
+      "Bookings open 30 days ahead.",
+      "Partial-hour rounding is still being confirmed, so it is not stated as policy here.",
     ],
   },
   {
@@ -89,7 +92,7 @@ const sections: readonly RuleSection[] = [
     id: "still-being-confirmed",
     heading: "Still being confirmed",
     paragraphs: [
-      "The club has not confirmed weekend pricing, partial-hour rounding, buffer time between bookings, how far ahead bookings open, same-day cutoffs, maximum players per court, holiday closures, or the facilities list. These are left open rather than stated as rules.",
+      "The club has not confirmed partial-hour rounding, buffer time between bookings, same-day cutoffs, maximum players per court, holiday closures, or the facilities list. These are left open rather than stated as rules.",
     ],
   },
   {
