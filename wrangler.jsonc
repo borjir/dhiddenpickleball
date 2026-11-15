@@ -4,7 +4,7 @@
   // Deploying under a new name creates a new Worker; re-set its secrets and
   // update the Supabase auth URLs before retiring the old Worker.
   "name": "bookings",
-  "main": ".open-next/worker.js",
+  "main": "./worker.mjs",
   "compatibility_date": "2026-11-06",
   "compatibility_flags": ["nodejs_compat"],
   // Frontend hostnames that Turnstile siteverify may return. Update this list
@@ -52,6 +52,19 @@
     ],
     "html_handling": "none",
     "not_found_handling": "none"
+  },
+  // Cron Triggers drive the email outbox and the payment-proof purge. The
+  // scheduled handler lives in ./worker.mjs, which wraps the OpenNext worker;
+  // keep these expressions in sync with the JOBS map there. Free plan allows
+  // 5 triggers per account, and each run counts as one Worker request.
+  //
+  // The email job is the backstop for the outbox (server actions also drain it
+  // after each write), so 15 minutes keeps reminders timely without polling.
+  "triggers": {
+    "crons": [
+      "*/15 * * * *",
+      "17 3 * * *"
+    ]
   },
   // Request logs and errors, for launch monitoring. Only Worker invocations are
   // logged, so asset traffic no longer counts toward the event allowance.

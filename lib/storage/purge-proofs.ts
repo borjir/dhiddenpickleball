@@ -68,6 +68,30 @@ async function bucketBytes(
 }
 
 /**
+ * Whether one object is still in the bucket. Only used for the rare path where
+ * Storage did not report an object as removed, which usually means it was
+ * already deleted by an earlier run.
+ */
+async function proofObjectExists(
+  admin: NonNullable<ReturnType<typeof createAdminClient>>,
+  path: string,
+) {
+  const slash = path.lastIndexOf("/");
+  const folder = slash === -1 ? "" : path.slice(0, slash);
+  const name = slash === -1 ? path : path.slice(slash + 1);
+
+  const { data, error } = await admin.storage
+    .from(PROOF_BUCKET)
+    .list(folder, { search: name, limit: 1 });
+
+  // On an error, assume the file is there: never clear a path that may still
+  // point at a real screenshot.
+  if (error) return true;
+
+  return (data ?? []).some((item) => item.name === name);
+}
+
+/**
  * Deletes the proofs of cancelled bookings, rejected payments and voided
  * records. Everything else is kept permanently. Deletion goes through the
  * Storage API on purpose: removing rows from `storage.objects` by SQL orphans
@@ -133,7 +157,21 @@ export async function purgePaymentProofs(): Promise<
   const removedPaths = new Set(
     (removed ?? []).map((object: { name?: string }) => object.name ?? ""),
   );
-  const cleared = chosen.filter((item) => removedPaths.has(item.path));
+
+  // Storage does not always report an object that was already missing, and a
+  // path that survives this run would point at a deleted file forever. Check a
+  // bounded number of those, so a backlog converges over a few runs.
+  const unreported = chosen.filter((item) => !removedPaths.has(item.path));
+  const alreadyGone: typeof chosen = [];
+
+  for (const item of unreported.slice(0, 25)) {
+    if (!(await proofObjectExists(admin, item.path))) alreadyGone.push(item);
+  }
+
+  const cleared = [
+    ...chosen.filter((item) => removedPaths.has(item.path)),
+    ...alreadyGone,
+  ];
 
   if (cleared.length > 0) {
     const { error: clearError } = await admin
@@ -145,6 +183,10 @@ export async function purgePaymentProofs(): Promise<
       );
 
     if (clearError) {
+      console.error(
+        "[purge-proofs] Storage deleted proofs but the payment rows could not be cleared:",
+        clearError.message,
+      );
       return {
         ok: false,
         error:
@@ -159,9 +201,12 @@ export async function purgePaymentProofs(): Promise<
     deleted: cleared.length,
     failed: chosen.length - cleared.length,
     totalBytesBefore,
-    message: describeProofPurge(cleared, {
-      inspected: candidates.length,
-      totalBytes: totalBytesBefore,
-    }),
+    message:
+      chosen.length > 0 && cleared.length === 0
+        ? "The cancelled or rejected proofs could not be deleted this run; nothing was lost."
+        : describeProofPurge(cleared, {
+            inspected: candidates.length,
+            totalBytes: totalBytesBefore,
+          }),
   };
 }

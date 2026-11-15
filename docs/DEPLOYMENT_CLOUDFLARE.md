@@ -181,26 +181,47 @@ removed on the client's instruction to keep proofs indefinitely, so the earlier
 `PROOF_RETENTION_DAYS`, `PROOF_MIN_AGE_DAYS` and `PROOF_STORAGE_CAP_MB` variables
 no longer do anything and should not be set.
 
-Until a scheduler calls the endpoint, staff can run it from the **Free-plan
-headroom** panel on `/staff/reports`.
+The `17 3 * * *` Cron Trigger calls this endpoint once a day (03:17 UTC, 11:17
+Manila). Staff can also run it on demand from the **Free-plan headroom** panel on
+`/staff/reports`.
+
+A run deletes the file through the Storage API and then clears
+`payments.proof_path`. That update needs `UPDATE` on `public.payments` for
+`service_role`; without it the file is deleted and the row keeps pointing at it.
+If the purge answers `Proofs were deleted from storage but their payment rows
+still point at them.`, the grant is missing — apply migration
+`20261115000500_payments_service_role_update.sql`.
 
 ## Reminder scheduler
 
-`/api/cron/email` must be called every 15 minutes with
-`Authorization: Bearer <EMAIL_CRON_SECRET>`. It queues 24-hour reminders and retries failed sends.
-The same scheduler should call `/api/cron/storage` once a day with the same header.
-Two options:
+Scheduling runs inside the Worker; no external cron service is needed.
 
-1. **External scheduler (no code change).** Point any uptime/cron service at
-   `https://<domain>/api/cron/email` with that header. This is what the Phase 9 notes already
-   assumed.
-2. **Cloudflare Cron Trigger (free, up to 5 triggers).** The adapter does not export a `scheduled`
-   handler, so this needs a small hand-written entry (`main` pointing at a wrapper that re-exports
-   `.open-next/worker.js` and adds `scheduled`). Not implemented here because it is untested glue
-   around adapter internals; do it deliberately and verify with
-   `wrangler dev --test-scheduled` before relying on it.
+`worker.mjs` is the deployed entry point. It re-exports the OpenNext worker
+(`.open-next/worker.js`) and adds a `scheduled` handler, because the generated
+worker exports `fetch` only and Cron Triggers require `scheduled`. The handler
+calls the cron routes through the normal Next pipeline, so both keep their own
+bearer check against `EMAIL_CRON_SECRET`. `main` in `wrangler.jsonc` points at
+`./worker.mjs`, and `triggers.crons` holds the two expressions:
 
-Either way, confirm one real reminder arrives before launch.
+| Expression | UTC | Job |
+| --- | --- | --- |
+| `*/15 * * * *` | every 15 minutes | queue 24-hour reminders, retry failed sends |
+| `17 3 * * *` | 03:17 daily (11:17 Manila) | delete proofs of cancelled/rejected/voided records |
+
+The `JOBS` map in `worker.mjs` and `triggers.crons` in `wrangler.jsonc` must
+agree. An expression with no entry in the map falls back to the email job and
+logs an error. Cron Triggers are UTC and free-plan accounts may hold 5.
+
+Each run counts as one Worker request (~97/day for these two) and is visible in
+Workers Logs as `[cron] /api/cron/<job> -> <status> <body>`.
+
+Deploy prints both schedules (`schedule: */15 * * * *`, `schedule: 17 3 * * *`).
+Trigger changes take up to 15 minutes to propagate, and runs can be missed until
+they do. To test the handler without waiting, run
+`npx wrangler dev --test-scheduled --port 8788` and then
+`curl "http://127.0.0.1:8788/__scheduled?cron=*/15+*+*+*+*"`.
+
+Confirm one real reminder arrives before launch.
 
 ## Limits and cost
 
@@ -210,11 +231,11 @@ Measured against the Free plan:
 | --- | --- | --- |
 | Requests | 100,000/day | ~2,500/day during testing (<3%); ~150/day at 200 members (<1%) |
 | Static assets | unlimited, free | ~3.1 MB of images and the QR, served by the asset layer |
-| Worker size | 3 MiB gzip (3,072 KiB) | 2,714.53 KiB gzip (88.4%, ~357 KiB free) — the tightest constraint |
+| Worker size | 3 MiB gzip (3,072 KiB) | 2,728.84 KiB gzip (88.8%, ~343 KiB free) — the tightest constraint |
 | CPU per request | 10 ms (consistency-enforced) | Renders measured at 20–65 ms; prerendered pages are now served from the static-assets cache instead of rendering |
 | Workers Logs | 200,000 events/day | Worker invocations only; static assets do not log |
 | Turnstile siteverify | unlimited on Free (20 widgets, 10 hostnames) | one call per protected form submission |
-| Cron triggers | 5 | 0 configured |
+| Cron triggers | 5 | 2 configured (email every 15 min, storage cleanup daily) |
 | Builds | 3,000 min/month | one per deploy |
 
 `assets.run_worker_first` in `wrangler.jsonc` lists `/*` with negative rules for
